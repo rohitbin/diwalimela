@@ -4,6 +4,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActiveCracker, Particle } from './physics/particles';
 import { soundEngine } from '../audio/soundEngine';
+import { CRACKERS } from '../data/crackers';
+
+const CRACKER_MAP = CRACKERS.reduce((acc, c) => {
+  acc[c.id] = c;
+  return acc;
+}, {});
 
 export const MELA_ZONES = {
   ENTRANCE: { x: 1000, y: 150, name: 'Grand Entrance Gate (प्रवेश द्वार)' },
@@ -96,9 +102,9 @@ export default function MelaCanvas({
   // Sync remote fireworks and diya lighting across real players
   useEffect(() => {
     if (!multiplayerManager) return;
-    multiplayerManager.onCrackerEvent = (event) => {
+    const unsubCracker = multiplayerManager.onCracker((event) => {
       if (!event || !event.crackerId) return;
-      const crackerData = window.__CRACKER_MAP?.[event.crackerId];
+      const crackerData = CRACKER_MAP[event.crackerId] || window.__CRACKER_MAP?.[event.crackerId];
       if (crackerData) {
         const activeCracker = new ActiveCracker(
           crackerData,
@@ -109,14 +115,20 @@ export default function MelaCanvas({
         );
         worldRef.current.activeCrackers.push(activeCracker);
       }
-    };
-    multiplayerManager.onDiyaUpdate = (diyaData) => {
+    });
+
+    const unsubDiya = multiplayerManager.onDiya((diyaData) => {
       if (!diyaData) return;
       const target = worldRef.current.diyas.find((d) => d.id === diyaData.id);
       if (target) {
         target.isLit = true;
         soundEngine.playDiyaLight();
       }
+    });
+
+    return () => {
+      if (unsubCracker) unsubCracker();
+      if (unsubDiya) unsubDiya();
     };
   }, [multiplayerManager]);
 
@@ -166,7 +178,13 @@ export default function MelaCanvas({
       worldRef.current.keys[e.code] = true;
 
       if (e.key.toLowerCase() === 'e' || e.code === 'Space') {
-        checkPlayerProximityInteractions();
+        const interacted = checkPlayerProximityInteractions();
+        if (!interacted && selectedCracker) {
+          const invItem = inventory.find((i) => i.id === selectedCracker.id);
+          if (invItem && invItem.count > 0) {
+            placeAndIgniteCracker(selectedCracker, playerRef.current.x, playerRef.current.y + 12);
+          }
+        }
       }
 
       // V key triggers festive dance
@@ -228,41 +246,41 @@ export default function MelaCanvas({
     // Giant Ferris Wheel
     if (dist(p.x, p.y, MELA_ZONES.FERRIS_WHEEL.x, MELA_ZONES.FERRIS_WHEEL.y) < 140) {
       toggleFerrisWheelRide();
-      return;
+      return true;
     }
 
     // Balloon Shooting Game
     if (dist(p.x, p.y, MELA_ZONES.BALLOON_STALL.x, MELA_ZONES.BALLOON_STALL.y) < 130) {
       onOpenBalloonGame();
-      return;
+      return true;
     }
 
     // Fortune Spin Wheel
     if (dist(p.x, p.y, MELA_ZONES.FORTUNE_WHEEL.x, MELA_ZONES.FORTUNE_WHEEL.y) < 120) {
       onOpenFortuneWheel();
-      return;
+      return true;
     }
 
     // Chai Tapri
     if (dist(p.x, p.y, MELA_ZONES.CHAI_TAPRI.x, MELA_ZONES.CHAI_TAPRI.y) < 130) {
       onOpenChaiTapri();
-      return;
+      return true;
     }
 
     // Cracker Shop
     if (dist(p.x, p.y, MELA_ZONES.CRACKER_SHOP.x, MELA_ZONES.CRACKER_SHOP.y) < 140) {
       onOpenCrackerShop();
-      return;
+      return true;
     }
     // Sweets Stall
     if (dist(p.x, p.y, MELA_ZONES.SWEETS_STALL.x, MELA_ZONES.SWEETS_STALL.y) < 140) {
       onOpenSweetsShop();
-      return;
+      return true;
     }
     // Temple
     if (dist(p.x, p.y, MELA_ZONES.TEMPLE.x, MELA_ZONES.TEMPLE.y) < 140) {
       onOpenTemple();
-      return;
+      return true;
     }
 
     // Check nearby unlit diyas
@@ -418,39 +436,16 @@ export default function MelaCanvas({
 
     if (multiplayerManager) {
       multiplayerManager.broadcastCrackerEvent({
+        id: `c_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         crackerId: crackerData.id,
+        crackerName: crackerData.name,
+        icon: crackerData.icon,
         x: targetX,
         y: targetY,
         placedBy: playerRef.current.name
       });
     }
-
-
   };
-
-  // Remote cracker events
-  useEffect(() => {
-    if (!multiplayerManager) return;
-
-    multiplayerManager.onCrackerEvent = (evt) => {
-      const crackerData = window.__CRACKER_MAP?.[evt.crackerId];
-      if (crackerData) {
-        const activeCracker = new ActiveCracker(
-          crackerData,
-          evt.x,
-          evt.y,
-          soundEngine,
-          evt.placedBy
-        );
-        worldRef.current.activeCrackers.push(activeCracker);
-      }
-    };
-
-    multiplayerManager.onDiyaUpdate = (diyaData) => {
-      const diya = worldRef.current.diyas.find((d) => d.id === diyaData.id);
-      if (diya) diya.isLit = diyaData.isLit;
-    };
-  }, [multiplayerManager]);
 
   // Main Canvas Animation Loop (60 FPS)
   useEffect(() => {
@@ -608,7 +603,7 @@ export default function MelaCanvas({
 
       world.particles = world.particles.filter((pt) => pt.update());
 
-      // Handheld Phuljhadi spark effect
+      // Handheld Phuljhadi spark effect (Local Player)
       if (selectedCracker?.id === 'phuljhadi' && !isRidingWheel) {
         const sparkX = p.x + (p.facing === 'left' ? -18 : 18);
         const sparkY = p.y - 14;
@@ -633,6 +628,35 @@ export default function MelaCanvas({
         if (Math.random() > 0.3) {
           soundEngine.playPhuljhadiSparkle();
         }
+      }
+
+      // Handheld Phuljhadi spark effect (Remote Live Online Players)
+      const peers = remotePlayersRef.current;
+      if (peers && peers.size > 0) {
+        peers.forEach((remPlayer) => {
+          if (remPlayer.holdingCracker === 'phuljhadi') {
+            const sparkX = remPlayer.x + (remPlayer.facing === 'left' ? -18 : 18);
+            const sparkY = remPlayer.y - 14;
+            for (let i = 0; i < 3; i++) {
+              const angle = Math.random() * Math.PI * 2;
+              const spd = 1.0 + Math.random() * 3.0;
+              world.particles.push(
+                new Particle(
+                  sparkX,
+                  sparkY,
+                  Math.cos(angle) * spd,
+                  Math.sin(angle) * spd,
+                  Math.random() > 0.4 ? '#fde047' : '#fbbf24',
+                  14 + Math.floor(Math.random() * 14),
+                  1.5,
+                  0.04,
+                  0.96,
+                  'spark'
+                )
+              );
+            }
+          }
+        });
       }
 
       // Sky Lanterns
@@ -688,7 +712,8 @@ export default function MelaCanvas({
       const livePeers = remotePlayersRef.current;
       if (livePeers && livePeers.size > 0) {
         livePeers.forEach((remPlayer) => {
-          renderCharacter(ctx, remPlayer, true, false, null, null, remPlayer.isDancing);
+          const heldCracker = remPlayer.holdingCracker ? (CRACKER_MAP[remPlayer.holdingCracker] || { id: remPlayer.holdingCracker }) : null;
+          renderCharacter(ctx, remPlayer, true, false, heldCracker, null, remPlayer.isDancing);
         });
       }
 
@@ -1584,7 +1609,9 @@ function renderCharacter(
     ctx.fill();
   }
 
-  if (isLocal && selectedCracker?.id === 'phuljhadi') {
+  const holding = selectedCracker || (char.holdingCracker ? (CRACKER_MAP[char.holdingCracker] || { id: char.holdingCracker }) : null);
+
+  if (holding?.id === 'phuljhadi') {
     ctx.strokeStyle = '#94a3b8';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -1598,6 +1625,10 @@ function renderCharacter(
     ctx.beginPath();
     ctx.arc(16, -14, 3, 0, Math.PI * 2);
     ctx.fill();
+  } else if (holding?.icon) {
+    ctx.font = '12px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(holding.icon, 16, -6);
   }
 
   ctx.font = 'bold 11px "Outfit", sans-serif';

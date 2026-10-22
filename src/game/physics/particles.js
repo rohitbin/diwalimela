@@ -603,6 +603,24 @@ export class ActiveCracker {
       ctx.stroke();
     }
 
+    // Festive name badge showing who ignited the cracker live
+    if (this.placedBy && this.state !== 'DONE') {
+      ctx.font = 'bold 10px "Outfit", sans-serif';
+      ctx.textAlign = 'center';
+      const label = `✨ ${this.placedBy}'s ${this.data.name || 'Cracker'}`;
+      const textW = ctx.measureText(label).width;
+      ctx.fillStyle = 'rgba(15, 10, 26, 0.88)';
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(-textW / 2 - 6, -32, textW + 12, 16, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#fef08a';
+      ctx.fillText(label, 0, -20);
+    }
+
     ctx.restore();
   }
 }

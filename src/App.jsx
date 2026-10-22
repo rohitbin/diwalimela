@@ -101,6 +101,7 @@ export default function App() {
   // Screen shake & Buffs
   const [screenShake, setScreenShake] = useState(null);
   const [activeBuffs, setActiveBuffs] = useState({});
+  const [crackerAlert, setCrackerAlert] = useState(null);
 
   // Helper: Trigger Festive Join Popup
   const triggerJoinPopup = (name, color, turbanColor, isSelf = false) => {
@@ -192,11 +193,40 @@ export default function App() {
           return next;
         });
       },
+      onCrackerEvent: (evt) => {
+        setChatMessages((prev) => [
+          ...prev.slice(-25),
+          {
+            senderId: 'system',
+            senderName: '🎆 Dhamaka Alert',
+            text: `✨ ${evt.placedBy || 'A Friend'} ignited a ${evt.crackerName || 'Cracker'}! 🪔`,
+            timestamp: Date.now()
+          }
+        ]);
+        setCrackerAlert({
+          id: Date.now(),
+          text: `${evt.placedBy || 'Friend'} ignited a ${evt.crackerName || 'Cracker'}! ${evt.icon || '🎆'}`
+        });
+        setTimeout(() => setCrackerAlert(null), 4500);
+      },
       onDiyaUpdate: () => {
         setLitDiyasCount((c) => Math.min(16, c + 1));
       }
     });
   };
+
+  // Broadcast held/equipped cracker to all players so they see you holding it
+  useEffect(() => {
+    if (!hasEntered) return;
+    const updated = {
+      ...player,
+      holdingCracker: selectedCracker?.id || null
+    };
+    setPlayer(updated);
+    if (multiplayerManager) {
+      multiplayerManager.broadcastPlayerState(updated);
+    }
+  }, [selectedCracker]);
 
   const handleSendMessage = (text) => {
     const msg = {
@@ -291,11 +321,42 @@ export default function App() {
         onDismiss={handleDismissNotification}
       />
 
+      {/* Real-time Cracker Burst Toast Notification */}
+      {crackerAlert && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 70,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 100,
+            backgroundColor: 'rgba(23, 14, 38, 0.94)',
+            backdropFilter: 'blur(10px)',
+            border: '2px solid #f59e0b',
+            borderRadius: 24,
+            padding: '6px 20px',
+            color: '#fef08a',
+            fontSize: 13,
+            fontWeight: 800,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.6), 0 0 15px rgba(245, 158, 11, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            animation: 'bounce 0.5s ease-out',
+            pointerEvents: 'none'
+          }}
+        >
+          <span>🎆</span>
+          <span>{crackerAlert.text}</span>
+        </div>
+      )}
+
       {/* 4. Interactive Mini-Map HUD */}
       <MiniMap
         player={player}
         onNavigateTo={handleNavigateTo}
         remotePlayers={remotePlayers}
+        multiplayerManager={multiplayerManager}
         diyas={Array.from({ length: 16 }, (_, i) => ({ isLit: i < litDiyasCount }))}
       />
 

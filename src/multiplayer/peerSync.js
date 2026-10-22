@@ -21,16 +21,28 @@ class MultiplayerManager {
     this.isConnected = false;
     this.heartbeatTimer = null;
     this.pruneTimer = null;
+    this.crackerListeners = new Set();
+    this.diyaListeners = new Set();
+  }
+
+  onCracker(callback) {
+    this.crackerListeners.add(callback);
+    return () => this.crackerListeners.delete(callback);
+  }
+
+  onDiya(callback) {
+    this.diyaListeners.add(callback);
+    return () => this.diyaListeners.delete(callback);
   }
 
   init(roomId = 'diwali-mela-main', myProfile, callbacks = {}) {
     this.roomId = roomId || 'diwali-mela-main';
     this.myProfile = myProfile;
-    this.onPeerUpdate = callbacks.onPeerUpdate;
-    this.onPlayerJoined = callbacks.onPlayerJoined;
-    this.onCrackerEvent = callbacks.onCrackerEvent;
-    this.onChatMessage = callbacks.onChatMessage;
-    this.onDiyaUpdate = callbacks.onDiyaUpdate;
+    if (callbacks.onPeerUpdate) this.onPeerUpdate = callbacks.onPeerUpdate;
+    if (callbacks.onPlayerJoined) this.onPlayerJoined = callbacks.onPlayerJoined;
+    if (callbacks.onCrackerEvent) this.onCrackerEvent = callbacks.onCrackerEvent;
+    if (callbacks.onChatMessage) this.onChatMessage = callbacks.onChatMessage;
+    if (callbacks.onDiyaUpdate) this.onDiyaUpdate = callbacks.onDiyaUpdate;
 
     // 1. Cross-tab instant local channel for seamless multi-tab testing & local network play
     try {
@@ -255,8 +267,11 @@ class MultiplayerManager {
 
       case 'CRACKER_EVENT': {
         if (this.onCrackerEvent) {
-          this.onCrackerEvent(data.event);
+          try { this.onCrackerEvent(data.event); } catch (e) { console.error(e); }
         }
+        this.crackerListeners.forEach((fn) => {
+          try { fn(data.event); } catch (e) { console.error('Cracker listener error:', e); }
+        });
         break;
       }
 
@@ -269,8 +284,11 @@ class MultiplayerManager {
 
       case 'DIYA_UPDATE': {
         if (this.onDiyaUpdate) {
-          this.onDiyaUpdate(data.diya);
+          try { this.onDiyaUpdate(data.diya); } catch (e) { console.error(e); }
         }
+        this.diyaListeners.forEach((fn) => {
+          try { fn(data.diya); } catch (e) { console.error('Diya listener error:', e); }
+        });
         break;
       }
 

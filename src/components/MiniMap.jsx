@@ -1,5 +1,4 @@
-// Interactive Mini-Map HUD for Diwali Mela
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigation } from 'lucide-react';
 import { MELA_ZONES } from '../game/MelaCanvas';
 
@@ -7,9 +6,27 @@ export default function MiniMap({
   player,
   onNavigateTo,
   remotePlayers,
+  multiplayerManager,
   diyas = []
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [crackerPings, setCrackerPings] = useState([]);
+
+  useEffect(() => {
+    if (!multiplayerManager) return;
+    const unsub = multiplayerManager.onCracker((evt) => {
+      if (!evt || !evt.x || !evt.y) return;
+      const pingId = `ping_${Date.now()}_${Math.random()}`;
+      setCrackerPings((prev) => [
+        ...prev.slice(-4),
+        { id: pingId, x: evt.x, y: evt.y, icon: evt.icon || '💥', name: evt.placedBy || 'Friend' }
+      ]);
+      setTimeout(() => {
+        setCrackerPings((prev) => prev.filter((p) => p.id !== pingId));
+      }, 3500);
+    });
+    return () => unsub();
+  }, [multiplayerManager]);
 
   const mapW = 190;
   const mapH = 133;
@@ -214,6 +231,27 @@ export default function MiniMap({
               animation: 'pulse 1s infinite'
             }}
           />
+
+          {/* Real-time Cracker Bursts on MiniMap Radar */}
+          {crackerPings.map((cp) => (
+            <div
+              key={cp.id}
+              style={{
+                position: 'absolute',
+                left: toMapX(cp.x),
+                top: toMapY(cp.y),
+                transform: 'translate(-50%, -50%)',
+                fontSize: 12,
+                animation: 'bounce 0.6s infinite',
+                filter: 'drop-shadow(0 0 6px #f59e0b)',
+                pointerEvents: 'none',
+                zIndex: 15
+              }}
+              title={`${cp.name} burst a cracker!`}
+            >
+              {cp.icon}
+            </div>
+          ))}
 
           {/* Diya stats in corner */}
           <div

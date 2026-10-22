@@ -1,0 +1,365 @@
+// Enhanced Bottom Hotbar & Quick Action Dock with Festive Attractions
+import React from 'react';
+import { CRACKERS } from '../data/crackers';
+import { Flame, Sparkles, Store, Utensils, Bell, Coffee, Target, Gift } from 'lucide-react';
+
+export default function InventoryHotbar({
+  inventory,
+  selectedCracker,
+  setSelectedCracker,
+  coins,
+  onOpenShop,
+  onOpenSweets,
+  onOpenTemple,
+  onOpenBalloonGame,
+  onOpenFortuneWheel,
+  onOpenChaiTapri,
+  onTriggerDance,
+  isDancing
+}) {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 12,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 50,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 6,
+        maxWidth: '96vw',
+        pointerEvents: 'none'
+      }}
+    >
+      {/* 1. Floating Equipped Action Banner */}
+      {selectedCracker && (
+        <div
+          style={{
+            backgroundColor: 'rgba(23, 14, 38, 0.95)',
+            backdropFilter: 'blur(12px)',
+            border: '2px solid #f59e0b',
+            borderRadius: 24,
+            padding: '6px 18px',
+            color: '#fef08a',
+            fontSize: 12,
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            boxShadow: '0 6px 20px rgba(0,0,0,0.6), 0 0 15px rgba(245, 158, 11, 0.4)',
+            pointerEvents: 'auto',
+            animation: 'pulse 1.8s infinite'
+          }}
+        >
+          <div
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: '50%',
+              backgroundColor: '#ea580c',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 14
+            }}
+          >
+            🔥
+          </div>
+          <span>
+            Ready to Burst: <strong style={{ color: '#fbbf24' }}>{selectedCracker.name}</strong> • Click ground to place & ignite!
+          </span>
+          <button
+            onClick={() => setSelectedCracker(null)}
+            style={{
+              backgroundColor: 'rgba(220, 38, 38, 0.25)',
+              border: '1px solid #ef4444',
+              borderRadius: 12,
+              color: '#fca5a5',
+              padding: '2px 8px',
+              cursor: 'pointer',
+              fontWeight: 700,
+              fontSize: 11
+            }}
+          >
+            ✕ Cancel
+          </button>
+        </div>
+      )}
+
+      {/* 2. Main RPG Hotbar Dock */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          backgroundColor: 'rgba(15, 10, 26, 0.94)',
+          backdropFilter: 'blur(16px)',
+          border: '2px solid rgba(245, 158, 11, 0.45)',
+          borderRadius: 22,
+          padding: '8px 12px',
+          boxShadow: '0 12px 36px rgba(0, 0, 0, 0.8), 0 0 25px rgba(245, 158, 11, 0.25)',
+          overflowX: 'auto',
+          maxWidth: '100%',
+          pointerEvents: 'auto'
+        }}
+      >
+        {/* Quick Stalls & Games Group */}
+        <div style={{ display: 'flex', gap: 5, paddingRight: 6, borderRight: '1px solid rgba(245, 158, 11, 0.3)' }}>
+          {/* Dance / Celebrate Emote */}
+          <button
+            onClick={onTriggerDance}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: isDancing ? '#dc2626' : 'rgba(236, 72, 153, 0.25)',
+              border: isDancing ? '1px solid #fef08a' : '1px solid #ec4899',
+              borderRadius: 12,
+              padding: '4px 8px',
+              color: '#fbcfe8',
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: 'pointer',
+              minWidth: 50,
+              height: 52,
+              animation: isDancing ? 'pulse 0.5s infinite' : 'none'
+            }}
+            title="Dance to Festive Dhol Beats (Key V)"
+          >
+            <span style={{ fontSize: 18 }}>💃</span>
+            <span style={{ marginTop: 2 }}>{isDancing ? 'Dancing!' : 'Dance'}</span>
+          </button>
+
+          {/* Balloon Game */}
+          <button
+            onClick={onOpenBalloonGame}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(59, 130, 246, 0.25)',
+              border: '1px solid #3b82f6',
+              borderRadius: 12,
+              padding: '4px 8px',
+              color: '#bfdbfe',
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: 'pointer',
+              minWidth: 50,
+              height: 52
+            }}
+            title="Lucky Balloon Shooting Stall"
+          >
+            <span style={{ fontSize: 18 }}>🎯</span>
+            <span style={{ marginTop: 2 }}>Shoot</span>
+          </button>
+
+          {/* Fortune Spin */}
+          <button
+            onClick={onOpenFortuneWheel}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(16, 185, 129, 0.25)',
+              border: '1px solid #10b981',
+              borderRadius: 12,
+              padding: '4px 8px',
+              color: '#a7f3d0',
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: 'pointer',
+              minWidth: 50,
+              height: 52
+            }}
+            title="Diwali Fortune Spin Wheel"
+          >
+            <span style={{ fontSize: 18 }}>🎡</span>
+            <span style={{ marginTop: 2 }}>Spin</span>
+          </button>
+
+          {/* Chai Tapri */}
+          <button
+            onClick={onOpenChaiTapri}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(234, 88, 12, 0.25)',
+              border: '1px solid #ea580c',
+              borderRadius: 12,
+              padding: '4px 8px',
+              color: '#fed7aa',
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: 'pointer',
+              minWidth: 50,
+              height: 52
+            }}
+            title="Kulhad Chai & Samosa"
+          >
+            <span style={{ fontSize: 18 }}>☕</span>
+            <span style={{ marginTop: 2 }}>Chai</span>
+          </button>
+
+          {/* Cracker Shop */}
+          <button
+            onClick={onOpenShop}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(220, 38, 38, 0.25)',
+              border: '1px solid #ef4444',
+              borderRadius: 12,
+              padding: '4px 10px',
+              color: '#fecaca',
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: 'pointer',
+              minWidth: 50,
+              height: 52
+            }}
+            title="Open Shri Ganesh Patakha Bhandar"
+          >
+            <span style={{ fontSize: 18 }}>🧨</span>
+            <span style={{ marginTop: 2 }}>Shop</span>
+          </button>
+
+          {/* Sweets */}
+          <button
+            onClick={onOpenSweets}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(249, 115, 22, 0.25)',
+              border: '1px solid #f97316',
+              borderRadius: 12,
+              padding: '4px 8px',
+              color: '#fed7aa',
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: 'pointer',
+              minWidth: 50,
+              height: 52
+            }}
+            title="Open Radhey Sweets Stall"
+          >
+            <span style={{ fontSize: 18 }}>🥨</span>
+            <span style={{ marginTop: 2 }}>Mithai</span>
+          </button>
+
+          {/* Mandir */}
+          <button
+            onClick={onOpenTemple}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(202, 138, 4, 0.25)',
+              border: '1px solid #ca8a04',
+              borderRadius: 12,
+              padding: '4px 8px',
+              color: '#fef08a',
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: 'pointer',
+              minWidth: 50,
+              height: 52
+            }}
+            title="Visit Lakshmi-Ganesh Mandir"
+          >
+            <span style={{ fontSize: 18 }}>🔔</span>
+            <span style={{ marginTop: 2 }}>Mandir</span>
+          </button>
+        </div>
+
+        {/* Crackers Hotbar Slots */}
+        <div style={{ display: 'flex', gap: 6, paddingLeft: 4 }}>
+          {CRACKERS.map((cracker, idx) => {
+            const invItem = inventory.find((i) => i.id === cracker.id);
+            const count = invItem ? invItem.count : 0;
+            const isSelected = selectedCracker?.id === cracker.id;
+
+            return (
+              <button
+                key={cracker.id}
+                onClick={() => {
+                  if (count > 0) {
+                    setSelectedCracker(isSelected ? null : cracker);
+                  } else {
+                    onOpenShop();
+                  }
+                }}
+                style={{
+                  position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: isSelected
+                    ? 'rgba(245, 158, 11, 0.35)'
+                    : count > 0
+                    ? 'rgba(255, 255, 255, 0.06)'
+                    : 'rgba(0, 0, 0, 0.35)',
+                  border: isSelected
+                    ? '2px solid #fbbf24'
+                    : count > 0
+                    ? '1px solid rgba(245, 158, 11, 0.3)'
+                    : '1px dashed rgba(255, 255, 255, 0.12)',
+                  borderRadius: 14,
+                  width: 52,
+                  height: 52,
+                  cursor: 'pointer',
+                  opacity: count > 0 ? 1 : 0.45,
+                  boxShadow: isSelected ? '0 0 14px rgba(251, 191, 36, 0.6)' : 'none',
+                  transform: isSelected ? 'translateY(-3px)' : 'translateY(0)',
+                  transition: 'all 0.15s ease'
+                }}
+                title={`${cracker.name} (Hotkey ${idx + 1}) - ${count} in bag`}
+              >
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 2,
+                    left: 4,
+                    fontSize: 9,
+                    color: '#94a3b8',
+                    fontWeight: 700
+                  }}
+                >
+                  {idx + 1}
+                </span>
+
+                <span style={{ fontSize: 19 }}>{cracker.icon}</span>
+
+                <span
+                  style={{
+                    position: 'absolute',
+                    bottom: 2,
+                    right: 4,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: count > 0 ? '#fde047' : '#94a3b8'
+                  }}
+                >
+                  {count > 0 ? `x${count}` : '+'}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -51,7 +51,23 @@ export default function MelaCanvas({
   setIsDancing
 }) {
   const canvasRef = useRef(null);
+  const wrapperRef = useRef(null);
   const [isRidingWheel, setIsRidingWheel] = useState(false);
+
+  // iPhone & Mobile Touch Drag Control Ref (Directly read in 60fps loop to avoid React closure lag)
+  const touchControlRef = useRef({
+    active: false,
+    originX: 0,
+    originY: 0,
+    currentX: 0,
+    currentY: 0,
+    startX: 0,
+    startY: 0,
+    startTime: 0,
+    isDragging: false,
+    touchId: null
+  });
+  const [touchIndicator, setTouchIndicator] = useState(null);
 
   // Game World State
   const worldRef = useRef({
@@ -132,10 +148,7 @@ export default function MelaCanvas({
     };
   }, [multiplayerManager]);
 
-  // Touch joystick state for mobile
-  const [touchActive, setTouchActive] = useState(false);
-  const touchOrigin = useRef({ x: 0, y: 0 });
-  const touchCurrent = useRef({ x: 0, y: 0 });
+
 
   // Initialize decorative world items
   useEffect(() => {
@@ -499,13 +512,20 @@ export default function MelaCanvas({
         if (world.keys['a'] || world.keys['arrowleft']) moveX -= 1;
         if (world.keys['d'] || world.keys['arrowright']) moveX += 1;
 
-        if (touchActive) {
-          const dx = touchCurrent.current.x - touchOrigin.current.x;
-          const dy = touchCurrent.current.y - touchOrigin.current.y;
+        // Touch drag control for iPhone and mobile devices
+        const tc = touchControlRef.current;
+        if (tc.active) {
+          const dx = tc.currentX - tc.originX;
+          const dy = tc.currentY - tc.originY;
           const dist = Math.hypot(dx, dy);
-          if (dist > 10) {
-            moveX = dx / dist;
-            moveY = dy / dist;
+          if (dist > 6) {
+            const maxR = 40;
+            const norm = Math.min(1.0, dist / maxR);
+            moveX = (dx / dist) * norm;
+            moveY = (dy / dist) * norm;
+            tc.isDragging = true;
+            p.targetX = undefined;
+            p.targetY = undefined;
           }
         }
 
@@ -515,9 +535,16 @@ export default function MelaCanvas({
 
         if (moveX !== 0 || moveY !== 0) {
           const len = Math.hypot(moveX, moveY);
-          newX += (moveX / len) * speed;
-          newY += (moveY / len) * speed;
+          const moveMult = tc.active ? Math.min(1.0, Math.hypot(moveX, moveY)) : 1.0;
+          newX += (moveX / len) * speed * moveMult;
+          newY += (moveY / len) * speed * moveMult;
           isMoving = true;
+
+          if (Math.abs(moveX) > Math.abs(moveY)) {
+            p.facing = moveX > 0 ? 'right' : 'left';
+          } else {
+            p.facing = moveY > 0 ? 'down' : 'up';
+          }
         } else if (p.targetX !== undefined && p.targetY !== undefined) {
           const dx = p.targetX - p.x;
           const dy = p.targetY - p.y;
@@ -755,37 +782,124 @@ export default function MelaCanvas({
     isDancing
   ]);
 
-  // Touch event handlers for mobile virtual joystick
-  const handleTouchStart = (e) => {
-    const touch = e.touches[0];
-    touchOrigin.current = { x: touch.clientX, y: touch.clientY };
-    touchCurrent.current = { x: touch.clientX, y: touch.clientY };
-    setTouchActive(true);
-  };
+  // Native non-passive touch drag event listeners for iPhone / iOS Safari
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
 
-  const handleTouchMove = (e) => {
-    if (!touchActive) return;
-    const touch = e.touches[0];
-    touchCurrent.current = { x: touch.clientX, y: touch.clientY };
-  };
+    const onTouchStart = (e) => {
+      if (e.target.closest('button')) return;
+      if (e.touches.length === 0) return;
+      e.preventDefault(); // Stop iOS Safari from scrolling or zooming
 
-  const handleTouchEnd = () => {
-    setTouchActive(false);
-  };
+      const touch = e.touches[0];
+      const rect = el.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+
+      touchControlRef.current = {
+        active: true,
+        originX: x,
+        originY: y,
+        currentX: x,
+        currentY: y,
+        startX: x,
+        startY: y,
+        startTime: performance.now(),
+        isDragging: false,
+        touchId: touch.identifier
+      };
+
+      setTouchIndicator({
+        originX: touch.clientX,
+        originY: touch.clientY,
+        currentX: touch.clientX,
+        currentY: touch.clientY
+      });
+    };
+
+    const onTouchMove = (e) => {
+      if (!touchControlRef.current.active) return;
+      e.preventDefault(); // Crucial on iPhone to allow smooth continuous character drag
+
+      let touch = null;
+      for (let i = 0; i < e.touches.length; i++) {
+        if (e.touches[i].identifier === touchControlRef.current.touchId) {
+          touch = e.touches[i];
+          break;
+        }
+      }
+      if (!touch) touch = e.touches[0];
+      if (!touch) return;
+
+      const rect = el.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+
+      const dist = Math.hypot(x - touchControlRef.current.originX, y - touchControlRef.current.originY);
+      if (dist > 8) {
+        touchControlRef.current.isDragging = true;
+      }
+
+      touchControlRef.current.currentX = x;
+      touchControlRef.current.currentY = y;
+
+      setTouchIndicator({
+        originX: rect.left + touchControlRef.current.originX,
+        originY: rect.top + touchControlRef.current.originY,
+        currentX: touch.clientX,
+        currentY: touch.clientY
+      });
+    };
+
+    const onTouchEnd = (e) => {
+      const tc = touchControlRef.current;
+      if (!tc.active) return;
+      e.preventDefault();
+
+      const elapsed = performance.now() - tc.startTime;
+      const totalDist = Math.hypot(tc.currentX - tc.startX, tc.currentY - tc.startY);
+
+      // If quick tap (< 14px moved, < 300ms elapsed), trigger tap interaction
+      if (!tc.isDragging && totalDist < 14 && elapsed < 300) {
+        const rect = el.getBoundingClientRect();
+        handleCanvasClick({
+          clientX: tc.startX + rect.left,
+          clientY: tc.startY + rect.top
+        });
+      }
+
+      touchControlRef.current.active = false;
+      touchControlRef.current.isDragging = false;
+      setTouchIndicator(null);
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: false });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: false });
+    el.addEventListener('touchcancel', onTouchEnd, { passive: false });
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [selectedCracker, inventory]);
 
   return (
     <div
+      ref={wrapperRef}
       style={{
         position: 'relative',
         width: '100%',
         height: '100%',
         overflow: 'hidden',
         userSelect: 'none',
+        WebkitUserSelect: 'none',
+        touchAction: 'none',
         background: '#090815'
       }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
     >
       <canvas
         ref={canvasRef}
@@ -794,6 +908,7 @@ export default function MelaCanvas({
           display: 'block',
           width: '100%',
           height: '100%',
+          touchAction: 'none',
           cursor: selectedCracker ? 'crosshair' : 'pointer'
         }}
       />
@@ -841,37 +956,149 @@ export default function MelaCanvas({
         </div>
       )}
 
-      {/* On-screen touch joystick indicator */}
-      {touchActive && (
+      {/* On-screen Festive Dynamic Touch Joystick Indicator for iPhone/Mobile */}
+      {touchIndicator && (
         <div
           style={{
-            position: 'absolute',
-            left: touchOrigin.current.x - 40,
-            top: touchOrigin.current.y - 40,
-            width: 80,
-            height: 80,
+            position: 'fixed',
+            left: touchIndicator.originX - 44,
+            top: touchIndicator.originY - 44,
+            width: 88,
+            height: 88,
             borderRadius: '50%',
-            background: 'rgba(245, 158, 11, 0.25)',
-            border: '2px solid rgba(251, 191, 36, 0.6)',
+            background: 'radial-gradient(circle, rgba(245, 158, 11, 0.35) 0%, rgba(23, 14, 38, 0.7) 100%)',
+            border: '2px solid rgba(251, 191, 36, 0.85)',
+            boxShadow: '0 0 24px rgba(245, 158, 11, 0.5), inset 0 0 12px rgba(245, 158, 11, 0.3)',
             pointerEvents: 'none',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 20
+            zIndex: 9999,
+            transform: 'translate3d(0,0,0)'
           }}
         >
+          {/* Outer Diya Petals decorative ring */}
           <div
             style={{
-              width: 32,
-              height: 32,
+              position: 'absolute',
+              inset: 4,
               borderRadius: '50%',
-              background: '#fbbf24',
-              boxShadow: '0 0 12px #f59e0b',
-              transform: `translate(${Math.min(25, Math.max(-25, touchCurrent.current.x - touchOrigin.current.x))}px, ${Math.min(25, Math.max(-25, touchCurrent.current.y - touchOrigin.current.y))}px)`
+              border: '1px dashed rgba(254, 240, 138, 0.55)',
+              pointerEvents: 'none'
             }}
           />
+          {/* Thumb Knob (Golden Diya Flame) */}
+          {(() => {
+            const dx = touchIndicator.currentX - touchIndicator.originX;
+            const dy = touchIndicator.currentY - touchIndicator.originY;
+            const dist = Math.hypot(dx, dy);
+            const maxR = 32;
+            const clampedDist = Math.min(dist, maxR);
+            const angle = dist > 0 ? Math.atan2(dy, dx) : 0;
+            const knobX = Math.cos(angle) * clampedDist;
+            const knobY = Math.sin(angle) * clampedDist;
+            return (
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #fde047 0%, #ea580c 100%)',
+                  border: '2px solid #ffffff',
+                  boxShadow: '0 0 18px #fbbf24, 0 4px 10px rgba(0,0,0,0.6)',
+                  transform: `translate(${knobX}px, ${knobY}px)`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 18
+                }}
+              >
+                🪔
+              </div>
+            );
+          })()}
         </div>
       )}
+
+      {/* Mobile Quick Action Button for iPhone */}
+      <div
+        style={{
+          position: 'fixed',
+          right: 16,
+          bottom: 104,
+          zIndex: 45,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 6,
+          pointerEvents: 'auto'
+        }}
+      >
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const interacted = checkPlayerProximityInteractions();
+            if (!interacted && selectedCracker) {
+              const invItem = inventory.find((i) => i.id === selectedCracker.id);
+              if (invItem && invItem.count > 0) {
+                placeAndIgniteCracker(selectedCracker, playerRef.current.x, playerRef.current.y + 14);
+              }
+            }
+          }}
+          style={{
+            width: 58,
+            height: 58,
+            borderRadius: '50%',
+            backgroundColor: selectedCracker ? '#ea580c' : 'rgba(23, 14, 38, 0.92)',
+            border: selectedCracker ? '2.5px solid #fbbf24' : '2px solid rgba(245, 158, 11, 0.5)',
+            boxShadow: selectedCracker
+              ? '0 6px 20px rgba(234, 88, 12, 0.6), 0 0 15px #f59e0b'
+              : '0 4px 14px rgba(0,0,0,0.6)',
+            color: '#fff',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            backdropFilter: 'blur(10px)',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            touchAction: 'none'
+          }}
+          title={selectedCracker ? `Burst ${selectedCracker.name}` : 'Interact / Light Diya'}
+        >
+          <span style={{ fontSize: 22, lineHeight: 1 }}>{selectedCracker ? '🔥' : '🪔'}</span>
+          <span style={{ fontSize: 9, fontWeight: 800, color: '#fef08a', marginTop: 2 }}>
+            {selectedCracker ? 'BURST' : 'ACTION'}
+          </span>
+        </button>
+      </div>
+
+      {/* Mobile Drag to Move Hint Pill */}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: 84,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 42,
+          pointerEvents: 'none',
+          backgroundColor: 'rgba(15, 10, 26, 0.78)',
+          backdropFilter: 'blur(8px)',
+          border: '1px solid rgba(245, 158, 11, 0.4)',
+          borderRadius: 16,
+          padding: '3px 14px',
+          color: '#fef08a',
+          fontSize: 11,
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+        }}
+      >
+        <span>🕹️ Drag anywhere to move</span>
+      </div>
     </div>
   );
 }

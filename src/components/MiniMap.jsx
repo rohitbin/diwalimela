@@ -48,6 +48,8 @@ export default function MiniMap({
     { key: 'CHAI_TAPRI', label: 'Chai Tapri', icon: '☕', x: MELA_ZONES.CHAI_TAPRI.x, y: MELA_ZONES.CHAI_TAPRI.y },
     { key: 'TEMPLE', label: 'Mandir', icon: '🔔', x: MELA_ZONES.TEMPLE.x, y: MELA_ZONES.TEMPLE.y },
     { key: 'RANGOLI_PAVILION', label: 'Rangoli', icon: '🌸', x: MELA_ZONES.RANGOLI_PAVILION.x, y: MELA_ZONES.RANGOLI_PAVILION.y },
+    { key: 'WEAPON_STALL', label: 'Shastra Armory', icon: '🏹', x: MELA_ZONES.WEAPON_STALL.x, y: MELA_ZONES.WEAPON_STALL.y },
+    { key: 'RAVAN', label: 'Ravan (10M HP)', icon: '👹', x: MELA_ZONES.RAVAN.x, y: MELA_ZONES.RAVAN.y }
   ];
 
   return (

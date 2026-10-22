@@ -12,11 +12,18 @@ export default function FestiveChecklist({
   balloonPlayed = false,
   chaiDrank = false,
   wheelRode = false,
+  ravanShotCount = 0,
   onNavigateTo
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const tasks = [
+    {
+      id: 'ravan',
+      title: 'Shoot 10-Headed Ravan Effigy (-1 HP)',
+      done: ravanShotCount > 0,
+      target: MELA_ZONES.RAVAN
+    },
     {
       id: 'wheel',
       title: 'Ride the Mela Giant Wheel (झूला)',

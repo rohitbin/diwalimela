@@ -6,6 +6,7 @@ export const CRACKER_CATEGORIES = {
   AERIAL: 'Aerial Rockets',
   SPARKLERS: 'Sparklers & Lights',
   NOISE: 'Sound Crackers',
+  WEAPONS: 'Ravan Shastra (Bow & Gun)'
 };
 
 export const CRACKERS = [
@@ -152,6 +153,38 @@ export const CRACKERS = [
     instructions: 'Light the wax wick, make a wish, and watch it soar.',
     burstPower: 1,
     tag: 'Eco-Friendly'
+  },
+  {
+    id: 'bow',
+    name: 'Ram Dhanush (Divine Bow)',
+    hindiName: 'श्री राम धनुष',
+    category: CRACKER_CATEGORIES.WEAPONS,
+    price: 50,
+    icon: '🏹',
+    color: '#f59e0b',
+    secondaryColor: '#ef4444',
+    isWeapon: true,
+    weaponType: 'bow',
+    damage: 1,
+    description: "Lord Rama's holy golden bow. Fires fiery arrows with divine accuracy to reduce Ravan's HP by 1 with every shot!",
+    instructions: 'Go near Ravan and tap Shoot or Spacebar to fire fiery arrows!',
+    tag: 'Ravan Dahan'
+  },
+  {
+    id: 'gun',
+    name: 'Sparkler Blaster (Patakha Gun)',
+    hindiName: 'पटाखा बंदूक',
+    category: CRACKER_CATEGORIES.WEAPONS,
+    price: 150,
+    icon: '🔫',
+    color: '#38bdf8',
+    secondaryColor: '#a855f7',
+    isWeapon: true,
+    weaponType: 'gun',
+    damage: 1,
+    description: "High-speed festive cracker gun! Rapidly shoots explosive spark bullets to reduce Ravan's HP by 1 per hit!",
+    instructions: 'Go near Ravan and hold Shoot to rapidly blast sparks at Ravan!',
+    tag: 'Rapid Fire'
   }
 ];
 

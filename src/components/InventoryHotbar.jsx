@@ -12,6 +12,7 @@ export default function InventoryHotbar({
   onOpenTemple,
   onOpenBalloonGame,
   onOpenChaiTapri,
+  onOpenArmory,
   onTriggerDance,
   isDancing
 }) {
@@ -54,6 +55,31 @@ export default function InventoryHotbar({
       >
         {/* Quick Stalls & Games Group */}
         <div style={{ display: 'flex', gap: 5, paddingRight: 6, borderRight: '1px solid rgba(245, 158, 11, 0.3)' }}>
+          {/* Shastra Armory (Bow & Gun) */}
+          <button
+            onClick={onOpenArmory}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: selectedCracker?.isWeapon ? 'rgba(239, 68, 68, 0.4)' : 'rgba(180, 83, 9, 0.25)',
+              border: selectedCracker?.isWeapon ? '1.5px solid #f87171' : '1px solid #b45309',
+              borderRadius: 12,
+              padding: '4px 8px',
+              color: '#fef08a',
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: 'pointer',
+              minWidth: 50,
+              height: 52
+            }}
+            title="Shastra Armory - Buy Ram Dhanush & Gun to Shoot Ravan"
+          >
+            <span style={{ fontSize: 18 }}>🏹</span>
+            <span style={{ marginTop: 2 }}>Armory</span>
+          </button>
+
           {/* Dance / Celebrate Emote */}
           <button
             onClick={onTriggerDance}

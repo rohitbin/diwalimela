@@ -560,6 +560,87 @@ class SoundEngine {
       osc.stop(t + 0.035);
     } catch {}
   }
+
+  // 17. Divine Bow String Release (Twang & Arrow Flight)
+  playBowShot() {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(480, t);
+      osc.frequency.exponentialRampToValueAtTime(140, t + 0.14);
+
+      gain.gain.setValueAtTime(0.24, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.18);
+    } catch {}
+  }
+
+  // 18. Sparkler Blaster Gun Shot (Pistol/Laser blast)
+  playGunShot() {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+      // Laser / blaster tone
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(880, t);
+      osc.frequency.exponentialRampToValueAtTime(120, t + 0.08);
+
+      gain.gain.setValueAtTime(0.2, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+
+      // Noise pop
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.createNoiseBuffer(0.06);
+      const nGain = this.ctx.createGain();
+      nGain.gain.setValueAtTime(0.25, t);
+      nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      noise.connect(nGain);
+      nGain.connect(this.ctx.destination);
+
+      osc.start(t);
+      noise.start(t);
+      osc.stop(t + 0.1);
+      noise.stop(t + 0.08);
+    } catch {}
+  }
+
+  // 19. Ravan Effigy Impact (Explosive Crackle on Ravan Hit)
+  playRavanHit() {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.createNoiseBuffer(0.12);
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1200 + Math.random() * 800, t);
+      filter.Q.setValueAtTime(5, t);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.28, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+      noise.start(t);
+      noise.stop(t + 0.12);
+    } catch {}
+  }
 }
 
 export const soundEngine = new SoundEngine();

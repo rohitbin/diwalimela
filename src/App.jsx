@@ -8,6 +8,7 @@ import AvatarCustomizer from './components/AvatarCustomizer';
 import DiwaliGuideModal from './components/DiwaliGuideModal';
 import BalloonShootingModal from './components/BalloonShootingModal';
 import ChaiStallModal from './components/ChaiStallModal';
+import WeaponArmoryModal from './components/WeaponArmoryModal';
 import InventoryHotbar from './components/InventoryHotbar';
 import MultiplayerBar from './components/MultiplayerBar';
 import ChatOverlay from './components/ChatOverlay';
@@ -29,6 +30,8 @@ function getCurrentZoneName(x, y) {
   if (x > 1500 && y < 350) return '🎡 Mela Giant Wheel (झूला)';
   if (x > 1200 && y < 350) return '🎯 Balloon Shooting Stall';
   if (x > 1250 && y < 650) return 'Patakha Shop Courtyard';
+  if (x > 1400 && y >= 800) return '👹 Ravan Dahan Ground (रावण दहन - 10M HP)';
+  if (x > 1150 && y >= 800) return '🏹 Shastra Armory (शस्त्रागार)';
   if (x > 1250 && y >= 650) return 'Deepotsav East Courtyard';
   if (x < 750 && y < 650) return '☕ Sharma Ji Chai Tapri';
   if (x < 750 && y >= 650) return 'Lakshmi-Ganesh Mandir';
@@ -82,6 +85,44 @@ export default function App() {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isBalloonGameOpen, setIsBalloonGameOpen] = useState(false);
   const [isChaiTapriOpen, setIsChaiTapriOpen] = useState(false);
+  const [isArmoryOpen, setIsArmoryOpen] = useState(false);
+
+  // Ravan Boss State (10,000,000 HP)
+  const [ravanHp, setRavanHp] = useState(() => {
+    try {
+      const saved = localStorage.getItem('diwali_ravan_hp');
+      return saved ? Math.max(0, parseInt(saved, 10)) : 10000000;
+    } catch (_) {
+      return 10000000;
+    }
+  });
+  const [ravanShotCount, setRavanShotCount] = useState(0);
+
+  // Multiplayer listener for Ravan hits from remote peers
+  useEffect(() => {
+    if (!multiplayerManager) return;
+    const unsub = multiplayerManager.onRavanHit((data) => {
+      const dmg = data.damage || 1;
+      setRavanHp((prev) => {
+        const next = Math.max(0, prev - dmg);
+        try {
+          localStorage.setItem('diwali_ravan_hp', next.toString());
+        } catch (_) {}
+        return next;
+      });
+      setScreenShake({ intensity: 2.2, duration: 3 });
+      setChatMessages((prev) => [
+        ...prev.slice(-25),
+        {
+          senderId: 'system',
+          senderName: '🏹 Ravan Dahan Alert',
+          text: `💥 ${data.shooterName || 'A Warrior'} hit Ravan! (-${dmg} HP)`,
+          timestamp: Date.now()
+        }
+      ]);
+    });
+    return () => unsub();
+  }, []);
 
   // Dance emote state
   const [isDancing, setIsDancing] = useState(false);
@@ -376,6 +417,7 @@ export default function App() {
         balloonPlayed={balloonPlayed}
         chaiDrank={chaiDrank}
         wheelRode={wheelRode}
+        ravanShotCount={ravanShotCount}
         onNavigateTo={handleNavigateTo}
       />
 
@@ -398,6 +440,12 @@ export default function App() {
         onOpenChaiTapri={() => {
           setIsChaiTapriOpen(true);
           setChaiDrank(true);
+        }}
+        onOpenArmory={() => setIsArmoryOpen(true)}
+        ravanHp={ravanHp}
+        setRavanHp={setRavanHp}
+        onRavanShot={() => {
+          setRavanShotCount((c) => c + 1);
         }}
         remotePlayers={remotePlayers}
         multiplayerManager={multiplayerManager}
@@ -426,6 +474,7 @@ export default function App() {
           setIsChaiTapriOpen(true);
           setChaiDrank(true);
         }}
+        onOpenArmory={() => setIsArmoryOpen(true)}
         onTriggerDance={handleTriggerDance}
         isDancing={isDancing}
       />
@@ -450,6 +499,20 @@ export default function App() {
         }}
       />
 
+      <WeaponArmoryModal
+        isOpen={isArmoryOpen}
+        onClose={() => setIsArmoryOpen(false)}
+        coins={coins}
+        setCoins={setCoins}
+        inventory={inventory}
+        setInventory={setInventory}
+        selectedCracker={selectedCracker}
+        setSelectedCracker={setSelectedCracker}
+        onGoToRavan={() => {
+          setIsArmoryOpen(false);
+          handleNavigateTo(MELA_ZONES.RAVAN.x - 180, MELA_ZONES.RAVAN.y + 40);
+        }}
+      />
 
       <TempleModal
         isOpen={isTempleOpen}
@@ -468,7 +531,6 @@ export default function App() {
         setInventory={setInventory}
       />
 
-
       <ChaiStallModal
         isOpen={isChaiTapriOpen}
         onClose={() => setIsChaiTapriOpen(false)}
@@ -479,8 +541,6 @@ export default function App() {
           setChaiDrank(true);
         }}
       />
-
-
 
       <AvatarCustomizer
         isOpen={isCustomizerOpen}

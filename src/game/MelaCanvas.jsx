@@ -19,7 +19,9 @@ export const MELA_ZONES = {
   RANGOLI_PAVILION: { x: 1000, y: 1150, name: 'Rangoli Art Pavilion (रंगोली मंडप)' },
   FERRIS_WHEEL: { x: 1650, y: 220, name: 'Mela Giant Wheel (विशाल झूला)' },
   BALLOON_STALL: { x: 1320, y: 220, name: 'Balloon Shooting Stall (गुब्बारा निशानेबाजी)' },
-  CHAI_TAPRI: { x: 380, y: 420, name: 'Sharma Ji Chai Tapri (चाय टपरी)' }
+  CHAI_TAPRI: { x: 380, y: 420, name: 'Sharma Ji Chai Tapri (चाय टपरी)' },
+  RAVAN: { x: 1550, y: 980, name: 'Ravan Dahan Ground (रावण दहन - 10M HP)' },
+  WEAPON_STALL: { x: 1240, y: 880, name: 'Shastra Armory (शस्त्रागार)' }
 };
 
 export default function MelaCanvas({
@@ -35,6 +37,10 @@ export default function MelaCanvas({
   onOpenTemple,
   onOpenBalloonGame,
   onOpenChaiTapri,
+  onOpenArmory,
+  ravanHp = 10000000,
+  setRavanHp,
+  onRavanShot,
   onTalkToNpc,
   remotePlayers,
   multiplayerManager,
@@ -86,6 +92,11 @@ export default function MelaCanvas({
     height: 1400,
     particles: [],
     activeCrackers: [],
+    projectiles: [],
+    floatingTexts: [],
+    ravanHitFlash: 0,
+    lastShotTime: 0,
+    effigyTimer: 0,
     mouse: { x: 0, y: 0, worldX: 0, worldY: 0, isDown: false },
     keys: {},
     camera: { x: 1000, y: 650 },
@@ -227,9 +238,15 @@ export default function MelaCanvas({
       worldRef.current.keys[e.key.toLowerCase()] = true;
       worldRef.current.keys[e.code] = true;
 
-      if (e.key.toLowerCase() === 'e' || e.code === 'Space') {
+      if (e.key.toLowerCase() === 'e' || e.code === 'Space' || e.key.toLowerCase() === 'f') {
+        const dRavan = Math.hypot(playerRef.current.x - MELA_ZONES.RAVAN.x, playerRef.current.y - MELA_ZONES.RAVAN.y);
+        const hasWeapon = selectedCracker?.isWeapon || selectedCracker?.id === 'bow' || selectedCracker?.id === 'gun';
+        if (dRavan < 490 && hasWeapon) {
+          fireWeaponAtRavan();
+          return;
+        }
         const interacted = checkPlayerProximityInteractions();
-        if (!interacted && selectedCracker) {
+        if (!interacted && selectedCracker && !selectedCracker.isWeapon) {
           const invItem = inventory.find((i) => i.id === selectedCracker.id);
           if (invItem && invItem.count > 0) {
             placeAndIgniteCracker(selectedCracker, playerRef.current.x, playerRef.current.y + 12);
@@ -288,6 +305,46 @@ export default function MelaCanvas({
     setTimeout(() => setIsDancing(false), 3500);
   };
 
+  // Fire Bow or Gun projectile at Ravan effigy
+  const fireWeaponAtRavan = () => {
+    soundEngine.init();
+    const world = worldRef.current;
+    const now = performance.now();
+    if (now - (world.lastShotTime || 0) < 220) return; // Smooth firing cooldown
+    world.lastShotTime = now;
+
+    const p = playerRef.current;
+    const hasWeapon = selectedCracker?.isWeapon || selectedCracker?.id === 'bow' || selectedCracker?.id === 'gun';
+    const weapon = hasWeapon ? selectedCracker : { id: 'bow', name: 'Ram Dhanush', isWeapon: true };
+
+    if (weapon.id === 'gun') {
+      soundEngine.playGunShot();
+    } else {
+      soundEngine.playBowShot();
+    }
+
+    // Aim at Ravan effigy torso/heads
+    const targetX = MELA_ZONES.RAVAN.x + (Math.random() - 0.5) * 50;
+    const targetY = MELA_ZONES.RAVAN.y - 120 + (Math.random() - 0.5) * 60;
+
+    world.projectiles.push({
+      id: `proj_${Date.now()}_${Math.random()}`,
+      x: p.x,
+      y: p.y - 14,
+      startX: p.x,
+      startY: p.y - 14,
+      targetX,
+      targetY,
+      speed: weapon.id === 'gun' ? 24 : 17,
+      type: weapon.id,
+      shooterName: p.name || 'Hero',
+      color: weapon.id === 'gun' ? '#38bdf8' : '#fbbf24',
+      trail: []
+    });
+
+    if (onRavanShot) onRavanShot(weapon.id);
+  };
+
   // Check proximity to shops / stalls / games
   const checkPlayerProximityInteractions = () => {
     const p = playerRef.current;
@@ -305,6 +362,24 @@ export default function MelaCanvas({
       return true;
     }
 
+    // Weapon Armory Stall (Shastra Armory)
+    if (dist(p.x, p.y, MELA_ZONES.WEAPON_STALL.x, MELA_ZONES.WEAPON_STALL.y) < 140) {
+      if (onOpenArmory) onOpenArmory();
+      return true;
+    }
+
+    // Ravan Boss Ground (Shoot or open Armory if near)
+    const dRavan = dist(p.x, p.y, MELA_ZONES.RAVAN.x, MELA_ZONES.RAVAN.y);
+    if (dRavan < 480) {
+      const hasWeapon = selectedCracker?.isWeapon || selectedCracker?.id === 'bow' || selectedCracker?.id === 'gun';
+      if (hasWeapon) {
+        fireWeaponAtRavan();
+        return true;
+      } else if (dRavan < 240) {
+        if (onOpenArmory) onOpenArmory();
+        return true;
+      }
+    }
 
     // Chai Tapri
     if (dist(p.x, p.y, MELA_ZONES.CHAI_TAPRI.x, MELA_ZONES.CHAI_TAPRI.y) < 130) {
@@ -372,8 +447,28 @@ export default function MelaCanvas({
     const p = playerRef.current;
     const dist = (x1, y1, x2, y2) => Math.hypot(x1 - x2, y1 - y2);
 
-    // 1. High Priority: If a cracker is selected, place and ignite it EXACTLY at tapped world coordinates!
-    if (selectedCracker) {
+    // 0. Weapon Action: If player tapped near Ravan or has weapon armed
+    const hasWeapon = selectedCracker?.isWeapon || selectedCracker?.id === 'bow' || selectedCracker?.id === 'gun';
+    const distToRavan = dist(p.x, p.y, MELA_ZONES.RAVAN.x, MELA_ZONES.RAVAN.y);
+    const clickNearRavan = dist(worldClickX, worldClickY, MELA_ZONES.RAVAN.x, MELA_ZONES.RAVAN.y) < 180;
+
+    if (clickNearRavan) {
+      if (hasWeapon && distToRavan <= 490) {
+        fireWeaponAtRavan();
+        return;
+      } else if (!hasWeapon && distToRavan <= 260) {
+        if (onOpenArmory) onOpenArmory();
+        return;
+      }
+    }
+
+    if (hasWeapon && distToRavan <= 490) {
+      fireWeaponAtRavan();
+      return;
+    }
+
+    // 1. High Priority: If a normal firecracker is selected, place and ignite it!
+    if (selectedCracker && !selectedCracker.isWeapon) {
       const invItem = inventory.find((i) => i.id === selectedCracker.id);
       if (invItem && invItem.count > 0) {
         placeAndIgniteCracker(selectedCracker, worldClickX, worldClickY);
@@ -393,6 +488,11 @@ export default function MelaCanvas({
       return;
     }
 
+    // 4. Clicked Weapon Armory Stall
+    if (dist(worldClickX, worldClickY, MELA_ZONES.WEAPON_STALL.x, MELA_ZONES.WEAPON_STALL.y) < 120) {
+      if (onOpenArmory) onOpenArmory();
+      return;
+    }
 
     // 5. Clicked Chai Tapri
     if (dist(worldClickX, worldClickY, MELA_ZONES.CHAI_TAPRI.x, MELA_ZONES.CHAI_TAPRI.y) < 100) {
@@ -775,6 +875,110 @@ export default function MelaCanvas({
         }
       });
 
+      world.effigyTimer = (world.effigyTimer || 0) + 1;
+      if (world.ravanHitFlash > 0) world.ravanHitFlash--;
+
+      // Update Projectiles (Fiery Arrows & Spark Bullets flying towards Ravan)
+      world.projectiles = (world.projectiles || []).filter((proj) => {
+        const dx = proj.targetX - proj.x;
+        const dy = proj.targetY - proj.y;
+        const distToTarget = Math.hypot(dx, dy);
+
+        proj.trail.push({ x: proj.x, y: proj.y });
+        if (proj.trail.length > 5) proj.trail.shift();
+
+        if (distToTarget <= proj.speed) {
+          // Direct Impact on Ravan effigy!
+          soundEngine.playRavanHit();
+          world.ravanHitFlash = 9;
+
+          // 1 shot reduces Ravan's HP by exactly 1
+          if (setRavanHp) {
+            setRavanHp((prevHp) => {
+              const nextHp = Math.max(0, prevHp - 1);
+              try {
+                localStorage.setItem('diwali_ravan_hp', nextHp.toString());
+              } catch (_) {}
+              return nextHp;
+            });
+          }
+
+          // Floating -1 damage number rising above Ravan
+          world.floatingTexts.push({
+            x: proj.targetX + (Math.random() - 0.5) * 24,
+            y: proj.targetY - 20,
+            text: '-1 HP',
+            color: proj.type === 'gun' ? '#38bdf8' : '#fef08a',
+            alpha: 1.0,
+            vy: -1.7,
+            life: 50
+          });
+
+          // Spark burst particles at impact
+          for (let i = 0; i < 22; i++) {
+            const theta = Math.random() * Math.PI * 2;
+            const spd = 2 + Math.random() * 5;
+            world.particles.push(
+              new Particle(
+                proj.targetX,
+                proj.targetY,
+                Math.cos(theta) * spd,
+                Math.sin(theta) * spd,
+                Math.random() > 0.4 ? '#fbbf24' : '#ef4444',
+                18 + Math.floor(Math.random() * 14),
+                1.8,
+                0.06,
+                0.95,
+                'spark'
+              )
+            );
+          }
+
+          // Subtle impact screen shake
+          setScreenShake({ intensity: 2.2, duration: 3 });
+
+          // Broadcast hit event to live peers
+          if (multiplayerManager) {
+            multiplayerManager.broadcastRavanHit({
+              damage: 1,
+              shooterName: p.name || 'Hero',
+              weapon: proj.type
+            });
+          }
+
+          return false; // Remove projectile
+        } else {
+          proj.x += (dx / distToTarget) * proj.speed;
+          proj.y += (dy / distToTarget) * proj.speed;
+
+          // Spark particle trail
+          if (Math.random() > 0.35) {
+            world.particles.push(
+              new Particle(
+                proj.x,
+                proj.y,
+                (Math.random() - 0.5) * 1.2,
+                (Math.random() - 0.5) * 1.2,
+                proj.type === 'gun' ? '#38bdf8' : '#fde047',
+                8 + Math.floor(Math.random() * 6),
+                1.2,
+                0.02,
+                0.98,
+                'spark'
+              )
+            );
+          }
+          return true;
+        }
+      });
+
+      // Update Floating Damage Texts
+      world.floatingTexts = (world.floatingTexts || []).filter((ft) => {
+        ft.y += ft.vy;
+        ft.alpha -= 1 / ft.life;
+        return ft.alpha > 0;
+      });
+
       // ==========================================
       // RENDER CANVAS SCENE
       // ==========================================
@@ -801,6 +1005,12 @@ export default function MelaCanvas({
       // E. Stalls: Cracker Shop, Temple
       renderMelaStalls(ctx, world, p);
 
+      // E2. Shastra Armory Stall (शस्त्रागार - धनुष व बंदूक)
+      renderWeaponArmoryStall(ctx, world, p);
+
+      // E3. 10-Headed Ravan Effigy with 10,000,000 Boss HP Bar (रावण दहन)
+      renderRavanEffigy(ctx, world, p, ravanHp);
+
       // F. Rangoli Art Pavilions & Floral Carpet
       renderRangoliArtwork(ctx);
 
@@ -812,6 +1022,9 @@ export default function MelaCanvas({
 
       // I. Active Crackers (placed on ground / in air)
       world.activeCrackers.forEach((c) => c.draw(ctx));
+
+      // I2. Active Projectiles (Flying Arrows and Spark Bullets)
+      renderProjectiles(ctx, world.projectiles || []);
 
       // Real Online Players (WebRTC & Cross-Tab Multiplayer)
       const livePeers = remotePlayersRef.current;
@@ -830,6 +1043,9 @@ export default function MelaCanvas({
 
       // M. Foreground Firecracker Particles (Sparks, Smoke, Embers)
       world.particles.forEach((pt) => pt.draw(ctx));
+
+      // M2. Floating Damage Texts (-1 HP)
+      renderFloatingTexts(ctx, world.floatingTexts || []);
 
       // N. Night Sky Floating Lanterns (Kandils)
       renderFloatingLanterns(ctx, world.floatingLanterns);
@@ -858,7 +1074,8 @@ export default function MelaCanvas({
     screenShake,
     activeBuffs,
     isRidingWheel,
-    isDancing
+    isDancing,
+    ravanHp
   ]);
 
   // Native non-passive touch drag event listeners for iPhone / iOS Safari
@@ -1156,6 +1373,77 @@ export default function MelaCanvas({
         </div>
       )}
 
+      {/* On-screen Ravan Boss Attack & Armory Bar when near Ravan */}
+      {Math.hypot(player.x - MELA_ZONES.RAVAN.x, player.y - MELA_ZONES.RAVAN.y) < 480 && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 'max(90px, calc(env(safe-area-inset-bottom) + 84px))',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 55,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 6,
+            pointerEvents: 'auto'
+          }}
+        >
+          {selectedCracker?.isWeapon ? (
+            <button
+              id="shoot-ravan-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                fireWeaponAtRavan();
+              }}
+              style={{
+                background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #7c2d12 100%)',
+                border: '2.5px solid #fbbf24',
+                borderRadius: 28,
+                padding: '12px 28px',
+                color: '#ffffff',
+                fontSize: 15,
+                fontWeight: 900,
+                cursor: 'pointer',
+                boxShadow: '0 0 25px rgba(220, 38, 38, 0.75), 0 8px 25px rgba(0,0,0,0.7)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                letterSpacing: 0.5,
+                animation: 'pulse 1.4s infinite'
+              }}
+            >
+              <span style={{ fontSize: 22 }}>{selectedCracker.id === 'gun' ? '🔫' : '🏹'}</span>
+              <span>SHOOT RAVAN (-1 HP)</span>
+            </button>
+          ) : (
+            <button
+              id="buy-weapon-ravan-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onOpenArmory) onOpenArmory();
+              }}
+              style={{
+                background: 'linear-gradient(135deg, #7c2d12 0%, #d97706 100%)',
+                border: '2px solid #fef08a',
+                borderRadius: 24,
+                padding: '10px 22px',
+                color: '#fef08a',
+                fontSize: 13,
+                fontWeight: 800,
+                cursor: 'pointer',
+                boxShadow: '0 0 20px rgba(245, 158, 11, 0.6), 0 4px 15px rgba(0,0,0,0.6)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}
+            >
+              <span>🏹 Buy Bow / Gun in Armory to Shoot Ravan! 🔫</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Mobile Quick Action Button for Touch & Mobile Devices */}
       <div
         style={{
@@ -1173,6 +1461,10 @@ export default function MelaCanvas({
         <button
           onClick={(e) => {
             e.stopPropagation();
+            if (selectedCracker?.isWeapon) {
+              fireWeaponAtRavan();
+              return;
+            }
             const interacted = checkPlayerProximityInteractions();
             if (!interacted && selectedCracker) {
               const invItem = inventory.find((i) => i.id === selectedCracker.id);
@@ -1185,9 +1477,11 @@ export default function MelaCanvas({
             width: 60,
             height: 60,
             borderRadius: '50%',
-            backgroundColor: selectedCracker ? '#ea580c' : 'rgba(23, 14, 38, 0.94)',
-            border: selectedCracker ? '2.5px solid #fbbf24' : '2px solid rgba(245, 158, 11, 0.5)',
-            boxShadow: selectedCracker
+            backgroundColor: selectedCracker?.isWeapon ? '#dc2626' : selectedCracker ? '#ea580c' : 'rgba(23, 14, 38, 0.94)',
+            border: selectedCracker?.isWeapon ? '2.5px solid #fef08a' : selectedCracker ? '2.5px solid #fbbf24' : '2px solid rgba(245, 158, 11, 0.5)',
+            boxShadow: selectedCracker?.isWeapon
+              ? '0 6px 20px rgba(220, 38, 38, 0.7), 0 0 15px #f59e0b'
+              : selectedCracker
               ? '0 6px 20px rgba(234, 88, 12, 0.6), 0 0 15px #f59e0b'
               : '0 4px 14px rgba(0,0,0,0.6)',
             color: '#fff',
@@ -1201,11 +1495,11 @@ export default function MelaCanvas({
             WebkitUserSelect: 'none',
             touchAction: 'manipulation'
           }}
-          title={selectedCracker ? `Burst ${selectedCracker.name}` : 'Interact / Light Diya'}
+          title={selectedCracker?.isWeapon ? `Shoot Ravan (-1 HP)` : selectedCracker ? `Burst ${selectedCracker.name}` : 'Interact / Light Diya'}
         >
-          <span style={{ fontSize: 24, lineHeight: 1 }}>{selectedCracker ? '🔥' : '🪔'}</span>
-          <span style={{ fontSize: 9, fontWeight: 800, color: '#fef08a', marginTop: 2 }}>
-            {selectedCracker ? 'BURST' : 'ACTION'}
+          <span style={{ fontSize: 24, lineHeight: 1 }}>{selectedCracker?.isWeapon ? (selectedCracker.icon || '🏹') : selectedCracker ? '🔥' : '🪔'}</span>
+          <span style={{ fontSize: 8, fontWeight: 800, color: '#fef08a', marginTop: 2 }}>
+            {selectedCracker?.isWeapon ? 'SHOOT' : selectedCracker ? 'BURST' : 'ACTION'}
           </span>
         </button>
       </div>
@@ -1336,6 +1630,34 @@ function renderGroundAndCourtyards(ctx, world) {
     ctx.shadowBlur = 0;
   });
 
+  // Ravan Dahan Arena Courtyard (Grand circular festive ring)
+  const ravanArenaX = MELA_ZONES.RAVAN.x;
+  const ravanArenaY = MELA_ZONES.RAVAN.y;
+  ctx.save();
+  ctx.fillStyle = 'rgba(69, 10, 10, 0.45)';
+  ctx.beginPath();
+  ctx.arc(ravanArenaX, ravanArenaY, 170, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = '#dc2626';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([12, 8]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Inner sanctum ring
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(ravanArenaX, ravanArenaY, 120, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Arena ground sign
+  ctx.fillStyle = '#fef08a';
+  ctx.font = 'bold 13px "Cinzel", serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🔥 रावण दहन अखाड़ा (Ravan Dahan Arena) 🔥', ravanArenaX, ravanArenaY + 155);
+  ctx.restore();
 }
 
 // -------------------------------------------------------------
@@ -1990,6 +2312,10 @@ function renderDirectionGuides(ctx, player) {
     drawCompassArrow(ctx, player.x, player.y, MELA_ZONES.CRACKER_SHOP.x, MELA_ZONES.CRACKER_SHOP.y, '🧨 Shop', '#ef4444');
   }
 
+  const dRavan = dist(player.x, player.y, MELA_ZONES.RAVAN.x, MELA_ZONES.RAVAN.y);
+  if (dRavan > 580) {
+    drawCompassArrow(ctx, player.x, player.y, MELA_ZONES.RAVAN.x, MELA_ZONES.RAVAN.y, '👹 Ravan (10M HP)', '#f97316');
+  }
 }
 
 function drawCompassArrow(ctx, px, py, tx, ty, label, color) {
@@ -2017,4 +2343,500 @@ function drawCompassArrow(ctx, px, py, tx, ty, label, color) {
   ctx.fillText(label, 0, 16);
 
   ctx.restore();
+}
+
+// -------------------------------------------------------------
+// RAVAN EFFIGY & WEAPON ARMORY RENDERERS
+// -------------------------------------------------------------
+
+function renderRavanEffigy(ctx, world, player, ravanHp = 10000000) {
+  const rx = MELA_ZONES.RAVAN.x;
+  const ry = MELA_ZONES.RAVAN.y;
+  const isFlashing = (world.ravanHitFlash || 0) > 0;
+  const effigyTime = world.effigyTimer || 0;
+  const sway = Math.sin(effigyTime * 0.04) * 2.5;
+
+  ctx.save();
+  ctx.translate(rx, ry);
+
+  // 1. Scaffold Base Platform & Fire Logs
+  ctx.fillStyle = '#3f1a0a';
+  ctx.strokeStyle = '#78350f';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.roundRect(-80, 10, 160, 26, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Wooden Log Stakes
+  ctx.fillStyle = '#78350f';
+  for (let lx = -70; lx <= 70; lx += 22) {
+    ctx.fillRect(lx - 3, -15, 6, 26);
+  }
+
+  // Earthen Diyas around scaffold base
+  [-75, -45, -15, 15, 45, 75].forEach((dx) => {
+    ctx.fillStyle = '#ea580c';
+    ctx.beginPath();
+    ctx.ellipse(dx, 10, 7, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.arc(dx, 6 + Math.sin(effigyTime * 0.1 + dx) * 1.5, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Festive Cracker Bundles strapped at base (Ladi & Rockets)
+  ctx.fillStyle = '#dc2626';
+  ctx.fillRect(-60, -10, 26, 20);
+  ctx.fillRect(34, -10, 26, 20);
+  ctx.fillStyle = '#fef08a';
+  ctx.font = '10px monospace';
+  ctx.fillText('🧨🧨', -58, 4);
+  ctx.fillText('🧨🧨', 36, 4);
+
+  // 2. Effigy Body (Sways with wind/breathing)
+  ctx.save();
+  ctx.translate(sway, 0);
+
+  if (isFlashing) {
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = '#fbbf24';
+  }
+
+  // Legs / Lower robes
+  ctx.fillStyle = '#991b1b';
+  ctx.beginPath();
+  ctx.moveTo(-42, -5);
+  ctx.lineTo(42, -5);
+  ctx.lineTo(50, 10);
+  ctx.lineTo(-50, 10);
+  ctx.closePath();
+  ctx.fill();
+
+  // Royal Pleated Skirt (Red & Gold)
+  ctx.fillStyle = isFlashing ? '#ffffff' : '#b91c1c';
+  ctx.beginPath();
+  ctx.moveTo(-46, -60);
+  ctx.lineTo(46, -60);
+  ctx.lineTo(54, -5);
+  ctx.lineTo(-54, -5);
+  ctx.closePath();
+  ctx.fill();
+
+  // Gold vertical pleated stripes
+  ctx.fillStyle = '#fbbf24';
+  for (let s = -40; s <= 40; s += 12) {
+    ctx.fillRect(s - 1, -60, 3, 55);
+  }
+
+  // Golden Waist Sash & Demon Belt Buckle
+  ctx.fillStyle = '#f59e0b';
+  ctx.fillRect(-48, -68, 96, 12);
+  ctx.fillStyle = '#ef4444';
+  ctx.beginPath();
+  ctx.arc(0, -62, 9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#fef08a';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Torso / Royal Kurta (Dark Purple with Golden Embroidery)
+  ctx.fillStyle = isFlashing ? '#fef08a' : '#3b0764';
+  ctx.beginPath();
+  ctx.roundRect(-40, -135, 80, 70, 8);
+  ctx.fill();
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Cross-body Garland of Crackers (Ladi on chest)
+  ctx.strokeStyle = '#ef4444';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(-34, -130);
+  ctx.lineTo(34, -70);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(34, -130);
+  ctx.lineTo(-34, -70);
+  ctx.stroke();
+
+  // Golden Royal Haar (Necklace with Red Gem)
+  ctx.strokeStyle = '#fde047';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(0, -132, 20, 0, Math.PI);
+  ctx.stroke();
+  ctx.fillStyle = '#dc2626';
+  ctx.beginPath();
+  ctx.arc(0, -112, 7, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Arms and Weapons
+  // Left Hand: Giant Golden Shield
+  ctx.fillStyle = '#854d0e';
+  ctx.beginPath();
+  ctx.roundRect(-75, -115, 14, 50, 6);
+  ctx.fill();
+
+  ctx.save();
+  ctx.translate(-82, -98);
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = '#eab308';
+  ctx.fillStyle = '#ca8a04';
+  ctx.beginPath();
+  ctx.arc(0, 0, 26, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#fef08a';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  // Shield Sun Emblem
+  ctx.fillStyle = '#ef4444';
+  ctx.beginPath();
+  ctx.arc(0, 0, 11, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Right Hand: Curved Chandrahas Sword (खड्ग)
+  ctx.fillStyle = '#854d0e';
+  ctx.beginPath();
+  ctx.roundRect(61, -115, 14, 50, 6);
+  ctx.fill();
+
+  ctx.save();
+  ctx.translate(78, -98);
+  // Golden Hilt
+  ctx.fillStyle = '#f59e0b';
+  ctx.fillRect(-4, 0, 8, 20);
+  ctx.fillRect(-12, 0, 24, 6);
+  // Curved Silver Blade pointing up
+  ctx.fillStyle = '#f1f5f9';
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-3, 0);
+  ctx.quadraticCurveTo(12, -40, 20, -70);
+  ctx.quadraticCurveTo(6, -52, -3, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // 3. Ten Heads of Ravan (दशानन)
+  const headOffsets = [
+    { x: -74, y: -138, scale: 0.65 },
+    { x: -55, y: -145, scale: 0.72 },
+    { x: -37, y: -152, scale: 0.8 },
+    { x: -18, y: -158, scale: 0.9 },
+    { x: 3, y: -162, scale: 1.18, isMain: true }, // Main Demon King Center Head
+    { x: 24, y: -158, scale: 0.9 },
+    { x: 43, y: -152, scale: 0.8 },
+    { x: 61, y: -145, scale: 0.72 },
+    { x: 78, y: -138, scale: 0.65 },
+    { x: 93, y: -131, scale: 0.58 }
+  ];
+
+  headOffsets.forEach((h) => {
+    ctx.save();
+    ctx.translate(h.x, h.y);
+    ctx.scale(h.scale, h.scale);
+
+    // Demon Face Complexion
+    ctx.fillStyle = h.isMain ? '#065f46' : '#047857';
+    ctx.beginPath();
+    ctx.arc(0, 0, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#022c22';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Red Demon Tilak on Forehead
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.moveTo(0, -10);
+    ctx.lineTo(3, -6);
+    ctx.lineTo(0, -3);
+    ctx.lineTo(-3, -6);
+    ctx.closePath();
+    ctx.fill();
+
+    // Glowing Demon Eyes
+    const eyeGlow = 6 + Math.sin(effigyTime * 0.1) * 3;
+    ctx.shadowBlur = eyeGlow;
+    ctx.shadowColor = '#ef4444';
+    ctx.fillStyle = '#fee2e2';
+    ctx.beginPath();
+    ctx.arc(-5, -2, 2.6, 0, Math.PI * 2);
+    ctx.arc(5, -2, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#b91c1c';
+    ctx.beginPath();
+    ctx.arc(-5, -2, 1.3, 0, Math.PI * 2);
+    ctx.arc(5, -2, 1.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Demon Curled Moustache
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(-8, 5);
+    ctx.quadraticCurveTo(0, 2, 8, 5);
+    ctx.stroke();
+
+    // White Demon Tusks on main head
+    if (h.isMain) {
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(-6, 5);
+      ctx.lineTo(-8, 9);
+      ctx.lineTo(-5, 6);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(6, 5);
+      ctx.lineTo(8, 9);
+      ctx.lineTo(5, 6);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Golden Mukut (Crown)
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.moveTo(-12, -9);
+    ctx.lineTo(-8, -24);
+    ctx.lineTo(0, -30);
+    ctx.lineTo(8, -24);
+    ctx.lineTo(12, -9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Crown Ruby Jewel
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(0, -18, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  });
+
+  ctx.restore(); // End sway
+
+  // 4. FLOATING BOSS HEALTH BAR (10,000,000 HP)
+  ctx.save();
+  const barW = 350;
+  const barH = 52;
+  const barX = -barW / 2;
+  const barY = -245;
+
+  // Outer Glowing Border Container
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = '#ef4444';
+  ctx.fillStyle = 'rgba(15, 10, 24, 0.94)';
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.roundRect(barX, barY, barW, barH, 12);
+  ctx.fill();
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Boss Title
+  ctx.font = 'bold 13px "Cinzel", serif';
+  ctx.fillStyle = '#fef08a';
+  ctx.textAlign = 'center';
+  ctx.fillText('👹 लंकापति दशानन रावण (Ravan) • 10 Heads', 0, barY + 17);
+
+  // HP Gauge Track
+  const trackW = barW - 32;
+  const trackH = 14;
+  const trackX = barX + 16;
+  const trackY = barY + 26;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+  ctx.strokeStyle = 'rgba(251, 191, 36, 0.35)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(trackX, trackY, trackW, trackH, 7);
+  ctx.fill();
+  ctx.stroke();
+
+  // HP Gauge Fill
+  const hpRatio = Math.max(0, Math.min(1.0, ravanHp / 10000000));
+  const fillW = Math.max(4, trackW * hpRatio);
+
+  const hpGrad = ctx.createLinearGradient(trackX, trackY, trackX + trackW, trackY);
+  hpGrad.addColorStop(0, '#dc2626');
+  hpGrad.addColorStop(0.7, '#ea580c');
+  hpGrad.addColorStop(1, '#f59e0b');
+
+  ctx.fillStyle = hpGrad;
+  ctx.beginPath();
+  ctx.roundRect(trackX, trackY, fillW, trackH, 7);
+  ctx.fill();
+
+  // HP Numbers & Percentage
+  const formattedHp = ravanHp.toLocaleString('en-IN');
+  const percentStr = (hpRatio * 100).toFixed(4) + '%';
+  ctx.font = 'bold 10px "Outfit", sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowBlur = 4;
+  ctx.shadowColor = '#000000';
+  ctx.fillText(`HP: ${formattedHp} / 10,000,000 (${percentStr})`, 0, trackY + 11);
+  ctx.shadowBlur = 0;
+
+  // Subtitle / Raid hint
+  ctx.font = 'bold 10px "Outfit", sans-serif';
+  ctx.fillStyle = '#fed7aa';
+  ctx.fillText('🏹 1 Shot = -1 HP • Shoot with Ram Dhanush or Gun 🔫', 0, barY + 65);
+
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function renderWeaponArmoryStall(ctx, world, player) {
+  const dist = (x1, y1, x2, y2) => Math.hypot(x1 - x2, y1 - y2);
+  const stallX = MELA_ZONES.WEAPON_STALL.x;
+  const stallY = MELA_ZONES.WEAPON_STALL.y;
+  const isNear = dist(player.x, player.y, stallX, stallY) < 140;
+
+  ctx.save();
+  ctx.translate(stallX, stallY);
+
+  // Tent Body
+  ctx.fillStyle = '#451a03';
+  ctx.strokeStyle = isNear ? '#fbbf24' : '#b45309';
+  ctx.lineWidth = isNear ? 4 : 2;
+  ctx.beginPath();
+  ctx.roundRect(-100, -80, 200, 130, 12);
+  ctx.fill();
+  ctx.stroke();
+
+  // Striped Canopy Awning (Maroon & Saffron)
+  for (let s = 0; s < 8; s++) {
+    ctx.fillStyle = s % 2 === 0 ? '#b91c1c' : '#f59e0b';
+    ctx.fillRect(-100 + s * 25, -80, 25, 26);
+  }
+
+  // Stall Title
+  ctx.fillStyle = '#fef08a';
+  ctx.font = 'bold 15px "Cinzel", serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🏹 दिव्य शस्त्रागार (Armory) 🔫', 0, -32);
+
+  ctx.font = '11px "Outfit", sans-serif';
+  ctx.fillStyle = '#fed7aa';
+  ctx.fillText('Weapons to Defeat 10M HP Ravan', 0, -16);
+
+  // Wooden Display Table
+  ctx.fillStyle = '#78350f';
+  ctx.fillRect(-85, 12, 170, 22);
+
+  // Display Bow and Gun
+  ctx.font = '22px sans-serif';
+  ctx.fillText('🏹', -45, 30);
+  ctx.fillText('🔫', 45, 30);
+  ctx.fillText('🎯', 0, 30);
+
+  // Proximity Hint
+  if (isNear) {
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = '#fbbf24';
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 12px "Outfit", sans-serif';
+    ctx.fillText('✨ [ Click or Press E ] Open Weapon Armory', 0, 70);
+  }
+
+  ctx.restore();
+}
+
+function renderProjectiles(ctx, projectiles) {
+  if (!projectiles || projectiles.length === 0) return;
+
+  projectiles.forEach((proj) => {
+    ctx.save();
+    const angle = Math.atan2(proj.targetY - proj.y, proj.targetX - proj.x);
+    ctx.translate(proj.x, proj.y);
+    ctx.rotate(angle);
+
+    if (proj.type === 'gun') {
+      // High-velocity Festive Spark Bullet
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = '#38bdf8';
+
+      // Outer energy trail
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
+      ctx.beginPath();
+      ctx.ellipse(-10, 0, 16, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Glowing Core
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(2, 0, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // Golden Divine Arrow (Ram Dhanush)
+      ctx.shadowBlur = 14;
+      ctx.shadowColor = '#f59e0b';
+
+      // Arrow Shaft (Golden line)
+      ctx.strokeStyle = '#fde047';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-22, 0);
+      ctx.lineTo(8, 0);
+      ctx.stroke();
+
+      // Arrowhead (Fiery gold triangle)
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.moveTo(14, 0);
+      ctx.lineTo(6, -5);
+      ctx.lineTo(8, 0);
+      ctx.lineTo(6, 5);
+      ctx.closePath();
+      ctx.fill();
+
+      // Feathers at nock
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(-22, 0);
+      ctx.lineTo(-26, -4);
+      ctx.lineTo(-18, 0);
+      ctx.lineTo(-26, 4);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    ctx.restore();
+  });
+}
+
+function renderFloatingTexts(ctx, floatingTexts) {
+  if (!floatingTexts || floatingTexts.length === 0) return;
+
+  floatingTexts.forEach((ft) => {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, ft.alpha);
+    ctx.font = 'bold 16px "Cinzel", serif';
+    ctx.fillStyle = ft.color || '#fef08a';
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = '#ef4444';
+    ctx.textAlign = 'center';
+    ctx.fillText(ft.text, ft.x, ft.y);
+    ctx.restore();
+  });
 }

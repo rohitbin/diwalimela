@@ -23,6 +23,12 @@ class MultiplayerManager {
     this.pruneTimer = null;
     this.crackerListeners = new Set();
     this.diyaListeners = new Set();
+    this.ravanListeners = new Set();
+  }
+
+  onRavanHit(callback) {
+    this.ravanListeners.add(callback);
+    return () => this.ravanListeners.delete(callback);
   }
 
   onCracker(callback) {
@@ -292,6 +298,13 @@ class MultiplayerManager {
         break;
       }
 
+      case 'RAVAN_HIT': {
+        this.ravanListeners.forEach((fn) => {
+          try { fn(data.event); } catch (e) { console.error('Ravan listener error:', e); }
+        });
+        break;
+      }
+
       case 'PLAYER_LEFT': {
         if (data.playerId) {
           this.remotePlayers.delete(data.playerId);
@@ -348,6 +361,17 @@ class MultiplayerManager {
       type: 'DIYA_UPDATE',
       senderId: this.myProfile?.id || this.peerId,
       diya: diyaData,
+      timestamp: Date.now()
+    };
+    this.sendToAll(payload);
+  }
+
+  // Send Ravan shot / hit event
+  broadcastRavanHit(hitEvent) {
+    const payload = {
+      type: 'RAVAN_HIT',
+      senderId: this.myProfile?.id || this.peerId,
+      event: hitEvent,
       timestamp: Date.now()
     };
     this.sendToAll(payload);

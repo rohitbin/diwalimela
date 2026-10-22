@@ -76,6 +76,12 @@ export default function CrackerShopModal({
       case 'skylantern':
         soundEngine.playDiyaLight();
         break;
+      case 'bow':
+        soundEngine.playBowShot();
+        break;
+      case 'gun':
+        soundEngine.playGunShot();
+        break;
       default:
         break;
     }

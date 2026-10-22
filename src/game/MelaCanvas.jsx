@@ -51,7 +51,6 @@ export default function MelaCanvas({
   const canvasRef = useRef(null);
   const wrapperRef = useRef(null);
   const [isRidingWheel, setIsRidingWheel] = useState(false);
-  const [isSprintActive, setIsSprintActive] = useState(false);
 
   // iPhone & Mobile Touch Drag Control Ref (Directly read in 60fps loop to avoid React closure lag)
   const touchControlRef = useRef({
@@ -125,19 +124,6 @@ export default function MelaCanvas({
   const playerRef = useRef(player);
   const lastTouchEndTimeRef = useRef(0);
   const touchMovedRef = useRef(false);
-
-  // Helper for virtual D-pad button press
-  const handleDpadPress = (key, isDown) => {
-    worldRef.current.keys[key] = isDown;
-    if (isDown) {
-      playerRef.current.targetX = undefined;
-      playerRef.current.targetY = undefined;
-      setPlayer((prev) => (prev.targetX !== undefined ? { ...prev, targetX: undefined, targetY: undefined } : prev));
-    } else {
-      playerRef.current.targetX = undefined;
-      playerRef.current.targetY = undefined;
-    }
-  };
 
   // Sync external property changes (name, color, turban, bubble) without overwriting active canvas x/y
   useEffect(() => {
@@ -556,18 +542,14 @@ export default function MelaCanvas({
       if (!isRidingWheel) {
         let moveX = 0;
         let moveY = 0;
-        let speed = Math.max(5.4, p.speed || 5.4);
+        // Smooth, balanced character speed (neither too fast nor too slow)
+        let speed = 4.2;
+        if (activeBuffs?.kulhad_chai) speed *= 1.15;
 
-        // Sprint boost: Shift key on keyboard or active speed buffs
-        const isSprinting = world.keys['shift'] || world.keys['shiftleft'] || world.keys['shiftright'];
-        if (isSprinting) speed *= 1.45;
-
-        if (activeBuffs?.kaju_katli) speed *= 1.35;
-        if (activeBuffs?.kulhad_chai) speed *= 1.25;
-
-        // Frame-rate independent delta time: keeps speed constant even during particle effects
+        // Frame-rate independent delta time: keeps speed constant and smooth
         const now = performance.now();
-        const dt = Math.min(2.5, Math.max(0.6, (now - (world.lastFrameTime || now)) / 16.667));
+        const rawDt = (now - (world.lastFrameTime || now)) / 16.667;
+        const dt = Math.min(1.35, Math.max(0.75, rawDt));
         world.lastFrameTime = now;
         const frameSpeed = speed * dt;
 
@@ -1134,187 +1116,6 @@ export default function MelaCanvas({
           })()}
         </div>
       )}
-
-      {/* On-screen Virtual D-Pad for Touch, Mobile, & All Devices */}
-      <div
-        style={{
-          position: 'fixed',
-          left: 'max(14px, env(safe-area-inset-left))',
-          bottom: 'max(88px, calc(env(safe-area-inset-bottom) + 78px))',
-          zIndex: 45,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, clamp(36px, 10vw, 42px))',
-          gridTemplateRows: 'repeat(3, clamp(36px, 10vw, 42px))',
-          gap: 4,
-          padding: 6,
-          backgroundColor: 'rgba(23, 14, 38, 0.92)',
-          backdropFilter: 'blur(12px)',
-          borderRadius: 22,
-          border: '1.5px solid rgba(245, 158, 11, 0.5)',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.65), 0 0 16px rgba(245, 158, 11, 0.25)',
-          touchAction: 'none',
-          userSelect: 'none',
-          WebkitUserSelect: 'none',
-          pointerEvents: 'auto'
-        }}
-      >
-        {/* Row 1: Empty, UP, Empty */}
-        <div />
-        <button
-          type="button"
-          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('w', true); }}
-          onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('w', false); }}
-          onPointerLeave={() => handleDpadPress('w', false)}
-          onPointerCancel={() => handleDpadPress('w', false)}
-          onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('w', true); }}
-          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('w', false); }}
-          style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
-            border: '1px solid rgba(251, 191, 36, 0.45)',
-            borderRadius: 10,
-            color: '#fef08a',
-            fontSize: 15,
-            fontWeight: 900,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            touchAction: 'none',
-            userSelect: 'none',
-            WebkitUserSelect: 'none'
-          }}
-          title="Move Up (W / Up Arrow)"
-          aria-label="Move Up"
-        >
-          ▲
-        </button>
-        <div />
-
-        {/* Row 2: LEFT, Center Diya, RIGHT */}
-        <button
-          type="button"
-          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('a', true); }}
-          onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('a', false); }}
-          onPointerLeave={() => handleDpadPress('a', false)}
-          onPointerCancel={() => handleDpadPress('a', false)}
-          onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('a', true); }}
-          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('a', false); }}
-          style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
-            border: '1px solid rgba(251, 191, 36, 0.45)',
-            borderRadius: 10,
-            color: '#fef08a',
-            fontSize: 15,
-            fontWeight: 900,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            touchAction: 'none',
-            userSelect: 'none',
-            WebkitUserSelect: 'none'
-          }}
-          title="Move Left (A / Left Arrow)"
-          aria-label="Move Left"
-        >
-          ◀
-        </button>
-
-        <button
-          type="button"
-          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); worldRef.current.keys['shift'] = true; setIsSprintActive(true); }}
-          onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); worldRef.current.keys['shift'] = false; setIsSprintActive(false); }}
-          onPointerLeave={() => { worldRef.current.keys['shift'] = false; setIsSprintActive(false); }}
-          onPointerCancel={() => { worldRef.current.keys['shift'] = false; setIsSprintActive(false); }}
-          onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); worldRef.current.keys['shift'] = true; setIsSprintActive(true); }}
-          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); worldRef.current.keys['shift'] = false; setIsSprintActive(false); }}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '50%',
-            background: isSprintActive
-              ? 'radial-gradient(circle, #fde047 0%, #ea580c 100%)'
-              : 'radial-gradient(circle, #ea580c 0%, #7c2d12 100%)',
-            boxShadow: isSprintActive
-              ? '0 0 16px #fde047, 0 0 8px #ea580c'
-              : '0 0 8px rgba(245, 158, 11, 0.4)',
-            border: isSprintActive ? '2px solid #fff' : '1px solid rgba(251, 191, 36, 0.6)',
-            cursor: 'pointer',
-            touchAction: 'none',
-            userSelect: 'none',
-            WebkitUserSelect: 'none',
-            padding: 0
-          }}
-          title="Hold to Sprint / Run Fast (⚡)"
-          aria-label="Sprint Boost"
-        >
-          <span style={{ fontSize: 13, lineHeight: 1 }}>⚡</span>
-          <span style={{ fontSize: 7, fontWeight: 900, color: '#fef08a', marginTop: 1 }}>RUN</span>
-        </button>
-
-        <button
-          type="button"
-          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('d', true); }}
-          onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('d', false); }}
-          onPointerLeave={() => handleDpadPress('d', false)}
-          onPointerCancel={() => handleDpadPress('d', false)}
-          onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('d', true); }}
-          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('d', false); }}
-          style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
-            border: '1px solid rgba(251, 191, 36, 0.45)',
-            borderRadius: 10,
-            color: '#fef08a',
-            fontSize: 15,
-            fontWeight: 900,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            touchAction: 'none',
-            userSelect: 'none',
-            WebkitUserSelect: 'none'
-          }}
-          title="Move Right (D / Right Arrow)"
-          aria-label="Move Right"
-        >
-          ▶
-        </button>
-
-        {/* Row 3: Empty, DOWN, Empty */}
-        <div />
-        <button
-          type="button"
-          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('s', true); }}
-          onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('s', false); }}
-          onPointerLeave={() => handleDpadPress('s', false)}
-          onPointerCancel={() => handleDpadPress('s', false)}
-          onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('s', true); }}
-          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('s', false); }}
-          style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
-            border: '1px solid rgba(251, 191, 36, 0.45)',
-            borderRadius: 10,
-            color: '#fef08a',
-            fontSize: 15,
-            fontWeight: 900,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            touchAction: 'none',
-            userSelect: 'none',
-            WebkitUserSelect: 'none'
-          }}
-          title="Move Down (S / Down Arrow)"
-          aria-label="Move Down"
-        >
-          ▼
-        </button>
-        <div />
-      </div>
 
       {/* Mobile Quick Action Button for Touch & Mobile Devices */}
       <div

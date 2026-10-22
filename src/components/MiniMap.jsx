@@ -154,7 +154,7 @@ export default function MiniMap({
             </div>
           ))}
 
-          {/* Remote Players blips */}
+          {/* Live Online Real Players on MiniMap */}
           {remotePlayers &&
             Array.from(remotePlayers.values()).map((p) => (
               <div
@@ -163,14 +163,39 @@ export default function MiniMap({
                   position: 'absolute',
                   left: toMapX(p.x),
                   top: toMapY(p.y),
-                  width: 5,
-                  height: 5,
-                  borderRadius: '50%',
-                  backgroundColor: '#38bdf8',
                   transform: 'translate(-50%, -50%)',
-                  boxShadow: '0 0 6px #38bdf8'
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  pointerEvents: 'none',
+                  zIndex: 10
                 }}
-              />
+                title={`🟢 ${p.name || 'Player'} (Live)`}
+              >
+                <div
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    backgroundColor: '#22c55e',
+                    border: '1.5px solid #ffffff',
+                    boxShadow: '0 0 8px #22c55e',
+                    animation: 'pulse 1.2s infinite'
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 8,
+                    fontWeight: 800,
+                    color: '#86efac',
+                    textShadow: '0 1px 4px rgba(0,0,0,0.95)',
+                    whiteSpace: 'nowrap',
+                    marginTop: 1
+                  }}
+                >
+                  {p.name ? p.name.split(' ')[0] : 'Live'}
+                </span>
+              </div>
             ))}
 
           {/* Current Local Player Blip */}

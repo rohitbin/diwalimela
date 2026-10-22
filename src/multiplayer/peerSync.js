@@ -10,18 +10,20 @@ class MultiplayerManager {
     this.roomId = 'diwali-mela-main';
     this.isHost = false;
     this.connections = new Map(); // connId -> conn
-    this.hostConn = null;
     this.broadcastChannel = null;
     this.onPeerUpdate = null; // callback(peersMap)
+    this.onPlayerJoined = null; // callback(newPlayer)
     this.onCrackerEvent = null; // callback(event)
     this.onChatMessage = null; // callback(msg)
     this.onDiyaUpdate = null; // callback(diyaData)
     this.remotePlayers = new Map(); // id -> playerData
     this.connectedPeersCount = 0;
     this.isConnected = false;
+    this.heartbeatTimer = null;
+    this.pruneTimer = null;
   }
 
-  init(roomId = 'diwali-mela-main', myProfile, callbacks) {
+  init(roomId = 'diwali-mela-main', myProfile, callbacks = {}) {
     this.roomId = roomId || 'diwali-mela-main';
     this.myProfile = myProfile;
     this.onPeerUpdate = callbacks.onPeerUpdate;
@@ -42,14 +44,39 @@ class MultiplayerManager {
 
     // 2. Initialize PeerJS for genuine Internet WebRTC multiplayer
     this.initPeerJS();
+
+    // 3. Immediately announce presence across local channel
+    this.sendHandshake();
+
+    // 4. Regular heartbeat so stationary players never disappear or get desynced
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = setInterval(() => {
+      if (this.myProfile) {
+        this.broadcastPlayerState(this.myProfile, true);
+      }
+    }, 1200);
+
+    // 5. Prune disconnected or stale peers who closed their tab
+    if (this.pruneTimer) clearInterval(this.pruneTimer);
+    this.pruneTimer = setInterval(() => {
+      this.pruneStalePeers();
+    }, 2500);
+
+    // 6. Handle tab close/unload
+    window.addEventListener('beforeunload', () => {
+      this.disconnect();
+    });
   }
 
   initPeerJS() {
     try {
+      const sanitizedRoom = this.roomId.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const hostId = `diwali_host_${sanitizedRoom}`;
       const randomSuffix = Math.random().toString(36).substring(2, 7);
-      const myId = `diwali_p_${this.roomId}_${randomSuffix}`;
+      const clientId = `diwali_p_${sanitizedRoom}_${randomSuffix}`;
 
-      this.peer = new Peer(myId, {
+      // Try connecting as host first, fallback to client if host exists
+      this.peer = new Peer(hostId, {
         debug: 1,
         config: {
           iceServers: [
@@ -61,9 +88,9 @@ class MultiplayerManager {
 
       this.peer.on('open', (id) => {
         this.peerId = id;
+        this.isHost = true;
         this.isConnected = true;
-        // Broadcast presence
-        this.broadcastState();
+        this.sendHandshake();
       });
 
       this.peer.on('connection', (conn) => {
@@ -71,10 +98,44 @@ class MultiplayerManager {
       });
 
       this.peer.on('error', (err) => {
-        console.warn('PeerJS connection notice:', err.type);
+        if (err.type === 'unavailable-id') {
+          // Host already exists! Connect as a room client to the host
+          this.initClientPeer(clientId, hostId);
+        } else {
+          console.warn('PeerJS notice:', err.type);
+        }
       });
     } catch (e) {
       console.warn('WebRTC peer fallback to local channel', e);
+    }
+  }
+
+  initClientPeer(clientId, hostId) {
+    try {
+      this.peer = new Peer(clientId, {
+        debug: 1,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
+          ]
+        }
+      });
+
+      this.peer.on('open', (id) => {
+        this.peerId = id;
+        this.isHost = false;
+        this.isConnected = true;
+        // Connect to the known room host
+        this.connectToPeer(hostId);
+        this.sendHandshake();
+      });
+
+      this.peer.on('connection', (conn) => {
+        this.setupConnection(conn);
+      });
+    } catch (e) {
+      console.warn('Client peer initialization failed:', e);
     }
   }
 
@@ -82,23 +143,35 @@ class MultiplayerManager {
     conn.on('open', () => {
       this.connections.set(conn.peer, conn);
       this.connectedPeersCount = this.connections.size;
-      // Send our profile immediately
-      this.broadcastState();
+      // Send our state immediately upon connection
+      conn.send({
+        type: 'HELLO_ACK',
+        senderId: this.myProfile?.id || this.peerId,
+        player: this.myProfile,
+        timestamp: Date.now()
+      });
     });
 
     conn.on('data', (data) => {
       this.handleIncomingData(data, conn.peer);
+      // If we are host, relay data to other connected clients
+      if (this.isHost) {
+        this.connections.forEach((otherConn) => {
+          if (otherConn.peer !== conn.peer && otherConn.open) {
+            try {
+              otherConn.send(data);
+            } catch {}
+          }
+        });
+      }
     });
 
     conn.on('close', () => {
       this.connections.delete(conn.peer);
-      this.remotePlayers.delete(conn.peer);
       this.connectedPeersCount = this.connections.size;
-      if (this.onPeerUpdate) this.onPeerUpdate(new Map(this.remotePlayers));
     });
   }
 
-  // Connect to another known peer or room host
   connectToPeer(targetPeerId) {
     if (!this.peer || this.connections.has(targetPeerId)) return;
     try {
@@ -109,16 +182,27 @@ class MultiplayerManager {
     }
   }
 
+  sendHandshake() {
+    if (!this.myProfile) return;
+    const payload = {
+      type: 'HELLO',
+      senderId: this.myProfile.id || this.peerId,
+      player: this.myProfile,
+      timestamp: Date.now()
+    };
+    this.sendToAll(payload);
+  }
+
   handleIncomingData(data, sourceId) {
     if (!data || !data.type) return;
 
-    // Ignore self-echoes from broadcast channel
+    // Ignore self-echoes
     if (data.senderId === this.peerId || data.senderId === this.myProfile?.id) {
       return;
     }
 
     switch (data.type) {
-      case 'PLAYER_UPDATE': {
+      case 'HELLO': {
         const player = data.player;
         if (player && player.id) {
           const isNew = !this.remotePlayers.has(player.id);
@@ -127,6 +211,38 @@ class MultiplayerManager {
             lastSeen: Date.now(),
             isRealPerson: true
           });
+
+          // Reply with HELLO_ACK so the new player immediately sees us too!
+          this.sendToAll({
+            type: 'HELLO_ACK',
+            senderId: this.myProfile?.id || this.peerId,
+            player: this.myProfile,
+            timestamp: Date.now()
+          });
+
+          if (isNew && this.onPlayerJoined) {
+            this.onPlayerJoined(player);
+          }
+          if (this.onPeerUpdate) {
+            this.onPeerUpdate(new Map(this.remotePlayers));
+          }
+        }
+        break;
+      }
+
+      case 'HELLO_ACK':
+      case 'PLAYER_UPDATE': {
+        const player = data.player;
+        if (player && player.id) {
+          const isNew = !this.remotePlayers.has(player.id);
+          const existing = this.remotePlayers.get(player.id) || {};
+          this.remotePlayers.set(player.id, {
+            ...existing,
+            ...player,
+            lastSeen: Date.now(),
+            isRealPerson: true
+          });
+
           if (isNew && this.onPlayerJoined) {
             this.onPlayerJoined(player);
           }
@@ -174,12 +290,13 @@ class MultiplayerManager {
   }
 
   // Update my local player state and broadcast to all peers
-  broadcastPlayerState(playerState) {
+  broadcastPlayerState(playerState, isHeartbeat = false) {
     this.myProfile = { ...this.myProfile, ...playerState };
     const payload = {
       type: 'PLAYER_UPDATE',
       senderId: this.myProfile.id || this.peerId,
       player: this.myProfile,
+      isHeartbeat,
       timestamp: Date.now()
     };
     this.sendToAll(payload);
@@ -218,6 +335,20 @@ class MultiplayerManager {
     this.sendToAll(payload);
   }
 
+  pruneStalePeers() {
+    const now = Date.now();
+    let changed = false;
+    this.remotePlayers.forEach((p, id) => {
+      if (now - (p.lastSeen || 0) > 7500) {
+        this.remotePlayers.delete(id);
+        changed = true;
+      }
+    });
+    if (changed && this.onPeerUpdate) {
+      this.onPeerUpdate(new Map(this.remotePlayers));
+    }
+  }
+
   sendToAll(data) {
     // 1. BroadcastChannel (fastest for multiple tabs/windows on same PC/browser)
     if (this.broadcastChannel) {
@@ -243,15 +374,24 @@ class MultiplayerManager {
   }
 
   disconnect() {
-    if (this.broadcastChannel) {
-      this.broadcastChannel.postMessage({
+    const playerId = this.myProfile?.id || this.peerId;
+    if (playerId) {
+      this.sendToAll({
         type: 'PLAYER_LEFT',
-        playerId: this.myProfile?.id || this.peerId
+        playerId
       });
-      this.broadcastChannel.close();
+    }
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    if (this.pruneTimer) clearInterval(this.pruneTimer);
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.close();
+      } catch {}
     }
     if (this.peer) {
-      this.peer.destroy();
+      try {
+        this.peer.destroy();
+      } catch {}
     }
   }
 }

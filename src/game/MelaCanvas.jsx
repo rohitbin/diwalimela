@@ -81,119 +81,44 @@ export default function MelaCanvas({
     fairyLights: [],
     // Floating sky lanterns
     floatingLanterns: [],
-    // NPCs walking in world
-    npcs: [
-      {
-        id: 'npc_sharma',
-        name: 'Sharma Ji',
-        role: 'Elder Citizen',
-        color: '#f59e0b',
-        turban: '#dc2626',
-        x: 1380,
-        y: 880,
-        targetX: 1380,
-        targetY: 880,
-        bubble: 'Shubh Deepawali beta! 🪔',
-        bubbleTimer: 180
-      },
-      {
-        id: 'npc_priya',
-        name: 'Priya',
-        role: 'Photographer',
-        color: '#ec4899',
-        turban: null,
-        x: 1000,
-        y: 600,
-        targetX: 1000,
-        targetY: 600,
-        bubble: 'Look at the golden lights! ✨',
-        bubbleTimer: 240
-      },
-      {
-        id: 'npc_aarav',
-        name: 'Aarav (Kid)',
-        role: 'Excited Boy',
-        color: '#3b82f6',
-        turban: '#fbbf24',
-        x: 1450,
-        y: 1020,
-        targetX: 1450,
-        targetY: 1020,
-        bubble: 'Burst more rockets! 🚀',
-        bubbleTimer: 300
-      },
-      {
-        id: 'npc_dadi',
-        name: 'Dadi Amma',
-        role: 'Grandmother',
-        color: '#e11d48',
-        turban: null,
-        x: 550,
-        y: 890,
-        targetX: 550,
-        targetY: 890,
-        bubble: 'Lakshmi Mata bless you! 🙏',
-        bubbleTimer: 220
-      },
-      {
-        id: 'npc_uncle_dave',
-        name: 'Uncle Dave',
-        role: 'Tourist',
-        color: '#10b981',
-        turban: null,
-        x: 1400,
-        y: 350,
-        targetX: 1400,
-        targetY: 350,
-        bubble: 'What amazing fireworks! 🎆',
-        bubbleTimer: 200
-      },
-      {
-        id: 'npc_kabir',
-        name: 'Kabir',
-        role: 'Firework Master',
-        color: '#8b5cf6',
-        turban: '#f59e0b',
-        x: 1520,
-        y: 920,
-        targetX: 1520,
-        targetY: 920,
-        bubble: 'The Sutli bomb is epic! 💥',
-        bubbleTimer: 150
-      },
-      {
-        id: 'npc_ananya',
-        name: 'Ananya',
-        role: 'Rangoli Artist',
-        color: '#06b6d4',
-        turban: null,
-        x: 1000,
-        y: 1120,
-        targetX: 1000,
-        targetY: 1120,
-        bubble: 'Rangoli colors look vivid! 🎨',
-        bubbleTimer: 260
-      },
-      {
-        id: 'npc_dhol',
-        name: 'Lakhwinder (Dholak)',
-        role: 'Festive Drummer',
-        color: '#e11d48',
-        turban: '#f59e0b',
-        x: 1080,
-        y: 650,
-        targetX: 1080,
-        targetY: 650,
-        bubble: 'Balle Balle! Shubh Deepawali! 🥁',
-        bubbleTimer: 120
-      }
-    ],
+    // NPCs walking in world (Removed fake NPCs - only real live players)
+    npcs: [],
     nextAmbientFireworkTime: 140,
     lastFrameTime: performance.now()
   });
 
   const playerRef = useRef(player);
   playerRef.current = player;
+  const remotePlayersRef = useRef(remotePlayers);
+  remotePlayersRef.current = remotePlayers;
+  const lastBroadcastRef = useRef(0);
+
+  // Sync remote fireworks and diya lighting across real players
+  useEffect(() => {
+    if (!multiplayerManager) return;
+    multiplayerManager.onCrackerEvent = (event) => {
+      if (!event || !event.crackerId) return;
+      const crackerData = window.__CRACKER_MAP?.[event.crackerId];
+      if (crackerData) {
+        const activeCracker = new ActiveCracker(
+          crackerData,
+          event.x,
+          event.y,
+          soundEngine,
+          event.placedBy || 'Friend'
+        );
+        worldRef.current.activeCrackers.push(activeCracker);
+      }
+    };
+    multiplayerManager.onDiyaUpdate = (diyaData) => {
+      if (!diyaData) return;
+      const target = worldRef.current.diyas.find((d) => d.id === diyaData.id);
+      if (target) {
+        target.isLit = true;
+        soundEngine.playDiyaLight();
+      }
+    };
+  }, [multiplayerManager]);
 
   // Touch joystick state for mobile
   const [touchActive, setTouchActive] = useState(false);
@@ -413,13 +338,7 @@ export default function MelaCanvas({
       return;
     }
 
-    // If clicked on an NPC, talk
-    for (const npc of world.npcs) {
-      if (dist(worldClickX, worldClickY, npc.x, npc.y) < 40) {
-        onTalkToNpc(npc);
-        return;
-      }
-    }
+
 
     // If clicked on Cracker Shop stall
     if (dist(worldClickX, worldClickY, MELA_ZONES.CRACKER_SHOP.x, MELA_ZONES.CRACKER_SHOP.y) < 120) {
@@ -506,25 +425,7 @@ export default function MelaCanvas({
       });
     }
 
-    const world = worldRef.current;
-    world.npcs.forEach((npc) => {
-      const d = Math.hypot(npc.x - targetX, npc.y - targetY);
-      if (d < 300) {
-        const angle = Math.atan2(npc.y - targetY, npc.x - targetX);
-        npc.targetX = npc.x + Math.cos(angle) * 45;
-        npc.targetY = npc.y + Math.sin(angle) * 45;
 
-        const cheers = [
-          'Woah! Look at that! 💥',
-          'Arrey wah! Zabardast!',
-          'Step back everyone! ⚠️',
-          'Happy Diwali! 🪔',
-          'Super Dhamaka! 🎆'
-        ];
-        npc.bubble = cheers[Math.floor(Math.random() * cheers.length)];
-        npc.bubbleTimer = 180;
-      }
-    });
   };
 
   // Remote cracker events
@@ -648,7 +549,9 @@ export default function MelaCanvas({
             facing: moveX > 0 ? 'right' : moveX < 0 ? 'left' : p.facing || 'right'
           };
           setPlayer(updated);
-          if (multiplayerManager && Math.random() > 0.4) {
+          const now = performance.now();
+          if (multiplayerManager && (!lastBroadcastRef.current || now - lastBroadcastRef.current > 35 || !isMoving)) {
+            lastBroadcastRef.current = now;
             multiplayerManager.broadcastPlayerState(updated);
           }
         }
@@ -666,44 +569,6 @@ export default function MelaCanvas({
         shakeOffsetY = (Math.random() - 0.5) * screenShake.intensity;
         setScreenShake((prev) => (prev ? { ...prev, duration: prev.duration - 1 } : null));
       }
-
-      // Update NPCs AI & Dholak Beats
-      world.npcs.forEach((npc) => {
-        if (npc.id === 'npc_dhol') {
-          // Play periodic joyful dhol beat
-          if (Math.random() > 0.985) {
-            soundEngine.playDholakBeat(Math.random() > 0.35);
-          }
-          return;
-        }
-
-        const dx = npc.targetX - npc.x;
-        const dy = npc.targetY - npc.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist > 3) {
-          npc.x += (dx / dist) * 1.4;
-          npc.y += (dy / dist) * 1.4;
-        } else if (Math.random() > 0.99) {
-          npc.targetX = npc.x + (Math.random() - 0.5) * 140;
-          npc.targetY = npc.y + (Math.random() - 0.5) * 100;
-          npc.targetX = Math.max(150, Math.min(world.width - 150, npc.targetX));
-          npc.targetY = Math.max(200, Math.min(world.height - 150, npc.targetY));
-        }
-
-        if (npc.bubbleTimer > 0) {
-          npc.bubbleTimer--;
-        } else if (Math.random() > 0.998) {
-          const chatter = [
-            'Shubh Deepawali! 🪔',
-            'Giant wheel ride is amazing! 🎡',
-            'Try the balloon game! 🎯',
-            'Raju Bhaiya has good crackers! 🧨',
-            'Have some garam chai! ☕'
-          ];
-          npc.bubble = chatter[Math.floor(Math.random() * chatter.length)];
-          npc.bubbleTimer = 220;
-        }
-      });
 
       // Ambient background fireworks in sky
       world.nextAmbientFireworkTime--;
@@ -819,13 +684,11 @@ export default function MelaCanvas({
       // I. Active Crackers (placed on ground / in air)
       world.activeCrackers.forEach((c) => c.draw(ctx));
 
-      // J. NPCs (Real Mela Visitors & Dholak Master)
-      world.npcs.forEach((npc) => renderCharacter(ctx, npc, false));
-
-      // K. Remote Real Players (WebRTC Multiplayer)
-      if (remotePlayers && remotePlayers.size > 0) {
-        remotePlayers.forEach((remPlayer) => {
-          renderCharacter(ctx, remPlayer, true);
+      // Real Online Players (WebRTC & Cross-Tab Multiplayer)
+      const livePeers = remotePlayersRef.current;
+      if (livePeers && livePeers.size > 0) {
+        livePeers.forEach((remPlayer) => {
+          renderCharacter(ctx, remPlayer, true, false, null, null, remPlayer.isDancing);
         });
       }
 

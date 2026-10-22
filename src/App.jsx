@@ -5,7 +5,6 @@ import WelcomeScreen from './components/WelcomeScreen';
 import CrackerShopModal from './components/CrackerShopModal';
 import SweetsShopModal from './components/SweetsShopModal';
 import TempleModal from './components/TempleModal';
-import NpcDialogueModal from './components/NpcDialogueModal';
 import AvatarCustomizer from './components/AvatarCustomizer';
 import DiwaliGuideModal from './components/DiwaliGuideModal';
 import BalloonShootingModal from './components/BalloonShootingModal';
@@ -39,15 +38,6 @@ function getCurrentZoneName(x, y) {
   if (y > 1050) return 'Rangoli Utsav Pavilion';
   return 'Deepotsav Central Plaza';
 }
-
-const SIMULATED_VISITORS = [
-  { name: 'Rohan Sharma', color: '#ea580c', turban: '#dc2626' },
-  { name: 'Simran Kaur', color: '#db2777', turban: null },
-  { name: 'Devendra Patel', color: '#059669', turban: '#f59e0b' },
-  { name: 'Sneha Iyer', color: '#7c3aed', turban: null },
-  { name: 'Vikram Rathore', color: '#dc2626', turban: '#eab308' },
-  { name: 'Ananya Gupta', color: '#2563eb', turban: null }
-];
 
 export default function App() {
   const queryParams = new URLSearchParams(window.location.search);
@@ -99,7 +89,6 @@ export default function App() {
   const [isBalloonGameOpen, setIsBalloonGameOpen] = useState(false);
   const [isFortuneWheelOpen, setIsFortuneWheelOpen] = useState(false);
   const [isChaiTapriOpen, setIsChaiTapriOpen] = useState(false);
-  const [activeNpc, setActiveNpc] = useState(null);
 
   // Dance emote state
   const [isDancing, setIsDancing] = useState(false);
@@ -202,34 +191,12 @@ export default function App() {
           }
           return next;
         });
+      },
+      onDiyaUpdate: () => {
+        setLitDiyasCount((c) => Math.min(16, c + 1));
       }
     });
   };
-
-  // Periodic simulated arrival of festive townspeople so solo players also see live player arrivals
-  useEffect(() => {
-    if (!hasEntered) return;
-    let visitorIndex = 0;
-
-    const interval = setInterval(() => {
-      if (visitorIndex < SIMULATED_VISITORS.length) {
-        const v = SIMULATED_VISITORS[visitorIndex];
-        triggerJoinPopup(v.name, v.color, v.turban, false);
-        setChatMessages((prev) => [
-          ...prev.slice(-25),
-          {
-            senderId: 'system',
-            senderName: '🪔 Diwali Mela',
-            text: `🎆 ${v.name} entered the Diwali Celebration Mela!`,
-            timestamp: Date.now()
-          }
-        ]);
-        visitorIndex++;
-      }
-    }, 38000);
-
-    return () => clearInterval(interval);
-  }, [hasEntered]);
 
   const handleSendMessage = (text) => {
     const msg = {
@@ -371,7 +338,6 @@ export default function App() {
           setIsChaiTapriOpen(true);
           setChaiDrank(true);
         }}
-        onTalkToNpc={(npc) => setActiveNpc(npc)}
         remotePlayers={remotePlayers}
         multiplayerManager={multiplayerManager}
         screenShake={screenShake}
@@ -477,12 +443,7 @@ export default function App() {
         }}
       />
 
-      <NpcDialogueModal
-        npc={activeNpc}
-        onClose={() => setActiveNpc(null)}
-        coins={coins}
-        setCoins={setCoins}
-      />
+
 
       <AvatarCustomizer
         isOpen={isCustomizerOpen}

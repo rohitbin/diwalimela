@@ -10,7 +10,6 @@ export default function FestiveChecklist({
   boughtCount = 0,
   bellRung = false,
   balloonPlayed = false,
-  wheelSpun = false,
   chaiDrank = false,
   wheelRode = false,
   onNavigateTo
@@ -29,12 +28,6 @@ export default function FestiveChecklist({
       title: 'Play Balloon Shooting Game (निशानेबाजी)',
       done: balloonPlayed,
       target: MELA_ZONES.BALLOON_STALL
-    },
-    {
-      id: 'fortune',
-      title: 'Spin Diwali Fortune Wheel (धन चक्र)',
-      done: wheelSpun,
-      target: MELA_ZONES.FORTUNE_WHEEL
     },
     {
       id: 'shop',

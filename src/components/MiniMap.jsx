@@ -47,7 +47,6 @@ export default function MiniMap({
     { key: 'CRACKER_SHOP', label: 'Patakha Shop', icon: '🧨', x: MELA_ZONES.CRACKER_SHOP.x, y: MELA_ZONES.CRACKER_SHOP.y },
     { key: 'DHAMAKA_GROUND', label: 'Dhamaka Ground', icon: '🎆', x: MELA_ZONES.DHAMAKA_GROUND.x, y: MELA_ZONES.DHAMAKA_GROUND.y },
     { key: 'CHAI_TAPRI', label: 'Chai Tapri', icon: '☕', x: MELA_ZONES.CHAI_TAPRI.x, y: MELA_ZONES.CHAI_TAPRI.y },
-    { key: 'FORTUNE_WHEEL', label: 'Fortune Spin', icon: '💰', x: MELA_ZONES.FORTUNE_WHEEL.x, y: MELA_ZONES.FORTUNE_WHEEL.y },
     { key: 'TEMPLE', label: 'Mandir', icon: '🔔', x: MELA_ZONES.TEMPLE.x, y: MELA_ZONES.TEMPLE.y },
     { key: 'RANGOLI_PAVILION', label: 'Rangoli', icon: '🌸', x: MELA_ZONES.RANGOLI_PAVILION.x, y: MELA_ZONES.RANGOLI_PAVILION.y },
   ];

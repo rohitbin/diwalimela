@@ -11,7 +11,6 @@ export default function InventoryHotbar({
   onOpenShop,
   onOpenTemple,
   onOpenBalloonGame,
-  onOpenFortuneWheel,
   onOpenChaiTapri,
   onTriggerDance,
   isDancing
@@ -32,67 +31,6 @@ export default function InventoryHotbar({
         pointerEvents: 'none'
       }}
     >
-      {/* 1. Floating Equipped Action Banner */}
-      {selectedCracker && (
-        <div
-          style={{
-            backgroundColor: 'rgba(23, 14, 38, 0.95)',
-            backdropFilter: 'blur(12px)',
-            border: '2px solid #f59e0b',
-            borderRadius: 24,
-            padding: '5px 14px',
-            color: '#fef08a',
-            fontSize: 'clamp(11px, 2.8vw, 12px)',
-            fontWeight: 700,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            boxShadow: '0 6px 20px rgba(0,0,0,0.6), 0 0 15px rgba(245, 158, 11, 0.4)',
-            pointerEvents: 'auto',
-            animation: 'pulse 1.8s infinite',
-            maxWidth: '100%',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis'
-          }}
-        >
-          <div
-            style={{
-              width: 22,
-              height: 22,
-              borderRadius: '50%',
-              backgroundColor: '#ea580c',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 12,
-              flexShrink: 0
-            }}
-          >
-            🔥
-          </div>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            Ready: <strong style={{ color: '#fbbf24' }}>{selectedCracker.name}</strong> • Tap to ignite!
-          </span>
-          <button
-            onClick={() => setSelectedCracker(null)}
-            style={{
-              backgroundColor: 'rgba(220, 38, 38, 0.25)',
-              border: '1px solid #ef4444',
-              borderRadius: 12,
-              color: '#fca5a5',
-              padding: '2px 8px',
-              cursor: 'pointer',
-              fontWeight: 700,
-              fontSize: 11,
-              flexShrink: 0,
-              touchAction: 'manipulation'
-            }}
-          >
-            ✕
-          </button>
-        </div>
-      )}
 
       {/* 2. Main RPG Hotbar Dock */}
       <div
@@ -167,30 +105,6 @@ export default function InventoryHotbar({
             <span style={{ marginTop: 2 }}>Shoot</span>
           </button>
 
-          {/* Fortune Spin */}
-          <button
-            onClick={onOpenFortuneWheel}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'rgba(16, 185, 129, 0.25)',
-              border: '1px solid #10b981',
-              borderRadius: 12,
-              padding: '4px 8px',
-              color: '#a7f3d0',
-              fontSize: 10,
-              fontWeight: 700,
-              cursor: 'pointer',
-              minWidth: 50,
-              height: 52
-            }}
-            title="Diwali Fortune Spin Wheel"
-          >
-            <span style={{ fontSize: 18 }}>🎡</span>
-            <span style={{ marginTop: 2 }}>Spin</span>
-          </button>
 
           {/* Chai Tapri */}
           <button

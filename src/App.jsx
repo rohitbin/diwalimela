@@ -7,7 +7,6 @@ import TempleModal from './components/TempleModal';
 import AvatarCustomizer from './components/AvatarCustomizer';
 import DiwaliGuideModal from './components/DiwaliGuideModal';
 import BalloonShootingModal from './components/BalloonShootingModal';
-import LuckyWheelModal from './components/LuckyWheelModal';
 import ChaiStallModal from './components/ChaiStallModal';
 import InventoryHotbar from './components/InventoryHotbar';
 import MultiplayerBar from './components/MultiplayerBar';
@@ -73,7 +72,6 @@ export default function App() {
   const [boughtCount, setBoughtCount] = useState(0);
   const [bellRung, setBellRung] = useState(false);
   const [balloonPlayed, setBalloonPlayed] = useState(false);
-  const [wheelSpun, setWheelSpun] = useState(false);
   const [chaiDrank, setChaiDrank] = useState(false);
   const [wheelRode, setWheelRode] = useState(false);
 
@@ -83,7 +81,6 @@ export default function App() {
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isBalloonGameOpen, setIsBalloonGameOpen] = useState(false);
-  const [isFortuneWheelOpen, setIsFortuneWheelOpen] = useState(false);
   const [isChaiTapriOpen, setIsChaiTapriOpen] = useState(false);
 
   // Dance emote state
@@ -289,7 +286,6 @@ export default function App() {
         setIsCustomizerOpen(false);
         setIsGuideOpen(false);
         setIsBalloonGameOpen(false);
-        setIsFortuneWheelOpen(false);
         setIsChaiTapriOpen(false);
         setActiveNpc(null);
         setSelectedCracker(null);
@@ -378,7 +374,6 @@ export default function App() {
         boughtCount={boughtCount}
         bellRung={bellRung}
         balloonPlayed={balloonPlayed}
-        wheelSpun={wheelSpun}
         chaiDrank={chaiDrank}
         wheelRode={wheelRode}
         onNavigateTo={handleNavigateTo}
@@ -399,10 +394,6 @@ export default function App() {
         onOpenBalloonGame={() => {
           setIsBalloonGameOpen(true);
           setBalloonPlayed(true);
-        }}
-        onOpenFortuneWheel={() => {
-          setIsFortuneWheelOpen(true);
-          setWheelSpun(true);
         }}
         onOpenChaiTapri={() => {
           setIsChaiTapriOpen(true);
@@ -430,10 +421,6 @@ export default function App() {
         onOpenBalloonGame={() => {
           setIsBalloonGameOpen(true);
           setBalloonPlayed(true);
-        }}
-        onOpenFortuneWheel={() => {
-          setIsFortuneWheelOpen(true);
-          setWheelSpun(true);
         }}
         onOpenChaiTapri={() => {
           setIsChaiTapriOpen(true);
@@ -482,13 +469,6 @@ export default function App() {
         setInventory={setInventory}
       />
 
-      <LuckyWheelModal
-        isOpen={isFortuneWheelOpen}
-        onClose={() => setIsFortuneWheelOpen(false)}
-        coins={coins}
-        setCoins={setCoins}
-        setInventory={setInventory}
-      />
 
       <ChaiStallModal
         isOpen={isChaiTapriOpen}

@@ -20,8 +20,7 @@ export const MELA_ZONES = {
   RANGOLI_PAVILION: { x: 1000, y: 1150, name: 'Rangoli Art Pavilion (रंगोली मंडप)' },
   FERRIS_WHEEL: { x: 1650, y: 220, name: 'Mela Giant Wheel (विशाल झूला)' },
   BALLOON_STALL: { x: 1320, y: 220, name: 'Balloon Shooting Stall (गुब्बारा निशानेबाजी)' },
-  CHAI_TAPRI: { x: 380, y: 420, name: 'Sharma Ji Chai Tapri (चाय टपरी)' },
-  FORTUNE_WHEEL: { x: 780, y: 650, name: 'Diwali Fortune Spin (धन चक्र)' }
+  CHAI_TAPRI: { x: 380, y: 420, name: 'Sharma Ji Chai Tapri (चाय टपरी)' }
 };
 
 export default function MelaCanvas({
@@ -36,7 +35,6 @@ export default function MelaCanvas({
   onOpenCrackerShop,
   onOpenTemple,
   onOpenBalloonGame,
-  onOpenFortuneWheel,
   onOpenChaiTapri,
   onTalkToNpc,
   remotePlayers,
@@ -308,11 +306,6 @@ export default function MelaCanvas({
       return true;
     }
 
-    // Fortune Spin Wheel
-    if (dist(p.x, p.y, MELA_ZONES.FORTUNE_WHEEL.x, MELA_ZONES.FORTUNE_WHEEL.y) < 120) {
-      onOpenFortuneWheel();
-      return true;
-    }
 
     // Chai Tapri
     if (dist(p.x, p.y, MELA_ZONES.CHAI_TAPRI.x, MELA_ZONES.CHAI_TAPRI.y) < 130) {
@@ -401,11 +394,6 @@ export default function MelaCanvas({
       return;
     }
 
-    // 4. Clicked Fortune Spin Wheel
-    if (dist(worldClickX, worldClickY, MELA_ZONES.FORTUNE_WHEEL.x, MELA_ZONES.FORTUNE_WHEEL.y) < 90) {
-      onOpenFortuneWheel();
-      return;
-    }
 
     // 5. Clicked Chai Tapri
     if (dist(worldClickX, worldClickY, MELA_ZONES.CHAI_TAPRI.x, MELA_ZONES.CHAI_TAPRI.y) < 100) {
@@ -808,7 +796,7 @@ export default function MelaCanvas({
       // C. Giant Ferris Wheel (विशाल झूला)
       renderGiantFerrisWheel(ctx, world.wheelAngle, isRidingWheel, p);
 
-      // D. Carnival Game Stalls: Balloon Shooting, Chai Tapri, Fortune Wheel
+      // D. Carnival Game Stalls: Balloon Shooting, Chai Tapri
       renderCarnivalAttractions(ctx, p);
 
       // E. Stalls: Cracker Shop, Temple
@@ -1274,38 +1262,6 @@ export default function MelaCanvas({
         </div>
       )}
 
-      {/* Mobile Interactive Hint Pill */}
-      <div
-        style={{
-          position: 'fixed',
-          bottom: 'max(130px, calc(env(safe-area-inset-bottom) + 120px))',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 42,
-          pointerEvents: 'none',
-          backgroundColor: selectedCracker ? 'rgba(234, 88, 12, 0.92)' : 'rgba(15, 10, 26, 0.82)',
-          backdropFilter: 'blur(8px)',
-          border: selectedCracker ? '1.5px solid #fbbf24' : '1px solid rgba(245, 158, 11, 0.4)',
-          borderRadius: 16,
-          padding: '4px 14px',
-          color: selectedCracker ? '#fff' : '#fef08a',
-          fontSize: 'clamp(10px, 2.5vw, 11px)',
-          fontWeight: 700,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          boxShadow: selectedCracker
-            ? '0 4px 16px rgba(234, 88, 12, 0.6), 0 0 10px #fbbf24'
-            : '0 4px 12px rgba(0,0,0,0.5)',
-          whiteSpace: 'nowrap'
-        }}
-      >
-        {selectedCracker ? (
-          <span>🎯 Tap anywhere on ground to place {selectedCracker.name}!</span>
-        ) : (
-          <span>🕹️ Drag anywhere to move • Tap to walk</span>
-        )}
-      </div>
     </div>
   );
 }
@@ -1545,7 +1501,7 @@ function renderGiantFerrisWheel(ctx, angle, isRiding, player) {
 }
 
 // -------------------------------------------------------------
-// CARNIVAL ATTRACTIONS: BALLOON SHOOTING, CHAI TAPRI, FORTUNE WHEEL
+// CARNIVAL ATTRACTIONS: BALLOON SHOOTING, CHAI TAPRI
 // -------------------------------------------------------------
 function renderCarnivalAttractions(ctx, player) {
   const dist = (x1, y1, x2, y2) => Math.hypot(x1 - x2, y1 - y2);
@@ -1629,41 +1585,6 @@ function renderCarnivalAttractions(ctx, player) {
   }
   ctx.restore();
 
-  // 3. Fortune Spin Wheel (🎡)
-  ctx.save();
-  const fx = MELA_ZONES.FORTUNE_WHEEL.x;
-  const fy = MELA_ZONES.FORTUNE_WHEEL.y;
-  const isNearFortune = dist(player.x, player.y, fx, fy) < 120;
-
-  ctx.shadowBlur = 18;
-  ctx.shadowColor = '#f59e0b';
-  ctx.fillStyle = '#ca8a04';
-  ctx.beginPath();
-  ctx.arc(fx, fy, 28, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Wheel spokes
-  ctx.strokeStyle = '#fef08a';
-  ctx.lineWidth = 2;
-  for (let i = 0; i < 6; i++) {
-    const th = (i * Math.PI) / 3;
-    ctx.beginPath();
-    ctx.moveTo(fx, fy);
-    ctx.lineTo(fx + Math.cos(th) * 28, fy + Math.sin(th) * 28);
-    ctx.stroke();
-  }
-
-  ctx.fillStyle = '#fef08a';
-  ctx.font = 'bold 12px "Cinzel", serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('🎡 लक्ष्मी धन चक्र', fx, fy + 45);
-
-  if (isNearFortune) {
-    ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 11px "Outfit", sans-serif';
-    ctx.fillText('✨ [ Click / Press E ] Spin Fortune Wheel', fx, fy + 60);
-  }
-  ctx.restore();
 }
 
 function renderEntranceArch(ctx) {

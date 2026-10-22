@@ -51,7 +51,6 @@ export default function MelaCanvas({
   const canvasRef = useRef(null);
   const wrapperRef = useRef(null);
   const [isRidingWheel, setIsRidingWheel] = useState(false);
-  const [isSprintActive, setIsSprintActive] = useState(false);
 
   // iPhone & Mobile Touch Drag Control Ref (Directly read in 60fps loop to avoid React closure lag)
   const touchControlRef = useRef({
@@ -556,18 +555,14 @@ export default function MelaCanvas({
       if (!isRidingWheel) {
         let moveX = 0;
         let moveY = 0;
-        let speed = Math.max(5.4, p.speed || 5.4);
+        // Smooth, balanced character speed (neither too fast nor too slow)
+        let speed = 4.2;
+        if (activeBuffs?.kulhad_chai) speed *= 1.15;
 
-        // Sprint boost: Shift key on keyboard or active speed buffs
-        const isSprinting = world.keys['shift'] || world.keys['shiftleft'] || world.keys['shiftright'];
-        if (isSprinting) speed *= 1.45;
-
-        if (activeBuffs?.kaju_katli) speed *= 1.35;
-        if (activeBuffs?.kulhad_chai) speed *= 1.25;
-
-        // Frame-rate independent delta time: keeps speed constant even during particle effects
+        // Frame-rate independent delta time: keeps speed constant and smooth
         const now = performance.now();
-        const dt = Math.min(2.5, Math.max(0.6, (now - (world.lastFrameTime || now)) / 16.667));
+        const rawDt = (now - (world.lastFrameTime || now)) / 16.667;
+        const dt = Math.min(1.35, Math.max(0.75, rawDt));
         world.lastFrameTime = now;
         const frameSpeed = speed * dt;
 
@@ -1220,39 +1215,24 @@ export default function MelaCanvas({
           ◀
         </button>
 
-        <button
-          type="button"
-          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); worldRef.current.keys['shift'] = true; setIsSprintActive(true); }}
-          onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); worldRef.current.keys['shift'] = false; setIsSprintActive(false); }}
-          onPointerLeave={() => { worldRef.current.keys['shift'] = false; setIsSprintActive(false); }}
-          onPointerCancel={() => { worldRef.current.keys['shift'] = false; setIsSprintActive(false); }}
-          onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); worldRef.current.keys['shift'] = true; setIsSprintActive(true); }}
-          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); worldRef.current.keys['shift'] = false; setIsSprintActive(false); }}
+        <div
           style={{
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            borderRadius: '50%',
-            background: isSprintActive
-              ? 'radial-gradient(circle, #fde047 0%, #ea580c 100%)'
-              : 'radial-gradient(circle, #ea580c 0%, #7c2d12 100%)',
-            boxShadow: isSprintActive
-              ? '0 0 16px #fde047, 0 0 8px #ea580c'
-              : '0 0 8px rgba(245, 158, 11, 0.4)',
-            border: isSprintActive ? '2px solid #fff' : '1px solid rgba(251, 191, 36, 0.6)',
-            cursor: 'pointer',
-            touchAction: 'none',
-            userSelect: 'none',
-            WebkitUserSelect: 'none',
-            padding: 0
+            pointerEvents: 'none'
           }}
-          title="Hold to Sprint / Run Fast (⚡)"
-          aria-label="Sprint Boost"
         >
-          <span style={{ fontSize: 13, lineHeight: 1 }}>⚡</span>
-          <span style={{ fontSize: 7, fontWeight: 900, color: '#fef08a', marginTop: 1 }}>RUN</span>
-        </button>
+          <div
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              backgroundColor: 'rgba(251, 191, 36, 0.35)',
+              boxShadow: '0 0 6px rgba(251, 191, 36, 0.4)'
+            }}
+          />
+        </div>
 
         <button
           type="button"

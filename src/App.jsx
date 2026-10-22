@@ -52,7 +52,7 @@ export default function App() {
     y: 280,
     color: '#ea580c',
     turbanColor: '#f59e0b',
-    speed: 5.4,
+    speed: 4.2,
     isMoving: false,
     walkFrame: 0,
     facing: 'right',

@@ -56,6 +56,16 @@ export default function MelaCanvas({
   const wrapperRef = useRef(null);
   const [isRidingWheel, setIsRidingWheel] = useState(false);
   const [placementPreview, setPlacementPreview] = useState(null);
+  const [clickSpeedMultiplier, setClickSpeedMultiplier] = useState(1.0);
+  const autoFireIntervalRef = useRef(null);
+  const speedResetTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (autoFireIntervalRef.current) clearInterval(autoFireIntervalRef.current);
+      if (speedResetTimeoutRef.current) clearTimeout(speedResetTimeoutRef.current);
+    };
+  }, []);
 
   // iPhone & Mobile Touch Drag Control Ref (Directly read in 60fps loop to avoid React closure lag)
   const touchControlRef = useRef({
@@ -306,26 +316,73 @@ export default function MelaCanvas({
   };
 
   // Fire Bow or Gun projectile at Ravan effigy
+  // Dynamically accelerates projectile throwing speed according to how fast the user clicks!
   const fireWeaponAtRavan = () => {
     soundEngine.init();
     const world = worldRef.current;
     const now = performance.now();
-    if (now - (world.lastShotTime || 0) < 220) return; // Smooth firing cooldown
+
+    // Guard (35ms) to prevent accidental duplicate synthetic touch+mouse event on exact same frame
+    if (now - (world.lastShotTime || 0) < 35) return;
+
+    const timeSinceLastClick = now - (world.lastShotTime || (now - 500));
     world.lastShotTime = now;
+
+    // Track rolling click window (last 1400ms) to compute clicking cadence
+    if (!world.recentClicks) world.recentClicks = [];
+    world.recentClicks.push(now);
+    world.recentClicks = world.recentClicks.filter((t) => now - t <= 1400);
+
+    // Calculate dynamic click speed boost
+    // The faster the user clicks, the higher the projectile speed!
+    let speedBoost = 1.0;
+    if (timeSinceLastClick < 140) {
+      // Ultra rapid clicking (7+ clicks/second or held auto-fire)
+      speedBoost = 2.75;
+    } else if (timeSinceLastClick < 220) {
+      // Very fast rapid clicking (4.5 to 7 clicks/second)
+      speedBoost = 2.25;
+    } else if (timeSinceLastClick < 340) {
+      // Fast clicking (3 to 4.5 clicks/second)
+      speedBoost = 1.75;
+    } else if (timeSinceLastClick < 480) {
+      // Medium clicking (~2 clicks/second)
+      speedBoost = 1.35;
+    } else {
+      // Normal single click pace
+      speedBoost = 1.0;
+    }
+
+    // Additional combo boost based on consecutive rapid clicks in the rolling window
+    const comboBoost = Math.min(0.65, (world.recentClicks.length - 1) * 0.1);
+    const finalMultiplier = Math.min(3.2, speedBoost + comboBoost);
+
+    setClickSpeedMultiplier(finalMultiplier);
+    if (speedResetTimeoutRef.current) clearTimeout(speedResetTimeoutRef.current);
+    speedResetTimeoutRef.current = setTimeout(() => {
+      setClickSpeedMultiplier(1.0);
+    }, 750);
 
     const p = playerRef.current;
     const hasWeapon = selectedCracker?.isWeapon || selectedCracker?.id === 'bow' || selectedCracker?.id === 'gun';
     const weapon = hasWeapon ? selectedCracker : { id: 'bow', name: 'Ram Dhanush', isWeapon: true };
 
+    // Play shot audio with dynamic pitch scaling according to clicking speed
     if (weapon.id === 'gun') {
-      soundEngine.playGunShot();
+      soundEngine.playGunShot(finalMultiplier);
     } else {
-      soundEngine.playBowShot();
+      soundEngine.playBowShot(finalMultiplier);
     }
 
     // Aim at Ravan effigy torso/heads
-    const targetX = MELA_ZONES.RAVAN.x + (Math.random() - 0.5) * 50;
-    const targetY = MELA_ZONES.RAVAN.y - 120 + (Math.random() - 0.5) * 60;
+    const targetX = MELA_ZONES.RAVAN.x + (Math.random() - 0.5) * 55;
+    const targetY = MELA_ZONES.RAVAN.y - 120 + (Math.random() - 0.5) * 65;
+
+    // Base projectile speed:
+    // Gun base 32 -> up to 85 px/frame!
+    // Bow base 25 -> up to 70 px/frame!
+    const baseSpeed = weapon.id === 'gun' ? 32 : 25;
+    const computedSpeed = Math.round(baseSpeed * finalMultiplier);
 
     world.projectiles.push({
       id: `proj_${Date.now()}_${Math.random()}`,
@@ -335,7 +392,8 @@ export default function MelaCanvas({
       startY: p.y - 14,
       targetX,
       targetY,
-      speed: weapon.id === 'gun' ? 24 : 17,
+      speed: computedSpeed,
+      speedMultiplier: finalMultiplier,
       type: weapon.id,
       shooterName: p.name || 'Hero',
       color: weapon.id === 'gun' ? '#38bdf8' : '#fbbf24',
@@ -343,6 +401,26 @@ export default function MelaCanvas({
     });
 
     if (onRavanShot) onRavanShot(weapon.id);
+  };
+
+  // Continuous rapid auto-fire when holding down
+  const startAutoFire = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    fireWeaponAtRavan();
+    if (autoFireIntervalRef.current) clearInterval(autoFireIntervalRef.current);
+    const isGun = selectedCracker?.id === 'gun';
+    const repeatRate = isGun ? 85 : 120;
+    autoFireIntervalRef.current = setInterval(() => {
+      fireWeaponAtRavan();
+    }, repeatRate);
+  };
+
+  const stopAutoFire = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    if (autoFireIntervalRef.current) {
+      clearInterval(autoFireIntervalRef.current);
+      autoFireIntervalRef.current = null;
+    }
   };
 
   // Check proximity to shops / stalls / games
@@ -1392,29 +1470,57 @@ export default function MelaCanvas({
           {selectedCracker?.isWeapon ? (
             <button
               id="shoot-ravan-btn"
+              onPointerDown={startAutoFire}
+              onPointerUp={stopAutoFire}
+              onPointerLeave={stopAutoFire}
               onClick={(e) => {
                 e.stopPropagation();
                 fireWeaponAtRavan();
               }}
               style={{
-                background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #7c2d12 100%)',
-                border: '2.5px solid #fbbf24',
+                background: clickSpeedMultiplier > 1.3
+                  ? 'linear-gradient(135deg, #ef4444 0%, #f97316 50%, #eab308 100%)'
+                  : 'linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #7c2d12 100%)',
+                border: clickSpeedMultiplier > 1.3 ? '2.5px solid #ffffff' : '2.5px solid #fbbf24',
                 borderRadius: 28,
                 padding: '12px 28px',
                 color: '#ffffff',
                 fontSize: 15,
                 fontWeight: 900,
                 cursor: 'pointer',
-                boxShadow: '0 0 25px rgba(220, 38, 38, 0.75), 0 8px 25px rgba(0,0,0,0.7)',
+                boxShadow: clickSpeedMultiplier > 1.3
+                  ? '0 0 35px rgba(249, 115, 22, 0.9), 0 8px 25px rgba(0,0,0,0.7)'
+                  : '0 0 25px rgba(220, 38, 38, 0.75), 0 8px 25px rgba(0,0,0,0.7)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 10,
                 letterSpacing: 0.5,
-                animation: 'pulse 1.4s infinite'
+                transform: clickSpeedMultiplier > 1.3 ? 'scale(1.04)' : 'scale(1.0)',
+                transition: 'transform 0.1s ease, box-shadow 0.1s ease',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                touchAction: 'manipulation'
               }}
             >
               <span style={{ fontSize: 22 }}>{selectedCracker.id === 'gun' ? '🔫' : '🏹'}</span>
               <span>SHOOT RAVAN (-1 HP)</span>
+              {clickSpeedMultiplier > 1.15 && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    background: '#7c2d12',
+                    color: '#fef08a',
+                    padding: '3px 8px',
+                    borderRadius: 12,
+                    border: '1.5px solid #fde047',
+                    fontWeight: 900,
+                    letterSpacing: 0.5,
+                    boxShadow: '0 0 10px #f59e0b'
+                  }}
+                >
+                  ⚡ SPEED x{clickSpeedMultiplier.toFixed(1)}
+                </span>
+              )}
             </button>
           ) : (
             <button
@@ -1459,6 +1565,9 @@ export default function MelaCanvas({
         }}
       >
         <button
+          onPointerDown={selectedCracker?.isWeapon ? startAutoFire : undefined}
+          onPointerUp={selectedCracker?.isWeapon ? stopAutoFire : undefined}
+          onPointerLeave={selectedCracker?.isWeapon ? stopAutoFire : undefined}
           onClick={(e) => {
             e.stopPropagation();
             if (selectedCracker?.isWeapon) {
@@ -1480,7 +1589,9 @@ export default function MelaCanvas({
             backgroundColor: selectedCracker?.isWeapon ? '#dc2626' : selectedCracker ? '#ea580c' : 'rgba(23, 14, 38, 0.94)',
             border: selectedCracker?.isWeapon ? '2.5px solid #fef08a' : selectedCracker ? '2.5px solid #fbbf24' : '2px solid rgba(245, 158, 11, 0.5)',
             boxShadow: selectedCracker?.isWeapon
-              ? '0 6px 20px rgba(220, 38, 38, 0.7), 0 0 15px #f59e0b'
+              ? clickSpeedMultiplier > 1.3
+                ? '0 6px 25px rgba(249, 115, 22, 0.9), 0 0 20px #fde047'
+                : '0 6px 20px rgba(220, 38, 38, 0.7), 0 0 15px #f59e0b'
               : selectedCracker
               ? '0 6px 20px rgba(234, 88, 12, 0.6), 0 0 15px #f59e0b'
               : '0 4px 14px rgba(0,0,0,0.6)',
@@ -1499,7 +1610,7 @@ export default function MelaCanvas({
         >
           <span style={{ fontSize: 24, lineHeight: 1 }}>{selectedCracker?.isWeapon ? (selectedCracker.icon || '🏹') : selectedCracker ? '🔥' : '🪔'}</span>
           <span style={{ fontSize: 8, fontWeight: 800, color: '#fef08a', marginTop: 2 }}>
-            {selectedCracker?.isWeapon ? 'SHOOT' : selectedCracker ? 'BURST' : 'ACTION'}
+            {selectedCracker?.isWeapon ? (clickSpeedMultiplier > 1.3 ? '⚡ RAPID' : 'SHOOT') : selectedCracker ? 'BURST' : 'ACTION'}
           </span>
         </button>
       </div>
@@ -2766,57 +2877,71 @@ function renderProjectiles(ctx, projectiles) {
     ctx.translate(proj.x, proj.y);
     ctx.rotate(angle);
 
+    const mult = proj.speedMultiplier || 1.0;
+
     if (proj.type === 'gun') {
       // High-velocity Festive Spark Bullet
-      ctx.shadowBlur = 18;
-      ctx.shadowColor = '#38bdf8';
+      const trailLength = 16 * Math.min(2.5, mult);
+      ctx.shadowBlur = Math.round(18 * Math.min(2.0, mult));
+      ctx.shadowColor = mult > 1.3 ? '#f97316' : '#38bdf8';
 
-      // Outer energy trail
-      ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
+      // Outer supersonic energy trail
+      ctx.fillStyle = mult > 1.3 ? 'rgba(249, 115, 22, 0.55)' : 'rgba(56, 189, 248, 0.45)';
       ctx.beginPath();
-      ctx.ellipse(-10, 0, 16, 5, 0, 0, Math.PI * 2);
+      ctx.ellipse(-trailLength / 2, 0, trailLength, 5 * Math.min(1.4, mult), 0, 0, Math.PI * 2);
       ctx.fill();
 
       // Glowing Core
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+      ctx.arc(0, 0, 4.5 * Math.min(1.4, mult), 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = '#38bdf8';
+      ctx.fillStyle = mult > 1.3 ? '#fbbf24' : '#38bdf8';
       ctx.beginPath();
       ctx.arc(2, 0, 2.5, 0, Math.PI * 2);
       ctx.fill();
     } else {
       // Golden Divine Arrow (Ram Dhanush)
-      ctx.shadowBlur = 14;
-      ctx.shadowColor = '#f59e0b';
+      const shaftLen = 22 * Math.min(1.8, mult);
+      ctx.shadowBlur = Math.round(14 * Math.min(2.0, mult));
+      ctx.shadowColor = mult > 1.3 ? '#ef4444' : '#f59e0b';
+
+      // Supersonic arrow streak when fast
+      if (mult > 1.2) {
+        ctx.strokeStyle = 'rgba(254, 240, 138, 0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-shaftLen * 1.5, 0);
+        ctx.lineTo(-shaftLen, 0);
+        ctx.stroke();
+      }
 
       // Arrow Shaft (Golden line)
-      ctx.strokeStyle = '#fde047';
-      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = mult > 1.3 ? '#ffffff' : '#fde047';
+      ctx.lineWidth = 2.5 * Math.min(1.4, mult);
       ctx.beginPath();
-      ctx.moveTo(-22, 0);
+      ctx.moveTo(-shaftLen, 0);
       ctx.lineTo(8, 0);
       ctx.stroke();
 
       // Arrowhead (Fiery gold triangle)
-      ctx.fillStyle = '#ef4444';
+      ctx.fillStyle = mult > 1.3 ? '#f97316' : '#ef4444';
       ctx.beginPath();
-      ctx.moveTo(14, 0);
-      ctx.lineTo(6, -5);
+      ctx.moveTo(14 * Math.min(1.3, mult), 0);
+      ctx.lineTo(6, -5 * Math.min(1.3, mult));
       ctx.lineTo(8, 0);
-      ctx.lineTo(6, 5);
+      ctx.lineTo(6, 5 * Math.min(1.3, mult));
       ctx.closePath();
       ctx.fill();
 
       // Feathers at nock
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.moveTo(-22, 0);
-      ctx.lineTo(-26, -4);
-      ctx.lineTo(-18, 0);
-      ctx.lineTo(-26, 4);
+      ctx.moveTo(-shaftLen, 0);
+      ctx.lineTo(-shaftLen - 4, -4);
+      ctx.lineTo(-shaftLen + 4, 0);
+      ctx.lineTo(-shaftLen - 4, 4);
       ctx.closePath();
       ctx.fill();
     }

@@ -562,48 +562,50 @@ class SoundEngine {
   }
 
   // 17. Divine Bow String Release (Twang & Arrow Flight)
-  playBowShot() {
+  playBowShot(pitchMultiplier = 1.0) {
     if (this.isMuted || !this.ctx) return;
     try {
       const t = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
+      const pitch = Math.min(1.8, Math.max(0.85, pitchMultiplier));
 
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(480, t);
-      osc.frequency.exponentialRampToValueAtTime(140, t + 0.14);
+      osc.frequency.setValueAtTime(480 * pitch, t);
+      osc.frequency.exponentialRampToValueAtTime(140 * pitch, t + 0.12 / pitch);
 
       gain.gain.setValueAtTime(0.24, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14 / pitch);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
       osc.start(t);
-      osc.stop(t + 0.18);
+      osc.stop(t + 0.15 / pitch);
     } catch {}
   }
 
   // 18. Sparkler Blaster Gun Shot (Pistol/Laser blast)
-  playGunShot() {
+  playGunShot(pitchMultiplier = 1.0) {
     if (this.isMuted || !this.ctx) return;
     try {
       const t = this.ctx.currentTime;
+      const pitch = Math.min(1.8, Math.max(0.85, pitchMultiplier));
       // Laser / blaster tone
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(880, t);
-      osc.frequency.exponentialRampToValueAtTime(120, t + 0.08);
+      osc.frequency.setValueAtTime(880 * pitch, t);
+      osc.frequency.exponentialRampToValueAtTime(120 * pitch, t + 0.07 / pitch);
 
       gain.gain.setValueAtTime(0.2, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08 / pitch);
 
       // Noise pop
       const noise = this.ctx.createBufferSource();
-      noise.buffer = this.createNoiseBuffer(0.06);
+      noise.buffer = this.createNoiseBuffer(0.05);
       const nGain = this.ctx.createGain();
       nGain.gain.setValueAtTime(0.25, t);
-      nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+      nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.05 / pitch);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
@@ -612,8 +614,8 @@ class SoundEngine {
 
       osc.start(t);
       noise.start(t);
-      osc.stop(t + 0.1);
-      noise.stop(t + 0.08);
+      osc.stop(t + 0.09 / pitch);
+      noise.stop(t + 0.07 / pitch);
     } catch {}
   }
 

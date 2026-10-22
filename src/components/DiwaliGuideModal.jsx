@@ -114,7 +114,7 @@ export default function DiwaliGuideModal({ isOpen, onClose }) {
             <div style={{ backgroundColor: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 10 }}>
               <strong style={{ color: '#fbbf24' }}>🎆 Bursting Fireworks:</strong>
               <div>• Select cracker from bottom hotbar (Keys 1-8)</div>
-              <div>• Click on the <strong>Dhamaka Ground</strong> to place it</div>
+              <div>• Tap or click anywhere on the ground to place it</div>
               <div>• Watch the fuse sizzle, run back, and enjoy the realistic blast!</div>
             </div>
 

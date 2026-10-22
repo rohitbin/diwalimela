@@ -29,7 +29,7 @@ function getCurrentZoneName(x, y) {
   if (x > 1500 && y < 350) return '🎡 Mela Giant Wheel (झूला)';
   if (x > 1200 && y < 350) return '🎯 Balloon Shooting Stall';
   if (x > 1250 && y < 650) return 'Patakha Shop Courtyard';
-  if (x > 1250 && y >= 650) return '🎆 Dhamaka Celebration Ground';
+  if (x > 1250 && y >= 650) return 'Deepotsav East Courtyard';
   if (x < 750 && y < 650) return '☕ Sharma Ji Chai Tapri';
   if (x < 750 && y >= 650) return 'Lakshmi-Ganesh Mandir';
   if (y > 1050) return 'Rangoli Utsav Pavilion';
@@ -448,7 +448,6 @@ export default function App() {
           setInventory(inv);
           setBoughtCount((c) => c + 1);
         }}
-        onGoToDhamakaGround={() => handleNavigateTo(MELA_ZONES.DHAMAKA_GROUND.x, MELA_ZONES.DHAMAKA_GROUND.y)}
       />
 
 

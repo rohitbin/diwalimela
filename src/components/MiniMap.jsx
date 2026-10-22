@@ -45,7 +45,6 @@ export default function MiniMap({
     { key: 'FERRIS_WHEEL', label: 'Giant Wheel', icon: '🎡', x: MELA_ZONES.FERRIS_WHEEL.x, y: MELA_ZONES.FERRIS_WHEEL.y },
     { key: 'BALLOON_STALL', label: 'Balloons', icon: '🎯', x: MELA_ZONES.BALLOON_STALL.x, y: MELA_ZONES.BALLOON_STALL.y },
     { key: 'CRACKER_SHOP', label: 'Patakha Shop', icon: '🧨', x: MELA_ZONES.CRACKER_SHOP.x, y: MELA_ZONES.CRACKER_SHOP.y },
-    { key: 'DHAMAKA_GROUND', label: 'Dhamaka Ground', icon: '🎆', x: MELA_ZONES.DHAMAKA_GROUND.x, y: MELA_ZONES.DHAMAKA_GROUND.y },
     { key: 'CHAI_TAPRI', label: 'Chai Tapri', icon: '☕', x: MELA_ZONES.CHAI_TAPRI.x, y: MELA_ZONES.CHAI_TAPRI.y },
     { key: 'TEMPLE', label: 'Mandir', icon: '🔔', x: MELA_ZONES.TEMPLE.x, y: MELA_ZONES.TEMPLE.y },
     { key: 'RANGOLI_PAVILION', label: 'Rangoli', icon: '🌸', x: MELA_ZONES.RANGOLI_PAVILION.x, y: MELA_ZONES.RANGOLI_PAVILION.y },
@@ -139,19 +138,6 @@ export default function MiniMap({
             }}
           />
 
-          {/* Dhamaka Ground outline */}
-          <div
-            style={{
-              position: 'absolute',
-              left: toMapX(1250),
-              top: toMapY(740),
-              width: 480 * scaleX,
-              height: 500 * scaleY,
-              border: '1px dashed #eab308',
-              backgroundColor: 'rgba(234, 179, 8, 0.12)',
-              borderRadius: 4
-            }}
-          />
 
           {/* POI Markers */}
           {poiList.map((poi) => (

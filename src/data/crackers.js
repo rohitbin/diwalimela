@@ -41,7 +41,7 @@ export const CRACKERS = [
     isHandheld: false,
     safetyRating: 'Safe Ground Firework',
     description: 'Whirling circular ground spinner that sprays high-speed emerald and fiery gold sparks with an authentic whistling thrill.',
-    instructions: 'Place flat on the Dhamaka ground, light fuse, and step back 3 steps.',
+    instructions: 'Place flat on the ground, light fuse, and step back 3 steps.',
     burstPower: 2,
     tag: 'Classic'
   },
@@ -77,7 +77,7 @@ export const CRACKERS = [
     isHandheld: false,
     safetyRating: 'Open Sky Only',
     description: 'High-altitude rocket in a launch bottle. Shoots into the night sky with a roaring whoosh and bursts into a massive colorful peony bloom.',
-    instructions: 'Always launch in designated Dhamaka Ground facing open sky.',
+    instructions: 'Always launch in open area facing the starry night sky.',
     burstPower: 4,
     tag: 'Dhamaka'
   },

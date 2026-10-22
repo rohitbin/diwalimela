@@ -36,10 +36,10 @@ export default function FestiveChecklist({
       target: MELA_ZONES.CRACKER_SHOP
     },
     {
-      id: 'dhamaka',
-      title: 'Ignite Cracker on Dhamaka Ground',
+      id: 'crackers',
+      title: 'Ignite & Burst Diwali Fireworks (पटाखे)',
       done: burstCount > 0,
-      target: MELA_ZONES.DHAMAKA_GROUND
+      target: MELA_ZONES.CRACKER_SHOP
     },
     {
       id: 'mandir',

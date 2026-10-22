@@ -105,7 +105,7 @@ export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
             maxWidth: 440
           }}
         >
-          Step into India's grandest festival fair! Visit the <strong>Cracker Shop</strong>, buy traditional fireworks, walk to the <strong>Dhamaka Ground</strong> to burst them, and celebrate live with <strong>real people</strong>!
+          Step into India's grandest festival fair! Visit the <strong>Cracker Shop</strong>, buy traditional fireworks, place and ignite them anywhere on the fairground, and celebrate live with <strong>real people</strong>!
         </p>
 
         {/* Feature Highlights Chips */}

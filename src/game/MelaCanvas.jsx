@@ -15,7 +15,6 @@ export const MELA_ZONES = {
   ENTRANCE: { x: 1000, y: 150, name: 'Grand Entrance Gate (प्रवेश द्वार)' },
   CENTRAL_CHAWK: { x: 1000, y: 650, name: 'Deepotsav Plaza (महा दीया चौक)' },
   CRACKER_SHOP: { x: 1450, y: 450, name: 'Shri Ganesh Patakha Bhandar (पटाखा दुकान)' },
-  DHAMAKA_GROUND: { x: 1450, y: 980, name: 'Dhamaka Ground (पटाखा उत्सव मैदान)' },
   TEMPLE: { x: 550, y: 950, name: 'Lakshmi-Ganesh Mandir (शुभ मंदिर)' },
   RANGOLI_PAVILION: { x: 1000, y: 1150, name: 'Rangoli Art Pavilion (रंगोली मंडप)' },
   FERRIS_WHEEL: { x: 1650, y: 220, name: 'Mela Giant Wheel (विशाल झूला)' },
@@ -1337,52 +1336,6 @@ function renderGroundAndCourtyards(ctx, world) {
     ctx.shadowBlur = 0;
   });
 
-  // Dhamaka Ground
-  ctx.save();
-  ctx.fillStyle = '#17141f';
-  ctx.strokeStyle = '#f59e0b';
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.roundRect(1250, 740, 480, 500, 28);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.setLineDash([14, 8]);
-  ctx.strokeStyle = '#ea580c';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(1270, 760, 440, 460);
-  ctx.setLineDash([]);
-
-  ctx.fillStyle = '#fde047';
-  ctx.font = 'bold 20px "Cinzel", serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('🎆 DHAMAKA CELEBRATION GROUND 🎆', 1490, 796);
-  ctx.font = '12px "Outfit", sans-serif';
-  ctx.fillStyle = '#fed7aa';
-  ctx.fillText('Designated Safe Fireworks Ground • Click to place & burst', 1490, 818);
-
-  // Circular Launch Pads
-  const pads = [
-    { x: 1370, y: 890, label: 'PAD 1' },
-    { x: 1610, y: 890, label: 'PAD 2' },
-    { x: 1490, y: 1040, label: 'PAD 3' }
-  ];
-
-  pads.forEach((pad) => {
-    ctx.fillStyle = 'rgba(234, 88, 12, 0.2)';
-    ctx.strokeStyle = '#ea580c';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(pad.x, pad.y, 44, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#fef08a';
-    ctx.font = 'bold 11px "Outfit", sans-serif';
-    ctx.fillText(pad.label, pad.x, pad.y + 4);
-  });
-
-  ctx.restore();
 }
 
 // -------------------------------------------------------------
@@ -2037,10 +1990,6 @@ function renderDirectionGuides(ctx, player) {
     drawCompassArrow(ctx, player.x, player.y, MELA_ZONES.CRACKER_SHOP.x, MELA_ZONES.CRACKER_SHOP.y, '🧨 Shop', '#ef4444');
   }
 
-  const dGround = dist(player.x, player.y, MELA_ZONES.DHAMAKA_GROUND.x, MELA_ZONES.DHAMAKA_GROUND.y);
-  if (dGround > 560) {
-    drawCompassArrow(ctx, player.x, player.y, MELA_ZONES.DHAMAKA_GROUND.x, MELA_ZONES.DHAMAKA_GROUND.y, '🎆 Dhamaka Ground', '#f59e0b');
-  }
 }
 
 function drawCompassArrow(ctx, px, py, tx, ty, label, color) {

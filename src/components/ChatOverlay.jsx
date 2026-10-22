@@ -6,7 +6,7 @@ import { soundEngine } from '../audio/soundEngine';
 const QUICK_GREETINGS = [
   'Shubh Deepawali! 🪔',
   'Happy Diwali! ✨',
-  'Come to Dhamaka Ground! 🎆',
+  'Let us burst fireworks together! 🎆',
   'Look at my rocket! 🚀',
   'Enjoying delicious sweets! 🥨',
   'Lakshmi Mata ki Jai! 🙏'

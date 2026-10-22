@@ -21,7 +21,7 @@ export default function NpcDialogueModal({
       setCoins((c) => c + gift);
       alert(`${npc.name}: "Jeete raho! Here is ₹${gift} Shagun Coins for your Diwali fireworks and sweets!"`);
     } else {
-      alert(`${npc.name}: "Shubh Deepawali to you and your entire family! Enjoy the Dhamaka ground!"`);
+      alert(`${npc.name}: "Shubh Deepawali to you and your entire family! Enjoy the festive mela!"`);
     }
   };
 
@@ -117,7 +117,7 @@ export default function NpcDialogueModal({
           }}
         >
           <p style={{ margin: 0 }}>
-            "{npc.bubble || 'Shubh Deepawali! The mela is so lively today. Don’t miss the fireworks on the Dhamaka ground!'}"
+            "{npc.bubble || 'Shubh Deepawali! The mela is so lively today. Don’t miss the fireworks in the night sky!'}"
           </p>
         </div>
 

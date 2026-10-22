@@ -10,8 +10,7 @@ export default function CrackerShopModal({
   coins,
   setCoins,
   inventory,
-  setInventory,
-  onGoToDhamakaGround
+  setInventory
 }) {
   const [selectedCat, setSelectedCat] = useState(CRACKER_CATEGORIES.ALL);
   const [justPurchased, setJustPurchased] = useState(null);
@@ -203,7 +202,7 @@ export default function CrackerShopModal({
               </span>
             </div>
             <p style={{ margin: '4px 0 0 0', color: '#fed7aa', fontSize: 13 }}>
-              "Aao beta aao! Top quality certified Diwali firecrackers. Burst responsibly at Dhamaka ground!"
+              "Aao beta aao! Top quality certified Diwali firecrackers. Burst responsibly!"
             </p>
           </div>
         </div>
@@ -455,7 +454,7 @@ export default function CrackerShopModal({
           })}
         </div>
 
-        {/* Footer with shortcut to Dhamaka Ground */}
+        {/* Footer info banner */}
         <div
           style={{
             padding: '14px 24px',
@@ -469,14 +468,11 @@ export default function CrackerShopModal({
           }}
         >
           <div style={{ fontSize: 13, color: '#cbd5e1' }}>
-            🎆 <strong>Celebration Area:</strong> Head to the <strong>Dhamaka Ground</strong> (South-East) to place and burst your crackers!
+            🎆 <strong>Celebration:</strong> Select any cracker from your hotbar and tap anywhere on the ground to ignite!
           </div>
 
           <button
-            onClick={() => {
-              onClose();
-              if (onGoToDhamakaGround) onGoToDhamakaGround();
-            }}
+            onClick={onClose}
             style={{
               backgroundColor: '#ea580c',
               border: 'none',
@@ -491,7 +487,7 @@ export default function CrackerShopModal({
               cursor: 'pointer'
             }}
           >
-            <span>Go to Dhamaka Ground</span> 🚀
+            <span>Ready to Celebrate</span> ✨
           </button>
         </div>
       </div>

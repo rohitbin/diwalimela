@@ -13,7 +13,7 @@ export const NPCS = [
     targetY: 620,
     dialogues: [
       'Namaste beta! Shubh Deepawali! Remember to keep safe distance while lighting the Sutli bomb!',
-      'In our days, we used to burst 5000-wali ladi right on the street! Here on Dhamaka ground it is much safer.',
+      'In our days, we used to burst 5000-wali ladi right on the street! Celebrate safely and enjoy the lights!',
       'Have you visited the Lakshmi temple yet? Ringing the bell brings good fortune!'
     ],
     cheers: [

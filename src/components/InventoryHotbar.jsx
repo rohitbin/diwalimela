@@ -9,7 +9,6 @@ export default function InventoryHotbar({
   setSelectedCracker,
   coins,
   onOpenShop,
-  onOpenSweets,
   onOpenTemple,
   onOpenBalloonGame,
   onOpenFortuneWheel,
@@ -21,7 +20,7 @@ export default function InventoryHotbar({
     <div
       style={{
         position: 'fixed',
-        bottom: 12,
+        bottom: 'max(8px, env(safe-area-inset-bottom))',
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 50,
@@ -29,7 +28,7 @@ export default function InventoryHotbar({
         flexDirection: 'column',
         alignItems: 'center',
         gap: 6,
-        maxWidth: '96vw',
+        maxWidth: 'calc(100vw - 16px)',
         pointerEvents: 'none'
       }}
     >
@@ -41,34 +40,39 @@ export default function InventoryHotbar({
             backdropFilter: 'blur(12px)',
             border: '2px solid #f59e0b',
             borderRadius: 24,
-            padding: '6px 18px',
+            padding: '5px 14px',
             color: '#fef08a',
-            fontSize: 12,
+            fontSize: 'clamp(11px, 2.8vw, 12px)',
             fontWeight: 700,
             display: 'flex',
             alignItems: 'center',
-            gap: 10,
+            gap: 8,
             boxShadow: '0 6px 20px rgba(0,0,0,0.6), 0 0 15px rgba(245, 158, 11, 0.4)',
             pointerEvents: 'auto',
-            animation: 'pulse 1.8s infinite'
+            animation: 'pulse 1.8s infinite',
+            maxWidth: '100%',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
           }}
         >
           <div
             style={{
-              width: 24,
-              height: 24,
+              width: 22,
+              height: 22,
               borderRadius: '50%',
               backgroundColor: '#ea580c',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 14
+              fontSize: 12,
+              flexShrink: 0
             }}
           >
             🔥
           </div>
-          <span>
-            Ready to Burst: <strong style={{ color: '#fbbf24' }}>{selectedCracker.name}</strong> • Click ground to place & ignite!
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            Ready: <strong style={{ color: '#fbbf24' }}>{selectedCracker.name}</strong> • Tap to ignite!
           </span>
           <button
             onClick={() => setSelectedCracker(null)}
@@ -80,29 +84,34 @@ export default function InventoryHotbar({
               padding: '2px 8px',
               cursor: 'pointer',
               fontWeight: 700,
-              fontSize: 11
+              fontSize: 11,
+              flexShrink: 0,
+              touchAction: 'manipulation'
             }}
           >
-            ✕ Cancel
+            ✕
           </button>
         </div>
       )}
 
       {/* 2. Main RPG Hotbar Dock */}
       <div
+        className="horizontal-touch-scroll"
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 6,
+          gap: 5,
           backgroundColor: 'rgba(15, 10, 26, 0.94)',
           backdropFilter: 'blur(16px)',
           border: '2px solid rgba(245, 158, 11, 0.45)',
-          borderRadius: 22,
-          padding: '8px 12px',
+          borderRadius: 20,
+          padding: '6px 10px',
           boxShadow: '0 12px 36px rgba(0, 0, 0, 0.8), 0 0 25px rgba(245, 158, 11, 0.25)',
           overflowX: 'auto',
           maxWidth: '100%',
-          pointerEvents: 'auto'
+          pointerEvents: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-x'
         }}
       >
         {/* Quick Stalls & Games Group */}
@@ -233,30 +242,6 @@ export default function InventoryHotbar({
             <span style={{ marginTop: 2 }}>Shop</span>
           </button>
 
-          {/* Sweets */}
-          <button
-            onClick={onOpenSweets}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'rgba(249, 115, 22, 0.25)',
-              border: '1px solid #f97316',
-              borderRadius: 12,
-              padding: '4px 8px',
-              color: '#fed7aa',
-              fontSize: 10,
-              fontWeight: 700,
-              cursor: 'pointer',
-              minWidth: 50,
-              height: 52
-            }}
-            title="Open Radhey Sweets Stall"
-          >
-            <span style={{ fontSize: 18 }}>🥨</span>
-            <span style={{ marginTop: 2 }}>Mithai</span>
-          </button>
 
           {/* Mandir */}
           <button

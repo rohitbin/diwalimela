@@ -40,19 +40,22 @@ export default function TempleModal({ isOpen, onClose, setCoins }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 16
+        padding: 'max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left))'
       }}
       onClick={onClose}
     >
       <div
+        className="modal-scrollable"
         style={{
           width: '100%',
           maxWidth: 580,
+          maxHeight: 'min(94vh, 680px)',
+          overflowY: 'auto',
           backgroundColor: '#1f1322',
           border: '2px solid #f59e0b',
           borderRadius: 24,
           boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 35px rgba(245, 158, 11, 0.35)',
-          padding: 28,
+          padding: 'clamp(16px, 4vw, 28px)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -65,8 +68,8 @@ export default function TempleModal({ isOpen, onClose, setCoins }) {
           onClick={onClose}
           style={{
             position: 'absolute',
-            top: 16,
-            right: 16,
+            top: 14,
+            right: 14,
             background: 'rgba(255, 255, 255, 0.1)',
             border: 'none',
             borderRadius: '50%',
@@ -76,17 +79,18 @@ export default function TempleModal({ isOpen, onClose, setCoins }) {
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            touchAction: 'manipulation'
           }}
         >
-          <X size={20} />
+          <X size={18} />
         </button>
 
-        <span style={{ fontSize: 44, marginBottom: 8 }}>🪔</span>
+        <span style={{ fontSize: 36, marginBottom: 4 }}>🪔</span>
         <h2
           style={{
-            margin: '0 0 8px 0',
-            fontSize: 26,
+            margin: '0 0 6px 0',
+            fontSize: 'clamp(18px, 4.8vw, 26px)',
             color: '#fef08a',
             fontFamily: "'Rozha One', 'Cinzel', serif"
           }}

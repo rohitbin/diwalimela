@@ -16,7 +16,6 @@ export const MELA_ZONES = {
   CENTRAL_CHAWK: { x: 1000, y: 650, name: 'Deepotsav Plaza (महा दीया चौक)' },
   CRACKER_SHOP: { x: 1450, y: 450, name: 'Shri Ganesh Patakha Bhandar (पटाखा दुकान)' },
   DHAMAKA_GROUND: { x: 1450, y: 980, name: 'Dhamaka Ground (पटाखा उत्सव मैदान)' },
-  SWEETS_STALL: { x: 550, y: 420, name: 'Radhey Sweets Corner (मिठाई दुकान)' },
   TEMPLE: { x: 550, y: 950, name: 'Lakshmi-Ganesh Mandir (शुभ मंदिर)' },
   RANGOLI_PAVILION: { x: 1000, y: 1150, name: 'Rangoli Art Pavilion (रंगोली मंडप)' },
   FERRIS_WHEEL: { x: 1650, y: 220, name: 'Mela Giant Wheel (विशाल झूला)' },
@@ -34,7 +33,6 @@ export default function MelaCanvas({
   setCoins,
   selectedCracker,
   onOpenCrackerShop,
-  onOpenSweetsShop,
   onOpenTemple,
   onOpenBalloonGame,
   onOpenFortuneWheel,
@@ -53,6 +51,7 @@ export default function MelaCanvas({
   const canvasRef = useRef(null);
   const wrapperRef = useRef(null);
   const [isRidingWheel, setIsRidingWheel] = useState(false);
+  const [isSprintActive, setIsSprintActive] = useState(false);
 
   // iPhone & Mobile Touch Drag Control Ref (Directly read in 60fps loop to avoid React closure lag)
   const touchControlRef = useRef({
@@ -68,6 +67,20 @@ export default function MelaCanvas({
     touchId: null
   });
   const [touchIndicator, setTouchIndicator] = useState(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    const checkTouch = () => {
+      setIsTouchDevice(
+        'ontouchstart' in window ||
+        navigator.maxTouchPoints > 0 ||
+        window.innerWidth < 768
+      );
+    };
+    checkTouch();
+    window.addEventListener('resize', checkTouch);
+    return () => window.removeEventListener('resize', checkTouch);
+  }, []);
 
   // Game World State
   const worldRef = useRef({
@@ -110,7 +123,46 @@ export default function MelaCanvas({
   });
 
   const playerRef = useRef(player);
-  playerRef.current = player;
+  const lastTouchEndTimeRef = useRef(0);
+  const touchMovedRef = useRef(false);
+
+  // Helper for virtual D-pad button press
+  const handleDpadPress = (key, isDown) => {
+    worldRef.current.keys[key] = isDown;
+    if (isDown) {
+      playerRef.current.targetX = undefined;
+      playerRef.current.targetY = undefined;
+      setPlayer((prev) => (prev.targetX !== undefined ? { ...prev, targetX: undefined, targetY: undefined } : prev));
+    } else {
+      playerRef.current.targetX = undefined;
+      playerRef.current.targetY = undefined;
+    }
+  };
+
+  // Sync external property changes (name, color, turban, bubble) without overwriting active canvas x/y
+  useEffect(() => {
+    if (player.targetX !== undefined && player.targetY !== undefined) {
+      playerRef.current.targetX = player.targetX;
+      playerRef.current.targetY = player.targetY;
+      playerRef.current.isMoving = true;
+    } else {
+      playerRef.current.targetX = undefined;
+      playerRef.current.targetY = undefined;
+    }
+  }, [player.targetX, player.targetY]);
+
+  useEffect(() => {
+    playerRef.current = {
+      ...playerRef.current,
+      name: player.name,
+      color: player.color,
+      turbanColor: player.turbanColor,
+      speed: player.speed || playerRef.current.speed,
+      bubble: player.bubble,
+      holdingCracker: player.holdingCracker
+    };
+  }, [player.name, player.color, player.turbanColor, player.speed, player.bubble, player.holdingCracker]);
+
   const remotePlayersRef = useRef(remotePlayers);
   remotePlayersRef.current = remotePlayers;
   const lastBroadcastRef = useRef(0);
@@ -285,11 +337,6 @@ export default function MelaCanvas({
       onOpenCrackerShop();
       return true;
     }
-    // Sweets Stall
-    if (dist(p.x, p.y, MELA_ZONES.SWEETS_STALL.x, MELA_ZONES.SWEETS_STALL.y) < 140) {
-      onOpenSweetsShop();
-      return true;
-    }
     // Temple
     if (dist(p.x, p.y, MELA_ZONES.TEMPLE.x, MELA_ZONES.TEMPLE.y) < 140) {
       onOpenTemple();
@@ -332,6 +379,15 @@ export default function MelaCanvas({
 
   // Click on Canvas to walk or place cracker
   const handleCanvasClick = (e) => {
+    // Suppress synthetic clicks fired right after touch drag / release
+    if (performance.now() - lastTouchEndTimeRef.current < 450) {
+      return;
+    }
+    if (touchMovedRef.current) {
+      touchMovedRef.current = false;
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -377,12 +433,6 @@ export default function MelaCanvas({
       return;
     }
 
-    // If clicked on Sweets stall
-    if (dist(worldClickX, worldClickY, MELA_ZONES.SWEETS_STALL.x, MELA_ZONES.SWEETS_STALL.y) < 120) {
-      onOpenSweetsShop();
-      return;
-    }
-
     // If clicked on Temple
     if (dist(worldClickX, worldClickY, MELA_ZONES.TEMPLE.x, MELA_ZONES.TEMPLE.y) < 120) {
       onOpenTemple();
@@ -417,6 +467,9 @@ export default function MelaCanvas({
 
     // Otherwise, move player to target location
     if (!isRidingWheel) {
+      p.targetX = worldClickX;
+      p.targetY = worldClickY;
+      p.isMoving = true;
       setPlayer((prev) => ({
         ...prev,
         targetX: worldClickX,
@@ -485,7 +538,8 @@ export default function MelaCanvas({
       // If riding wheel, attach player to wheel gondola & zoom out
       let targetCamX = p.x;
       let targetCamY = p.y;
-      let targetZoom = 1.0;
+      const isMobileScreen = canvas.width < 680 || canvas.height < 500;
+      let targetZoom = isMobileScreen ? 0.88 : 1.0;
 
       if (isRidingWheel) {
         const wheelR = 85;
@@ -493,7 +547,7 @@ export default function MelaCanvas({
         const cabinY = MELA_ZONES.FERRIS_WHEEL.y + Math.sin(world.wheelAngle) * wheelR;
         targetCamX = cabinX;
         targetCamY = cabinY;
-        targetZoom = 0.75; // Panoramic high sky view!
+        targetZoom = isMobileScreen ? 0.65 : 0.75; // Panoramic high sky view!
       }
 
       world.cameraZoom += (targetZoom - (world.cameraZoom || 1)) * 0.05;
@@ -502,28 +556,38 @@ export default function MelaCanvas({
       if (!isRidingWheel) {
         let moveX = 0;
         let moveY = 0;
-        let speed = p.speed || 3.8;
+        let speed = Math.max(5.4, p.speed || 5.4);
+
+        // Sprint boost: Shift key on keyboard or active speed buffs
+        const isSprinting = world.keys['shift'] || world.keys['shiftleft'] || world.keys['shiftright'];
+        if (isSprinting) speed *= 1.45;
 
         if (activeBuffs?.kaju_katli) speed *= 1.35;
-        if (activeBuffs?.kulhad_chai) speed *= 1.2;
+        if (activeBuffs?.kulhad_chai) speed *= 1.25;
 
-        if (world.keys['w'] || world.keys['arrowup']) moveY -= 1;
-        if (world.keys['s'] || world.keys['arrowdown']) moveY += 1;
-        if (world.keys['a'] || world.keys['arrowleft']) moveX -= 1;
-        if (world.keys['d'] || world.keys['arrowright']) moveX += 1;
+        // Frame-rate independent delta time: keeps speed constant even during particle effects
+        const now = performance.now();
+        const dt = Math.min(2.5, Math.max(0.6, (now - (world.lastFrameTime || now)) / 16.667));
+        world.lastFrameTime = now;
+        const frameSpeed = speed * dt;
 
-        // Touch drag control for iPhone and mobile devices
+        if (world.keys['w'] || world.keys['keyw'] || world.keys['arrowup']) moveY -= 1;
+        if (world.keys['s'] || world.keys['keys'] || world.keys['arrowdown']) moveY += 1;
+        if (world.keys['a'] || world.keys['keya'] || world.keys['arrowleft']) moveX -= 1;
+        if (world.keys['d'] || world.keys['keyd'] || world.keys['arrowright']) moveX += 1;
+
+        // Touch drag control for iPhone and mobile devices (with responsive full speed)
         const tc = touchControlRef.current;
         if (tc.active) {
           const dx = tc.currentX - tc.originX;
           const dy = tc.currentY - tc.originY;
           const dist = Math.hypot(dx, dy);
-          if (dist > 6) {
-            const maxR = 40;
-            const norm = Math.min(1.0, dist / maxR);
+          if (dist > 5) {
+            const norm = Math.min(1.0, Math.max(0.85, dist / 22));
             moveX = (dx / dist) * norm;
             moveY = (dy / dist) * norm;
             tc.isDragging = true;
+            touchMovedRef.current = true;
             p.targetX = undefined;
             p.targetY = undefined;
           }
@@ -534,10 +598,14 @@ export default function MelaCanvas({
         let isMoving = false;
 
         if (moveX !== 0 || moveY !== 0) {
+          // Manual movement cancels click-navigation targets permanently
+          p.targetX = undefined;
+          p.targetY = undefined;
+
           const len = Math.hypot(moveX, moveY);
           const moveMult = tc.active ? Math.min(1.0, Math.hypot(moveX, moveY)) : 1.0;
-          newX += (moveX / len) * speed * moveMult;
-          newY += (moveY / len) * speed * moveMult;
+          newX += (moveX / len) * frameSpeed * moveMult;
+          newY += (moveY / len) * frameSpeed * moveMult;
           isMoving = true;
 
           if (Math.abs(moveX) > Math.abs(moveY)) {
@@ -549,17 +617,45 @@ export default function MelaCanvas({
           const dx = p.targetX - p.x;
           const dy = p.targetY - p.y;
           const dist = Math.hypot(dx, dy);
-          if (dist > 4) {
-            newX += (dx / dist) * speed;
-            newY += (dy / dist) * speed;
+          if (dist > frameSpeed + 1) {
+            newX += (dx / dist) * frameSpeed;
+            newY += (dy / dist) * frameSpeed;
             isMoving = true;
+            if (Math.abs(dx) > Math.abs(dy)) {
+              p.facing = dx > 0 ? 'right' : 'left';
+            } else {
+              p.facing = dy > 0 ? 'down' : 'up';
+            }
           } else {
+            // Target arrived: clear target destination so player NEVER walks back to old targets
+            newX = p.targetX;
+            newY = p.targetY;
             isMoving = false;
+            p.targetX = undefined;
+            p.targetY = undefined;
           }
         }
 
-        newX = Math.max(80, Math.min(world.width - 80, newX));
-        newY = Math.max(120, Math.min(world.height - 80, newY));
+        // Boundary sliding: keep full movement on unclamped axis
+        const minX = 70;
+        const maxX = world.width - 70;
+        const minY = 110;
+        const maxY = world.height - 70;
+
+        if (newX < minX || newX > maxX) {
+          newX = Math.max(minX, Math.min(maxX, newX));
+          if (moveY !== 0) {
+            newY = p.y + Math.sign(moveY) * frameSpeed;
+          }
+        }
+        if (newY < minY || newY > maxY) {
+          newY = Math.max(minY, Math.min(maxY, newY));
+          if (moveX !== 0) {
+            newX = p.x + Math.sign(moveX) * frameSpeed;
+          }
+        }
+        newX = Math.max(minX, Math.min(maxX, newX));
+        newY = Math.max(minY, Math.min(maxY, newY));
 
         if (newX !== p.x || newY !== p.y || isMoving !== p.isMoving) {
           const updated = {
@@ -567,12 +663,17 @@ export default function MelaCanvas({
             x: newX,
             y: newY,
             isMoving,
+            targetX: p.targetX,
+            targetY: p.targetY,
             walkFrame: isMoving ? (p.walkFrame || 0) + 0.2 : 0,
-            facing: moveX > 0 ? 'right' : moveX < 0 ? 'left' : p.facing || 'right'
+            facing: p.facing || 'right'
           };
+          // Immediately update playerRef so next 60fps frame reads latest coordinates synchronously!
+          playerRef.current = updated;
           setPlayer(updated);
+
           const now = performance.now();
-          if (multiplayerManager && (!lastBroadcastRef.current || now - lastBroadcastRef.current > 35 || !isMoving)) {
+          if (multiplayerManager && (!lastBroadcastRef.current || now - lastBroadcastRef.current > 40 || !isMoving)) {
             lastBroadcastRef.current = now;
             multiplayerManager.broadcastPlayerState(updated);
           }
@@ -720,7 +821,7 @@ export default function MelaCanvas({
       // D. Carnival Game Stalls: Balloon Shooting, Chai Tapri, Fortune Wheel
       renderCarnivalAttractions(ctx, p);
 
-      // E. Stalls: Cracker Shop, Sweets Corner, Temple
+      // E. Stalls: Cracker Shop, Temple
       renderMelaStalls(ctx, world, p);
 
       // F. Rangoli Art Pavilions & Floral Carpet
@@ -739,6 +840,7 @@ export default function MelaCanvas({
       const livePeers = remotePlayersRef.current;
       if (livePeers && livePeers.size > 0) {
         livePeers.forEach((remPlayer) => {
+          if (remPlayer.id === p.id) return; // Skip own player
           const heldCracker = remPlayer.holdingCracker ? (CRACKER_MAP[remPlayer.holdingCracker] || { id: remPlayer.holdingCracker }) : null;
           renderCharacter(ctx, remPlayer, true, false, heldCracker, null, remPlayer.isDancing);
         });
@@ -792,6 +894,7 @@ export default function MelaCanvas({
       if (e.touches.length === 0) return;
       e.preventDefault(); // Stop iOS Safari from scrolling or zooming
 
+      touchMovedRef.current = false;
       const touch = e.touches[0];
       const rect = el.getBoundingClientRect();
       const x = touch.clientX - rect.left;
@@ -839,6 +942,7 @@ export default function MelaCanvas({
       const dist = Math.hypot(x - touchControlRef.current.originX, y - touchControlRef.current.originY);
       if (dist > 8) {
         touchControlRef.current.isDragging = true;
+        touchMovedRef.current = true;
       }
 
       touchControlRef.current.currentX = x;
@@ -857,21 +961,32 @@ export default function MelaCanvas({
       if (!tc.active) return;
       e.preventDefault();
 
+      lastTouchEndTimeRef.current = performance.now();
       const elapsed = performance.now() - tc.startTime;
       const totalDist = Math.hypot(tc.currentX - tc.startX, tc.currentY - tc.startY);
+      const wasMoved = touchMovedRef.current || tc.isDragging || totalDist >= 14;
 
-      // If quick tap (< 14px moved, < 300ms elapsed), trigger tap interaction
-      if (!tc.isDragging && totalDist < 14 && elapsed < 300) {
+      tc.active = false;
+      tc.isDragging = false;
+      setTouchIndicator(null);
+
+      if (wasMoved) {
+        // Drag movement completed: character stays right where he was released!
+        // Immediately clear any navigation targets so character NEVER walks back to previous place!
+        playerRef.current.targetX = undefined;
+        playerRef.current.targetY = undefined;
+        setPlayer((prev) => (prev.targetX !== undefined ? { ...prev, targetX: undefined, targetY: undefined } : prev));
+        return;
+      }
+
+      // If legitimate quick stationary tap (< 14px moved, < 350ms elapsed), trigger tap interaction
+      if (!wasMoved && totalDist < 14 && elapsed < 350) {
         const rect = el.getBoundingClientRect();
         handleCanvasClick({
           clientX: tc.startX + rect.left,
           clientY: tc.startY + rect.top
         });
       }
-
-      touchControlRef.current.active = false;
-      touchControlRef.current.isDragging = false;
-      setTouchIndicator(null);
     };
 
     el.addEventListener('touchstart', onTouchStart, { passive: false });
@@ -1020,12 +1135,193 @@ export default function MelaCanvas({
         </div>
       )}
 
-      {/* Mobile Quick Action Button for iPhone */}
+      {/* On-screen Virtual D-Pad for Touch, Mobile, & All Devices */}
       <div
         style={{
           position: 'fixed',
-          right: 16,
-          bottom: 104,
+          left: 'max(14px, env(safe-area-inset-left))',
+          bottom: 'max(88px, calc(env(safe-area-inset-bottom) + 78px))',
+          zIndex: 45,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, clamp(36px, 10vw, 42px))',
+          gridTemplateRows: 'repeat(3, clamp(36px, 10vw, 42px))',
+          gap: 4,
+          padding: 6,
+          backgroundColor: 'rgba(23, 14, 38, 0.92)',
+          backdropFilter: 'blur(12px)',
+          borderRadius: 22,
+          border: '1.5px solid rgba(245, 158, 11, 0.5)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.65), 0 0 16px rgba(245, 158, 11, 0.25)',
+          touchAction: 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          pointerEvents: 'auto'
+        }}
+      >
+        {/* Row 1: Empty, UP, Empty */}
+        <div />
+        <button
+          type="button"
+          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('w', true); }}
+          onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('w', false); }}
+          onPointerLeave={() => handleDpadPress('w', false)}
+          onPointerCancel={() => handleDpadPress('w', false)}
+          onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('w', true); }}
+          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('w', false); }}
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(251, 191, 36, 0.45)',
+            borderRadius: 10,
+            color: '#fef08a',
+            fontSize: 15,
+            fontWeight: 900,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            touchAction: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none'
+          }}
+          title="Move Up (W / Up Arrow)"
+          aria-label="Move Up"
+        >
+          ▲
+        </button>
+        <div />
+
+        {/* Row 2: LEFT, Center Diya, RIGHT */}
+        <button
+          type="button"
+          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('a', true); }}
+          onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('a', false); }}
+          onPointerLeave={() => handleDpadPress('a', false)}
+          onPointerCancel={() => handleDpadPress('a', false)}
+          onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('a', true); }}
+          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('a', false); }}
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(251, 191, 36, 0.45)',
+            borderRadius: 10,
+            color: '#fef08a',
+            fontSize: 15,
+            fontWeight: 900,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            touchAction: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none'
+          }}
+          title="Move Left (A / Left Arrow)"
+          aria-label="Move Left"
+        >
+          ◀
+        </button>
+
+        <button
+          type="button"
+          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); worldRef.current.keys['shift'] = true; setIsSprintActive(true); }}
+          onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); worldRef.current.keys['shift'] = false; setIsSprintActive(false); }}
+          onPointerLeave={() => { worldRef.current.keys['shift'] = false; setIsSprintActive(false); }}
+          onPointerCancel={() => { worldRef.current.keys['shift'] = false; setIsSprintActive(false); }}
+          onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); worldRef.current.keys['shift'] = true; setIsSprintActive(true); }}
+          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); worldRef.current.keys['shift'] = false; setIsSprintActive(false); }}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '50%',
+            background: isSprintActive
+              ? 'radial-gradient(circle, #fde047 0%, #ea580c 100%)'
+              : 'radial-gradient(circle, #ea580c 0%, #7c2d12 100%)',
+            boxShadow: isSprintActive
+              ? '0 0 16px #fde047, 0 0 8px #ea580c'
+              : '0 0 8px rgba(245, 158, 11, 0.4)',
+            border: isSprintActive ? '2px solid #fff' : '1px solid rgba(251, 191, 36, 0.6)',
+            cursor: 'pointer',
+            touchAction: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            padding: 0
+          }}
+          title="Hold to Sprint / Run Fast (⚡)"
+          aria-label="Sprint Boost"
+        >
+          <span style={{ fontSize: 13, lineHeight: 1 }}>⚡</span>
+          <span style={{ fontSize: 7, fontWeight: 900, color: '#fef08a', marginTop: 1 }}>RUN</span>
+        </button>
+
+        <button
+          type="button"
+          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('d', true); }}
+          onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('d', false); }}
+          onPointerLeave={() => handleDpadPress('d', false)}
+          onPointerCancel={() => handleDpadPress('d', false)}
+          onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('d', true); }}
+          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('d', false); }}
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(251, 191, 36, 0.45)',
+            borderRadius: 10,
+            color: '#fef08a',
+            fontSize: 15,
+            fontWeight: 900,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            touchAction: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none'
+          }}
+          title="Move Right (D / Right Arrow)"
+          aria-label="Move Right"
+        >
+          ▶
+        </button>
+
+        {/* Row 3: Empty, DOWN, Empty */}
+        <div />
+        <button
+          type="button"
+          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('s', true); }}
+          onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('s', false); }}
+          onPointerLeave={() => handleDpadPress('s', false)}
+          onPointerCancel={() => handleDpadPress('s', false)}
+          onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('s', true); }}
+          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); handleDpadPress('s', false); }}
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(251, 191, 36, 0.45)',
+            borderRadius: 10,
+            color: '#fef08a',
+            fontSize: 15,
+            fontWeight: 900,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            touchAction: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none'
+          }}
+          title="Move Down (S / Down Arrow)"
+          aria-label="Move Down"
+        >
+          ▼
+        </button>
+        <div />
+      </div>
+
+      {/* Mobile Quick Action Button for Touch & Mobile Devices */}
+      <div
+        style={{
+          position: 'fixed',
+          right: 'max(14px, env(safe-area-inset-right))',
+          bottom: 'max(88px, calc(env(safe-area-inset-bottom) + 78px))',
           zIndex: 45,
           display: 'flex',
           flexDirection: 'column',
@@ -1046,10 +1342,10 @@ export default function MelaCanvas({
             }
           }}
           style={{
-            width: 58,
-            height: 58,
+            width: 60,
+            height: 60,
             borderRadius: '50%',
-            backgroundColor: selectedCracker ? '#ea580c' : 'rgba(23, 14, 38, 0.92)',
+            backgroundColor: selectedCracker ? '#ea580c' : 'rgba(23, 14, 38, 0.94)',
             border: selectedCracker ? '2.5px solid #fbbf24' : '2px solid rgba(245, 158, 11, 0.5)',
             boxShadow: selectedCracker
               ? '0 6px 20px rgba(234, 88, 12, 0.6), 0 0 15px #f59e0b'
@@ -1063,11 +1359,11 @@ export default function MelaCanvas({
             backdropFilter: 'blur(10px)',
             userSelect: 'none',
             WebkitUserSelect: 'none',
-            touchAction: 'none'
+            touchAction: 'manipulation'
           }}
           title={selectedCracker ? `Burst ${selectedCracker.name}` : 'Interact / Light Diya'}
         >
-          <span style={{ fontSize: 22, lineHeight: 1 }}>{selectedCracker ? '🔥' : '🪔'}</span>
+          <span style={{ fontSize: 24, lineHeight: 1 }}>{selectedCracker ? '🔥' : '🪔'}</span>
           <span style={{ fontSize: 9, fontWeight: 800, color: '#fef08a', marginTop: 2 }}>
             {selectedCracker ? 'BURST' : 'ACTION'}
           </span>
@@ -1078,23 +1374,24 @@ export default function MelaCanvas({
       <div
         style={{
           position: 'fixed',
-          bottom: 84,
+          bottom: 'max(130px, calc(env(safe-area-inset-bottom) + 120px))',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 42,
           pointerEvents: 'none',
-          backgroundColor: 'rgba(15, 10, 26, 0.78)',
+          backgroundColor: 'rgba(15, 10, 26, 0.82)',
           backdropFilter: 'blur(8px)',
           border: '1px solid rgba(245, 158, 11, 0.4)',
           borderRadius: 16,
           padding: '3px 14px',
           color: '#fef08a',
-          fontSize: 11,
+          fontSize: 'clamp(10px, 2.5vw, 11px)',
           fontWeight: 700,
           display: 'flex',
           alignItems: 'center',
           gap: 6,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+          whiteSpace: 'nowrap'
         }}
       >
         <span>🕹️ Drag anywhere to move</span>
@@ -1114,18 +1411,16 @@ function renderGroundAndCourtyards(ctx, world) {
   ctx.strokeStyle = 'rgba(245, 158, 11, 0.06)';
   ctx.lineWidth = 1;
   const tileSize = 60;
+  ctx.beginPath();
   for (let x = 0; x < world.width; x += tileSize) {
-    ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, world.height);
-    ctx.stroke();
   }
   for (let y = 0; y < world.height; y += tileSize) {
-    ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(world.width, y);
-    ctx.stroke();
   }
+  ctx.stroke();
 
   // Grand Red Carpet Walkway (North to South)
   ctx.fillStyle = 'rgba(153, 27, 27, 0.45)';
@@ -1547,52 +1842,7 @@ function renderMelaStalls(ctx, world, player) {
   }
   ctx.restore();
 
-  // 2. Sweets Stall ("Radhey Sweets Corner")
-  ctx.save();
-  const sweetX = MELA_ZONES.SWEETS_STALL.x;
-  const sweetY = MELA_ZONES.SWEETS_STALL.y;
-  const isNearSweet = dist(player.x, player.y, sweetX, sweetY) < 140;
-
-  ctx.fillStyle = '#1e163b';
-  ctx.strokeStyle = isNearSweet ? '#38bdf8' : '#6366f1';
-  ctx.lineWidth = isNearSweet ? 4 : 2;
-  ctx.beginPath();
-  ctx.roundRect(sweetX - 120, sweetY - 90, 240, 145, 14);
-  ctx.fill();
-  ctx.stroke();
-
-  for (let s = 0; s < 10; s++) {
-    ctx.fillStyle = s % 2 === 0 ? '#f97316' : '#fffbeb';
-    ctx.fillRect(sweetX - 120 + s * 24, sweetY - 90, 24, 30);
-  }
-
-  ctx.fillStyle = '#fef08a';
-  ctx.font = 'bold 16px "Cinzel", serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('🥨 RADHEY SWEETS CORNER 🥨', sweetX, sweetY - 40);
-  ctx.font = '11px "Outfit", sans-serif';
-  ctx.fillStyle = '#fed7aa';
-  ctx.fillText('Kaju Katli • Garam Jalebi • Gulab Jamun', sweetX, sweetY - 22);
-
-  ctx.fillStyle = '#78350f';
-  ctx.fillRect(sweetX - 100, sweetY + 14, 200, 24);
-
-  const sweetEmojis = ['🥨', '💎', '🌰', '🟡'];
-  sweetEmojis.forEach((em, idx) => {
-    ctx.font = '18px sans-serif';
-    ctx.fillText(em, sweetX - 50 + idx * 34, sweetY + 32);
-  });
-
-  if (isNearSweet) {
-    ctx.shadowBlur = 12;
-    ctx.shadowColor = '#f59e0b';
-    ctx.fillStyle = '#fde047';
-    ctx.font = 'bold 13px "Outfit", sans-serif';
-    ctx.fillText('🥨 [ Click or Press E ] Enjoy Diwali Sweets', sweetX, sweetY + 74);
-  }
-  ctx.restore();
-
-  // 3. Lakshmi-Ganesh Pooja Mandir (Temple)
+  // 2. Lakshmi-Ganesh Pooja Mandir (Temple)
   ctx.save();
   const templeX = MELA_ZONES.TEMPLE.x;
   const templeY = MELA_ZONES.TEMPLE.y;
@@ -1759,12 +2009,18 @@ function renderFairyLights(ctx, lights) {
   const time = performance.now() * 0.003;
   lights.forEach((l) => {
     const flicker = Math.sin(time + l.flickerOffset) * 0.3 + 0.7;
-    ctx.globalAlpha = flicker;
+    // Outer glow halo
+    ctx.globalAlpha = flicker * 0.35;
     ctx.fillStyle = l.color;
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = l.color;
     ctx.beginPath();
-    ctx.arc(l.x, l.y, 2.8, 0, Math.PI * 2);
+    ctx.arc(l.x, l.y, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner bright bulb
+    ctx.globalAlpha = flicker;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(l.x, l.y, 2.2, 0, Math.PI * 2);
     ctx.fill();
   });
   ctx.restore();

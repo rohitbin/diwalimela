@@ -36,7 +36,7 @@ export const NPCS = [
     dialogues: [
       'Happy Diwali! I am taking festival photos of the diyas and rangoli. You look so festive today!',
       'Light a sparkler or anar so I can capture the golden light trails on camera!',
-      'The sweet stall has fresh jalebi, it gives a golden glow!'
+      'The chai tapri has hot masala chai, it gives a warm golden glow!'
     ],
     cheers: [
       'That sparkle trail is so photogenic! ✨',

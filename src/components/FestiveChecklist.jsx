@@ -8,7 +8,6 @@ export default function FestiveChecklist({
   litDiyasCount,
   burstCount = 0,
   boughtCount = 0,
-  sweetEaten = false,
   bellRung = false,
   balloonPlayed = false,
   wheelSpun = false,
@@ -76,15 +75,16 @@ export default function FestiveChecklist({
     <div
       style={{
         position: 'fixed',
-        top: 66,
-        left: 16,
+        top: 'max(52px, calc(env(safe-area-inset-top) + 44px))',
+        left: 'max(8px, env(safe-area-inset-left))',
         zIndex: 40,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-start',
         gap: 6,
         pointerEvents: 'auto',
-        maxWidth: 270
+        maxWidth: 'calc(100vw - 24px)',
+        touchAction: 'manipulation'
       }}
     >
       {/* Mini Toggle Pill */}

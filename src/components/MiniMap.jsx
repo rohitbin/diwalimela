@@ -9,7 +9,9 @@ export default function MiniMap({
   multiplayerManager,
   diyas = []
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < 680 : false
+  );
   const [crackerPings, setCrackerPings] = useState([]);
 
   useEffect(() => {
@@ -44,7 +46,6 @@ export default function MiniMap({
     { key: 'BALLOON_STALL', label: 'Balloons', icon: '🎯', x: MELA_ZONES.BALLOON_STALL.x, y: MELA_ZONES.BALLOON_STALL.y },
     { key: 'CRACKER_SHOP', label: 'Patakha Shop', icon: '🧨', x: MELA_ZONES.CRACKER_SHOP.x, y: MELA_ZONES.CRACKER_SHOP.y },
     { key: 'DHAMAKA_GROUND', label: 'Dhamaka Ground', icon: '🎆', x: MELA_ZONES.DHAMAKA_GROUND.x, y: MELA_ZONES.DHAMAKA_GROUND.y },
-    { key: 'SWEETS_STALL', label: 'Sweets', icon: '🥨', x: MELA_ZONES.SWEETS_STALL.x, y: MELA_ZONES.SWEETS_STALL.y },
     { key: 'CHAI_TAPRI', label: 'Chai Tapri', icon: '☕', x: MELA_ZONES.CHAI_TAPRI.x, y: MELA_ZONES.CHAI_TAPRI.y },
     { key: 'FORTUNE_WHEEL', label: 'Fortune Spin', icon: '💰', x: MELA_ZONES.FORTUNE_WHEEL.x, y: MELA_ZONES.FORTUNE_WHEEL.y },
     { key: 'TEMPLE', label: 'Mandir', icon: '🔔', x: MELA_ZONES.TEMPLE.x, y: MELA_ZONES.TEMPLE.y },
@@ -55,14 +56,15 @@ export default function MiniMap({
     <div
       style={{
         position: 'fixed',
-        top: 66,
-        right: 16,
+        top: 'max(52px, calc(env(safe-area-inset-top) + 44px))',
+        right: 'max(8px, env(safe-area-inset-right))',
         zIndex: 40,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-end',
         gap: 6,
-        pointerEvents: 'auto'
+        pointerEvents: 'auto',
+        touchAction: 'manipulation'
       }}
     >
       {/* Header pill */}

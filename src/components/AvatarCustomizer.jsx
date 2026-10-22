@@ -33,16 +33,18 @@ export default function AvatarCustomizer({
   if (!isOpen) return null;
 
   const handleSave = () => {
-    const updated = {
-      ...player,
-      name: name.trim() || 'Diwali Celebrator',
-      color: selectedColor,
-      turbanColor: selectedTurban
-    };
-    setPlayer(updated);
-    if (multiplayerManager) {
-      multiplayerManager.broadcastPlayerState(updated);
-    }
+    setPlayer((prev) => {
+      const updated = {
+        ...prev,
+        name: name.trim() || 'Diwali Celebrator',
+        color: selectedColor,
+        turbanColor: selectedTurban
+      };
+      if (multiplayerManager) {
+        multiplayerManager.broadcastPlayerState(updated);
+      }
+      return updated;
+    });
     soundEngine.playCoinSound();
     onClose();
   };
@@ -58,21 +60,24 @@ export default function AvatarCustomizer({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 16
+        padding: 'max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left))'
       }}
       onClick={onClose}
     >
       <div
+        className="modal-scrollable"
         style={{
           width: '100%',
           maxWidth: 480,
+          maxHeight: 'min(94vh, 680px)',
+          overflowY: 'auto',
           backgroundColor: '#1b1227',
           border: '2px solid rgba(245, 158, 11, 0.4)',
           borderRadius: 22,
-          padding: 24,
+          padding: 'clamp(16px, 4vw, 24px)',
           display: 'flex',
           flexDirection: 'column',
-          gap: 18,
+          gap: 16,
           position: 'relative'
         }}
         onClick={(e) => e.stopPropagation()}
@@ -81,8 +86,8 @@ export default function AvatarCustomizer({
           onClick={onClose}
           style={{
             position: 'absolute',
-            top: 16,
-            right: 16,
+            top: 14,
+            right: 14,
             background: 'rgba(255, 255, 255, 0.1)',
             border: 'none',
             borderRadius: '50%',
@@ -92,7 +97,8 @@ export default function AvatarCustomizer({
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            touchAction: 'manipulation'
           }}
         >
           <X size={18} />

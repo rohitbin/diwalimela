@@ -36,19 +36,22 @@ export default function NpcDialogueModal({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 16
+        padding: 'max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left))'
       }}
       onClick={onClose}
     >
       <div
+        className="modal-scrollable"
         style={{
           width: '100%',
           maxWidth: 520,
+          maxHeight: 'min(94vh, 650px)',
+          overflowY: 'auto',
           backgroundColor: '#1c152a',
           border: '2px solid rgba(245, 158, 11, 0.4)',
           borderRadius: 22,
           boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.9)',
-          padding: 24,
+          padding: 'clamp(16px, 4vw, 24px)',
           display: 'flex',
           flexDirection: 'column',
           gap: 16,

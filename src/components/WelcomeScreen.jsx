@@ -4,7 +4,7 @@ import { Sparkles, Users, Flame, Heart, Play } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
 
 export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
-  const [name, setName] = useState('Ankit');
+  const [name, setName] = useState('');
   const [roomId, setRoomId] = useState(defaultRoomId || 'diwali-mela-main');
   const [color, setColor] = useState('#ea580c');
   const [turban, setTurban] = useState('#f59e0b');
@@ -23,6 +23,7 @@ export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
 
   return (
     <div
+      className="modal-scrollable"
       style={{
         position: 'fixed',
         inset: 0,
@@ -34,20 +35,24 @@ export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '12px 16px',
-        overflowY: 'auto'
+        padding: 'max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))',
+        overflowY: 'auto',
+        boxSizing: 'border-box'
       }}
     >
       <div
+        className="modal-scrollable"
         style={{
           width: '100%',
           maxWidth: 510,
-          backgroundColor: 'rgba(23, 16, 36, 0.94)',
+          maxHeight: 'min(94vh, 760px)',
+          overflowY: 'auto',
+          backgroundColor: 'rgba(23, 16, 36, 0.95)',
           backdropFilter: 'blur(16px)',
           border: '2px solid rgba(245, 158, 11, 0.5)',
           borderRadius: 22,
           boxShadow: '0 20px 50px -10px rgba(0, 0, 0, 0.95), 0 0 35px rgba(245, 158, 11, 0.3)',
-          padding: '22px 24px',
+          padding: 'clamp(16px, 4vw, 24px)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -58,7 +63,7 @@ export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
         {/* Auspicious Diya Icon */}
         <div
           style={{
-            fontSize: 38,
+            fontSize: 34,
             marginBottom: 2,
             filter: 'drop-shadow(0 0 16px #f59e0b)'
           }}
@@ -70,7 +75,7 @@ export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
         <h1
           style={{
             margin: '0 0 4px 0',
-            fontSize: 27,
+            fontSize: 'clamp(21px, 5.5vw, 27px)',
             color: '#fef08a',
             fontFamily: "'Rozha One', 'Cinzel', serif",
             textShadow: '0 2px 10px rgba(0,0,0,0.8)'
@@ -80,8 +85,8 @@ export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
         </h1>
         <h2
           style={{
-            margin: '0 0 10px 0',
-            fontSize: 15,
+            margin: '0 0 8px 0',
+            fontSize: 'clamp(12px, 3.2vw, 15px)',
             color: '#f59e0b',
             fontFamily: "'Cinzel', serif",
             fontWeight: 700,
@@ -93,9 +98,9 @@ export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
 
         <p
           style={{
-            margin: '0 0 14px 0',
+            margin: '0 0 12px 0',
             color: '#fed7aa',
-            fontSize: 12,
+            fontSize: 'clamp(11px, 2.8vw, 12px)',
             lineHeight: 1.45,
             maxWidth: 440
           }}
@@ -177,9 +182,10 @@ export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
             <input
               type="text"
               required
+              autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter your name (e.g. Rahul, Priya)..."
+              placeholder="Enter Your Name"
               maxLength={20}
               style={{
                 width: '100%',
@@ -238,13 +244,14 @@ export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
                   onClick={() => setColor(c.hex)}
                   style={{
                     flex: 1,
-                    height: 32,
+                    height: 38,
                     borderRadius: 8,
                     backgroundColor: c.hex,
                     border: color === c.hex ? '2.5px solid #fef08a' : '1px solid rgba(255,255,255,0.2)',
                     cursor: 'pointer',
                     transform: color === c.hex ? 'scale(1.06)' : 'scale(1)',
-                    transition: 'transform 0.15s ease'
+                    transition: 'transform 0.15s ease',
+                    touchAction: 'manipulation'
                   }}
                   title={c.label}
                 />
@@ -261,9 +268,10 @@ export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
               backgroundImage: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)',
               border: 'none',
               borderRadius: 12,
-              padding: '12px 20px',
+              padding: '12px 18px',
+              minHeight: 48,
               color: '#1a0e05',
-              fontSize: 15,
+              fontSize: 'clamp(13px, 3.8vw, 15px)',
               fontWeight: 800,
               fontFamily: "'Cinzel', serif",
               cursor: 'pointer',
@@ -272,7 +280,8 @@ export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
               justifyContent: 'center',
               gap: 8,
               boxShadow: '0 5px 18px rgba(245, 158, 11, 0.4)',
-              transition: 'transform 0.15s'
+              transition: 'transform 0.15s',
+              touchAction: 'manipulation'
             }}
           >
             <Play size={16} fill="#1a0e05" />

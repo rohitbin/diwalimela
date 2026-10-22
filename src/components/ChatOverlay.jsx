@@ -31,22 +31,24 @@ export default function ChatOverlay({
     <div
       style={{
         position: 'fixed',
-        left: 16,
-        bottom: 80,
+        left: 'max(8px, env(safe-area-inset-left))',
+        bottom: 'max(76px, calc(env(safe-area-inset-bottom) + 68px))',
         zIndex: 45,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-start',
         gap: 8,
-        maxWidth: 340
+        maxWidth: 'calc(100vw - 16px)',
+        touchAction: 'manipulation'
       }}
     >
       {/* Expanded Chat Box */}
       {isOpen && (
         <div
+          className="modal-scrollable"
           style={{
-            width: 320,
-            maxHeight: 320,
+            width: 'min(320px, calc(100vw - 24px))',
+            maxHeight: 'min(320px, 45vh)',
             backgroundColor: 'rgba(18, 12, 30, 0.95)',
             backdropFilter: 'blur(12px)',
             border: '1px solid rgba(245, 158, 11, 0.4)',
@@ -200,19 +202,21 @@ export default function ChatOverlay({
             backgroundColor: 'rgba(18, 12, 30, 0.9)',
             border: '1px solid rgba(245, 158, 11, 0.4)',
             borderRadius: 20,
-            padding: '8px 16px',
+            padding: '7px 13px',
             color: '#fef08a',
             fontSize: 12,
             fontWeight: 700,
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
+            gap: 6,
             cursor: 'pointer',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.5)'
+            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+            touchAction: 'manipulation',
+            whiteSpace: 'nowrap'
           }}
         >
-          <MessageCircle size={16} color="#fbbf24" />
-          <span>Chat & Greetings</span>
+          <MessageCircle size={15} color="#fbbf24" />
+          <span>Chat</span>
         </button>
       )}
     </div>

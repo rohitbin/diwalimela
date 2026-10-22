@@ -102,20 +102,22 @@ export default function BalloonShootingModal({
         backdropFilter: 'blur(8px)',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16
+        padding: 'max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left))'
       }}
       onClick={onClose}
     >
       <div
+        className="modal-scrollable"
         style={{
           width: '100%',
           maxWidth: 680,
+          maxHeight: 'min(94vh, 700px)',
+          overflowY: 'auto',
           backgroundColor: '#1b1227',
           border: '2px solid #f59e0b',
           borderRadius: 22,
           boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.95), 0 0 35px rgba(245, 158, 11, 0.3)',
-          padding: 24,
+          padding: 'clamp(14px, 3.5vw, 24px)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -128,8 +130,8 @@ export default function BalloonShootingModal({
           onClick={onClose}
           style={{
             position: 'absolute',
-            top: 16,
-            right: 16,
+            top: 14,
+            right: 14,
             background: 'rgba(255, 255, 255, 0.1)',
             border: 'none',
             borderRadius: '50%',
@@ -139,26 +141,27 @@ export default function BalloonShootingModal({
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            touchAction: 'manipulation'
           }}
         >
           <X size={18} />
         </button>
 
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 14 }}>
-          <div style={{ fontSize: 32, marginBottom: 2 }}>🎯</div>
+        <div style={{ textAlign: 'center', marginBottom: 12 }}>
+          <div style={{ fontSize: 28, marginBottom: 2 }}>🎯</div>
           <h2
             style={{
               margin: '0 0 4px 0',
-              fontSize: 24,
+              fontSize: 'clamp(18px, 4.8vw, 24px)',
               color: '#fef08a',
               fontFamily: "'Rozha One', 'Cinzel', serif"
             }}
           >
             गुब्बारा निशानेबाजी (Balloon Shooting Stall)
           </h2>
-          <p style={{ margin: 0, color: '#fed7aa', fontSize: 13 }}>
+          <p style={{ margin: 0, color: '#fed7aa', fontSize: 'clamp(11px, 2.8vw, 13px)' }}>
             Aim and pop the festive balloons with your air rifle! Golden balloons award free fireworks!
           </p>
         </div>
@@ -171,15 +174,15 @@ export default function BalloonShootingModal({
             justifyContent: 'space-around',
             backgroundColor: 'rgba(0,0,0,0.3)',
             borderRadius: 14,
-            padding: '8px 16px',
-            marginBottom: 16,
-            fontSize: 13,
+            padding: '6px 12px',
+            marginBottom: 14,
+            fontSize: 'clamp(11px, 2.8vw, 13px)',
             color: '#fed7aa',
             fontWeight: 700
           }}
         >
-          <span>🎯 Pellets Left: <strong style={{ color: shotsLeft > 2 ? '#4ade80' : '#f87171' }}>{shotsLeft}</strong></span>
-          <span>🏆 Score: <strong style={{ color: '#fbbf24' }}>{score} pts</strong></span>
+          <span>🎯 Pellets: <strong style={{ color: shotsLeft > 2 ? '#4ade80' : '#f87171' }}>{shotsLeft}</strong></span>
+          <span>🏆 Score: <strong style={{ color: '#fbbf24' }}>{score}</strong></span>
           <span>🪙 Won: <strong style={{ color: '#fde047' }}>+₹{earnedCoins}</strong></span>
         </div>
 
@@ -188,15 +191,16 @@ export default function BalloonShootingModal({
           style={{
             width: '100%',
             backgroundColor: '#451a03',
-            border: '4px solid #78350f',
+            border: '3px solid #78350f',
             borderRadius: 16,
-            padding: 18,
+            padding: 'clamp(8px, 2vw, 16px)',
             boxShadow: 'inset 0 0 30px rgba(0,0,0,0.8)',
             display: 'grid',
             gridTemplateColumns: 'repeat(6, 1fr)',
-            gap: 12,
+            gap: 'clamp(5px, 1.6vw, 12px)',
             justifyItems: 'center',
-            cursor: shotsLeft > 0 ? 'crosshair' : 'default'
+            cursor: shotsLeft > 0 ? 'crosshair' : 'default',
+            touchAction: 'manipulation'
           }}
         >
           {balloons.map((b) => (
@@ -204,8 +208,8 @@ export default function BalloonShootingModal({
               key={b.id}
               onClick={() => handleShootBalloon(b)}
               style={{
-                width: 48,
-                height: 60,
+                width: 'clamp(32px, 8vw, 48px)',
+                height: 'clamp(42px, 10vw, 60px)',
                 borderRadius: '50% 50% 50% 50% / 40% 40% 60% 60%',
                 backgroundColor: b.popped ? 'transparent' : b.color,
                 boxShadow: b.popped
@@ -219,6 +223,7 @@ export default function BalloonShootingModal({
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: b.popped ? 'default' : 'crosshair',
+                touchAction: 'manipulation',
                 transform: b.popped ? 'scale(0.3)' : 'scale(1)',
                 transition: 'transform 0.1s ease',
                 opacity: b.popped ? 0.2 : 1

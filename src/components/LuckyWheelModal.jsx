@@ -81,19 +81,22 @@ export default function LuckyWheelModal({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 16
+        padding: 'max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left))'
       }}
       onClick={onClose}
     >
       <div
+        className="modal-scrollable"
         style={{
           width: '100%',
           maxWidth: 520,
+          maxHeight: 'min(94vh, 700px)',
+          overflowY: 'auto',
           backgroundColor: '#1c1228',
           border: '2px solid #f59e0b',
           borderRadius: 22,
           boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.95), 0 0 35px rgba(245, 158, 11, 0.35)',
-          padding: 24,
+          padding: 'clamp(16px, 4vw, 24px)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -106,8 +109,8 @@ export default function LuckyWheelModal({
           onClick={onClose}
           style={{
             position: 'absolute',
-            top: 16,
-            right: 16,
+            top: 14,
+            right: 14,
             background: 'rgba(255, 255, 255, 0.1)',
             border: 'none',
             borderRadius: '50%',
@@ -117,29 +120,31 @@ export default function LuckyWheelModal({
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            touchAction: 'manipulation'
           }}
         >
           <X size={18} />
         </button>
 
-        <span style={{ fontSize: 32, marginBottom: 4 }}>🎡</span>
+        <span style={{ fontSize: 28, marginBottom: 2 }}>🎡</span>
         <h2
           style={{
             margin: '0 0 4px 0',
-            fontSize: 24,
+            fontSize: 'clamp(18px, 4.8vw, 24px)',
             color: '#fef08a',
-            fontFamily: "'Rozha One', 'Cinzel', serif"
+            fontFamily: "'Rozha One', 'Cinzel', serif",
+            textAlign: 'center'
           }}
         >
           लक्ष्मी धन वर्षा चक्र (Diwali Fortune Spin)
         </h2>
-        <p style={{ margin: '0 0 16px 0', color: '#fed7aa', fontSize: 13, textAlign: 'center' }}>
+        <p style={{ margin: '0 0 12px 0', color: '#fed7aa', fontSize: 'clamp(11px, 2.8vw, 13px)', textAlign: 'center' }}>
           Spin the auspicious golden festival wheel to receive Lakshmi Shagun coins and free fireworks!
         </p>
 
         {/* Wheel Container with Pointer */}
-        <div style={{ position: 'relative', width: 280, height: 280, margin: '8px 0 20px 0' }}>
+        <div style={{ position: 'relative', width: 'min(270px, 66vw)', height: 'min(270px, 66vw)', margin: '4px 0 16px 0' }}>
           {/* Top Pointer */}
           <div
             style={{

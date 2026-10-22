@@ -209,14 +209,14 @@ class MultiplayerManager {
     if (!data || !data.type) return;
 
     // Ignore self-echoes
-    if (data.senderId === this.peerId || data.senderId === this.myProfile?.id) {
+    if (data.senderId === this.peerId || data.senderId === this.myProfile?.id || data.player?.id === this.myProfile?.id) {
       return;
     }
 
     switch (data.type) {
       case 'HELLO': {
         const player = data.player;
-        if (player && player.id) {
+        if (player && player.id && player.id !== this.myProfile?.id) {
           const isNew = !this.remotePlayers.has(player.id);
           this.remotePlayers.set(player.id, {
             ...player,
@@ -245,7 +245,7 @@ class MultiplayerManager {
       case 'HELLO_ACK':
       case 'PLAYER_UPDATE': {
         const player = data.player;
-        if (player && player.id) {
+        if (player && player.id && player.id !== this.myProfile?.id) {
           const isNew = !this.remotePlayers.has(player.id);
           const existing = this.remotePlayers.get(player.id) || {};
           this.remotePlayers.set(player.id, {

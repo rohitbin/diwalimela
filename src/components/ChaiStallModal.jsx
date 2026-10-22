@@ -78,19 +78,22 @@ export default function ChaiStallModal({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 16
+        padding: 'max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left))'
       }}
       onClick={onClose}
     >
       <div
+        className="modal-scrollable"
         style={{
           width: '100%',
           maxWidth: 620,
+          maxHeight: 'min(94vh, 680px)',
+          overflowY: 'auto',
           backgroundColor: '#1d1324',
           border: '2px solid #f97316',
           borderRadius: 22,
           boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.95), 0 0 35px rgba(249, 115, 22, 0.3)',
-          padding: 24,
+          padding: 'clamp(14px, 4vw, 24px)',
           display: 'flex',
           flexDirection: 'column',
           position: 'relative'
@@ -101,8 +104,8 @@ export default function ChaiStallModal({
           onClick={onClose}
           style={{
             position: 'absolute',
-            top: 16,
-            right: 16,
+            top: 14,
+            right: 14,
             background: 'rgba(255, 255, 255, 0.1)',
             border: 'none',
             borderRadius: '50%',
@@ -112,25 +115,26 @@ export default function ChaiStallModal({
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            touchAction: 'manipulation'
           }}
         >
           <X size={18} />
         </button>
 
-        <div style={{ textAlign: 'center', marginBottom: 14 }}>
-          <span style={{ fontSize: 34 }}>☕</span>
+        <div style={{ textAlign: 'center', marginBottom: 12 }}>
+          <span style={{ fontSize: 30 }}>☕</span>
           <h2
             style={{
               margin: '4px 0',
-              fontSize: 24,
+              fontSize: 'clamp(18px, 4.8vw, 24px)',
               color: '#fef08a',
               fontFamily: "'Rozha One', 'Cinzel', serif"
             }}
           >
             शर्मा जी की चाय टपरी (Chai & Street Food Corner)
           </h2>
-          <p style={{ margin: 0, color: '#fed7aa', fontSize: 13 }}>
+          <p style={{ margin: 0, color: '#fed7aa', fontSize: 'clamp(11px, 2.8vw, 13px)' }}>
             "Aao aao bhai! Kulhad chai ki khushboo aur garma-garam samosa! Diwali Mela ka asli mazaa!"
           </p>
         </div>

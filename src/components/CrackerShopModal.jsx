@@ -222,13 +222,13 @@ export default function CrackerShopModal({
           }}
         >
           {/* Categories */}
-          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+          <div className="horizontal-touch-scroll" style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4, flexShrink: 0 }}>
             {Object.values(CRACKER_CATEGORIES).map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCat(cat)}
                 style={{
-                  padding: '6px 14px',
+                  padding: '6px 12px',
                   borderRadius: 16,
                   fontSize: 12,
                   fontWeight: 600,
@@ -236,7 +236,9 @@ export default function CrackerShopModal({
                   border: selectedCat === cat ? '1px solid #fbbf24' : '1px solid rgba(255, 255, 255, 0.1)',
                   backgroundColor: selectedCat === cat ? '#f59e0b' : 'rgba(255, 255, 255, 0.05)',
                   color: selectedCat === cat ? '#1e1b4b' : '#e2e8f0',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap',
+                  touchAction: 'manipulation'
                 }}
               >
                 {cat}
@@ -252,7 +254,7 @@ export default function CrackerShopModal({
                 backgroundColor: '#dc2626',
                 border: '1px solid #f87171',
                 borderRadius: 16,
-                padding: '6px 14px',
+                padding: '6px 12px',
                 color: '#fff',
                 fontSize: 12,
                 fontWeight: 700,
@@ -260,14 +262,16 @@ export default function CrackerShopModal({
                 alignItems: 'center',
                 gap: 6,
                 cursor: 'pointer',
-                animation: 'pulse 2s infinite'
+                animation: 'pulse 2s infinite',
+                whiteSpace: 'nowrap',
+                touchAction: 'manipulation'
               }}
             >
               <Sparkles size={14} color="#fde047" />
               Claim Free ₹200 Shagun Gift!
             </button>
           ) : (
-            <span style={{ fontSize: 12, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 12, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
               <Check size={14} /> Shagun Claimed!
             </span>
           )}
@@ -275,12 +279,13 @@ export default function CrackerShopModal({
 
         {/* Crackers Grid */}
         <div
+          className="modal-scrollable"
           style={{
-            padding: 24,
+            padding: 'clamp(12px, 3vw, 24px)',
             overflowY: 'auto',
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-            gap: 16,
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))',
+            gap: 14,
             flex: 1
           }}
         >

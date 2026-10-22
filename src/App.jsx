@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import MelaCanvas, { MELA_ZONES } from './game/MelaCanvas';
 import WelcomeScreen from './components/WelcomeScreen';
 import CrackerShopModal from './components/CrackerShopModal';
-import SweetsShopModal from './components/SweetsShopModal';
 import TempleModal from './components/TempleModal';
 import AvatarCustomizer from './components/AvatarCustomizer';
 import DiwaliGuideModal from './components/DiwaliGuideModal';
@@ -32,8 +31,7 @@ function getCurrentZoneName(x, y) {
   if (x > 1200 && y < 350) return '🎯 Balloon Shooting Stall';
   if (x > 1250 && y < 650) return 'Patakha Shop Courtyard';
   if (x > 1250 && y >= 650) return '🎆 Dhamaka Celebration Ground';
-  if (x < 500 && y < 550) return '☕ Sharma Ji Chai Tapri';
-  if (x < 750 && y < 650) return 'Radhey Sweets Corner';
+  if (x < 750 && y < 650) return '☕ Sharma Ji Chai Tapri';
   if (x < 750 && y >= 650) return 'Lakshmi-Ganesh Mandir';
   if (y > 1050) return 'Rangoli Utsav Pavilion';
   return 'Deepotsav Central Plaza';
@@ -49,12 +47,12 @@ export default function App() {
   // Player State
   const [player, setPlayer] = useState({
     id: `p_${Math.random().toString(36).substring(2, 9)}`,
-    name: 'Ankit',
+    name: '',
     x: 1000,
     y: 280,
     color: '#ea580c',
     turbanColor: '#f59e0b',
-    speed: 3.8,
+    speed: 5.4,
     isMoving: false,
     walkFrame: 0,
     facing: 'right',
@@ -73,7 +71,6 @@ export default function App() {
   const [litDiyasCount, setLitDiyasCount] = useState(8);
   const [burstCount, setBurstCount] = useState(0);
   const [boughtCount, setBoughtCount] = useState(0);
-  const [sweetEaten, setSweetEaten] = useState(false);
   const [bellRung, setBellRung] = useState(false);
   const [balloonPlayed, setBalloonPlayed] = useState(false);
   const [wheelSpun, setWheelSpun] = useState(false);
@@ -82,7 +79,6 @@ export default function App() {
 
   // Modals
   const [isCrackerShopOpen, setIsCrackerShopOpen] = useState(false);
-  const [isSweetsShopOpen, setIsSweetsShopOpen] = useState(false);
   const [isTempleOpen, setIsTempleOpen] = useState(false);
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
@@ -123,13 +119,22 @@ export default function App() {
   };
 
   const handleEnterMela = (profile) => {
-    const updatedPlayer = {
+    let finalProfile = null;
+    setPlayer((prev) => {
+      finalProfile = {
+        ...prev,
+        name: profile.name,
+        color: profile.color,
+        turbanColor: profile.turbanColor
+      };
+      return finalProfile;
+    });
+    const updatedPlayer = finalProfile || {
       ...player,
       name: profile.name,
       color: profile.color,
       turbanColor: profile.turbanColor
     };
-    setPlayer(updatedPlayer);
     setRoomId(profile.roomId);
     setHasEntered(true);
 
@@ -218,14 +223,16 @@ export default function App() {
   // Broadcast held/equipped cracker to all players so they see you holding it
   useEffect(() => {
     if (!hasEntered) return;
-    const updated = {
-      ...player,
-      holdingCracker: selectedCracker?.id || null
-    };
-    setPlayer(updated);
-    if (multiplayerManager) {
-      multiplayerManager.broadcastPlayerState(updated);
-    }
+    setPlayer((prev) => {
+      const updated = {
+        ...prev,
+        holdingCracker: selectedCracker?.id || null
+      };
+      if (multiplayerManager) {
+        multiplayerManager.broadcastPlayerState(updated);
+      }
+      return updated;
+    });
   }, [selectedCracker]);
 
   const handleSendMessage = (text) => {
@@ -278,7 +285,6 @@ export default function App() {
 
       if (e.key === 'Escape') {
         setIsCrackerShopOpen(false);
-        setIsSweetsShopOpen(false);
         setIsTempleOpen(false);
         setIsCustomizerOpen(false);
         setIsGuideOpen(false);
@@ -326,7 +332,7 @@ export default function App() {
         <div
           style={{
             position: 'fixed',
-            top: 70,
+            top: 'max(56px, calc(env(safe-area-inset-top) + 48px))',
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 100,
@@ -334,20 +340,24 @@ export default function App() {
             backdropFilter: 'blur(10px)',
             border: '2px solid #f59e0b',
             borderRadius: 24,
-            padding: '6px 20px',
+            padding: '5px clamp(12px, 3vw, 20px)',
             color: '#fef08a',
-            fontSize: 13,
+            fontSize: 'clamp(11px, 3vw, 13px)',
             fontWeight: 800,
             boxShadow: '0 8px 24px rgba(0,0,0,0.6), 0 0 15px rgba(245, 158, 11, 0.5)',
             display: 'flex',
             alignItems: 'center',
             gap: 8,
             animation: 'bounce 0.5s ease-out',
-            pointerEvents: 'none'
+            pointerEvents: 'none',
+            maxWidth: 'calc(100vw - 24px)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
           }}
         >
           <span>🎆</span>
-          <span>{crackerAlert.text}</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{crackerAlert.text}</span>
         </div>
       )}
 
@@ -366,7 +376,6 @@ export default function App() {
         litDiyasCount={litDiyasCount}
         burstCount={burstCount}
         boughtCount={boughtCount}
-        sweetEaten={sweetEaten}
         bellRung={bellRung}
         balloonPlayed={balloonPlayed}
         wheelSpun={wheelSpun}
@@ -385,7 +394,6 @@ export default function App() {
         setCoins={setCoins}
         selectedCracker={selectedCracker}
         onOpenCrackerShop={() => setIsCrackerShopOpen(true)}
-        onOpenSweetsShop={() => setIsSweetsShopOpen(true)}
         onOpenTemple={() => setIsTempleOpen(true)}
         onOpenBalloonGame={() => {
           setIsBalloonGameOpen(true);
@@ -417,7 +425,6 @@ export default function App() {
         setSelectedCracker={setSelectedCracker}
         coins={coins}
         onOpenShop={() => setIsCrackerShopOpen(true)}
-        onOpenSweets={() => setIsSweetsShopOpen(true)}
         onOpenTemple={() => setIsTempleOpen(true)}
         onOpenBalloonGame={() => {
           setIsBalloonGameOpen(true);
@@ -456,17 +463,6 @@ export default function App() {
         onGoToDhamakaGround={() => handleNavigateTo(MELA_ZONES.DHAMAKA_GROUND.x, MELA_ZONES.DHAMAKA_GROUND.y)}
       />
 
-      <SweetsShopModal
-        isOpen={isSweetsShopOpen}
-        onClose={() => setIsSweetsShopOpen(false)}
-        coins={coins}
-        setCoins={setCoins}
-        activeBuffs={activeBuffs}
-        setActiveBuffs={(b) => {
-          setActiveBuffs(b);
-          setSweetEaten(true);
-        }}
-      />
 
       <TempleModal
         isOpen={isTempleOpen}

@@ -46,11 +46,10 @@ export class Particle {
 
     if (this.type === 'spark') {
       const flicker = this.twinkle ? (Math.random() > 0.2 ? 1 : 0.4) : 1;
+      const sz = Math.max(0.8, this.size * flicker);
       ctx.fillStyle = this.color;
-      ctx.shadowBlur = 6;
-      ctx.shadowColor = this.color;
       ctx.beginPath();
-      ctx.arc(this.x, this.y, Math.max(0.8, this.size * flicker), 0, Math.PI * 2);
+      ctx.arc(this.x, this.y, sz, 0, Math.PI * 2);
       ctx.fill();
     } else if (this.type === 'smoke') {
       const currentSize = this.size * (1 + (1 - alpha) * 2.2);

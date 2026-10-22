@@ -393,6 +393,7 @@ export default function App() {
         coins={coins}
         setCoins={setCoins}
         selectedCracker={selectedCracker}
+        setSelectedCracker={setSelectedCracker}
         onOpenCrackerShop={() => setIsCrackerShopOpen(true)}
         onOpenTemple={() => setIsTempleOpen(true)}
         onOpenBalloonGame={() => {

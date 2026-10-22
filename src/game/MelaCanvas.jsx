@@ -32,6 +32,7 @@ export default function MelaCanvas({
   coins,
   setCoins,
   selectedCracker,
+  setSelectedCracker,
   onOpenCrackerShop,
   onOpenTemple,
   onOpenBalloonGame,
@@ -51,6 +52,7 @@ export default function MelaCanvas({
   const canvasRef = useRef(null);
   const wrapperRef = useRef(null);
   const [isRidingWheel, setIsRidingWheel] = useState(false);
+  const [placementPreview, setPlacementPreview] = useState(null);
 
   // iPhone & Mobile Touch Drag Control Ref (Directly read in 60fps loop to avoid React closure lag)
   const touchControlRef = useRef({
@@ -363,22 +365,13 @@ export default function MelaCanvas({
     }
   };
 
-  // Click on Canvas to walk or place cracker
-  const handleCanvasClick = (e) => {
-    // Suppress synthetic clicks fired right after touch drag / release
-    if (performance.now() - lastTouchEndTimeRef.current < 450) {
-      return;
-    }
-    if (touchMovedRef.current) {
-      touchMovedRef.current = false;
-      return;
-    }
-
+  // Process interaction anywhere on Canvas (Click or Touch)
+  const processCanvasInteraction = (clientX, clientY) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
+    const clickX = clientX - rect.left;
+    const clickY = clientY - rect.top;
 
     const world = worldRef.current;
     const worldClickX = (clickX - canvas.width / 2) / (world.cameraZoom || 1) + world.camera.x;
@@ -387,45 +380,52 @@ export default function MelaCanvas({
     const p = playerRef.current;
     const dist = (x1, y1, x2, y2) => Math.hypot(x1 - x2, y1 - y2);
 
-    // Clicked Ferris Wheel
+    // 1. High Priority: If a cracker is selected, place and ignite it EXACTLY at tapped world coordinates!
+    if (selectedCracker) {
+      const invItem = inventory.find((i) => i.id === selectedCracker.id);
+      if (invItem && invItem.count > 0) {
+        placeAndIgniteCracker(selectedCracker, worldClickX, worldClickY);
+        return;
+      }
+    }
+
+    // 2. Clicked Ferris Wheel
     if (dist(worldClickX, worldClickY, MELA_ZONES.FERRIS_WHEEL.x, MELA_ZONES.FERRIS_WHEEL.y) < 120) {
       toggleFerrisWheelRide();
       return;
     }
 
-    // Clicked Balloon Stall
+    // 3. Clicked Balloon Stall
     if (dist(worldClickX, worldClickY, MELA_ZONES.BALLOON_STALL.x, MELA_ZONES.BALLOON_STALL.y) < 100) {
       onOpenBalloonGame();
       return;
     }
 
-    // Clicked Fortune Spin Wheel
+    // 4. Clicked Fortune Spin Wheel
     if (dist(worldClickX, worldClickY, MELA_ZONES.FORTUNE_WHEEL.x, MELA_ZONES.FORTUNE_WHEEL.y) < 90) {
       onOpenFortuneWheel();
       return;
     }
 
-    // Clicked Chai Tapri
+    // 5. Clicked Chai Tapri
     if (dist(worldClickX, worldClickY, MELA_ZONES.CHAI_TAPRI.x, MELA_ZONES.CHAI_TAPRI.y) < 100) {
       onOpenChaiTapri();
       return;
     }
 
-
-
-    // If clicked on Cracker Shop stall
+    // 6. If clicked on Cracker Shop stall
     if (dist(worldClickX, worldClickY, MELA_ZONES.CRACKER_SHOP.x, MELA_ZONES.CRACKER_SHOP.y) < 120) {
       onOpenCrackerShop();
       return;
     }
 
-    // If clicked on Temple
+    // 7. If clicked on Temple
     if (dist(worldClickX, worldClickY, MELA_ZONES.TEMPLE.x, MELA_ZONES.TEMPLE.y) < 120) {
       onOpenTemple();
       return;
     }
 
-    // If clicked on unlit diya
+    // 8. If clicked on unlit diya
     for (const diya of world.diyas) {
       if (dist(worldClickX, worldClickY, diya.x, diya.y) < 35) {
         if (!diya.isLit) {
@@ -442,16 +442,7 @@ export default function MelaCanvas({
       }
     }
 
-    // Check if player wants to place/burst selected cracker
-    if (selectedCracker) {
-      const invItem = inventory.find((i) => i.id === selectedCracker.id);
-      if (invItem && invItem.count > 0) {
-        placeAndIgniteCracker(selectedCracker, worldClickX, worldClickY);
-        return;
-      }
-    }
-
-    // Otherwise, move player to target location
+    // 9. Otherwise, move player to target location (tap to walk)
     if (!isRidingWheel) {
       p.targetX = worldClickX;
       p.targetY = worldClickY;
@@ -465,14 +456,31 @@ export default function MelaCanvas({
     }
   };
 
+  // Click on Canvas to walk or place cracker (Desktop mouse clicks)
+  const handleCanvasClick = (e) => {
+    // Suppress synthetic clicks fired right after touch drag / release
+    if (performance.now() - lastTouchEndTimeRef.current < 450) {
+      return;
+    }
+    processCanvasInteraction(e.clientX, e.clientY);
+  };
+
   // Place and ignite cracker
   const placeAndIgniteCracker = (crackerData, targetX, targetY) => {
     const item = inventory.find((i) => i.id === crackerData.id);
-    if (!item || item.count <= 0) return;
+    if (!item || item.count <= 0) {
+      if (setSelectedCracker) setSelectedCracker(null);
+      return;
+    }
 
-    setInventory((prev) =>
-      prev.map((i) => (i.id === crackerData.id ? { ...i, count: i.count - 1 } : i))
-    );
+    setInventory((prev) => {
+      const next = prev.map((i) => (i.id === crackerData.id ? { ...i, count: i.count - 1 } : i));
+      const remaining = next.find((i) => i.id === crackerData.id)?.count || 0;
+      if (remaining <= 0 && setSelectedCracker) {
+        setSelectedCracker(null);
+      }
+      return next;
+    });
 
     if (onCrackerBurst) onCrackerBurst(crackerData.id);
 
@@ -876,12 +884,23 @@ export default function MelaCanvas({
       if (e.touches.length === 0) return;
       e.preventDefault(); // Stop iOS Safari from scrolling or zooming
 
-      touchMovedRef.current = false;
       const touch = e.touches[0];
       const rect = el.getBoundingClientRect();
       const x = touch.clientX - rect.left;
       const y = touch.clientY - rect.top;
 
+      if (selectedCracker) {
+        // Placement Mode for Phone: track aiming position
+        setPlacementPreview({
+          screenX: touch.clientX,
+          screenY: touch.clientY,
+          touchId: touch.identifier
+        });
+        touchControlRef.current.active = false;
+        return;
+      }
+
+      touchMovedRef.current = false;
       touchControlRef.current = {
         active: true,
         originX: x,
@@ -904,8 +923,29 @@ export default function MelaCanvas({
     };
 
     const onTouchMove = (e) => {
+      e.preventDefault();
+      if (e.touches.length === 0) return;
+
+      if (selectedCracker) {
+        let touch = null;
+        for (let i = 0; i < e.touches.length; i++) {
+          if (e.touches[i].identifier === placementPreview?.touchId) {
+            touch = e.touches[i];
+            break;
+          }
+        }
+        if (!touch) touch = e.touches[0];
+        if (touch) {
+          setPlacementPreview({
+            screenX: touch.clientX,
+            screenY: touch.clientY,
+            touchId: touch.identifier
+          });
+        }
+        return;
+      }
+
       if (!touchControlRef.current.active) return;
-      e.preventDefault(); // Crucial on iPhone to allow smooth continuous character drag
 
       let touch = null;
       for (let i = 0; i < e.touches.length; i++) {
@@ -939,11 +979,27 @@ export default function MelaCanvas({
     };
 
     const onTouchEnd = (e) => {
+      e.preventDefault();
+      lastTouchEndTimeRef.current = performance.now();
+
+      if (selectedCracker) {
+        let touch = null;
+        if (e.changedTouches && e.changedTouches.length > 0) {
+          touch = e.changedTouches[0];
+        } else if (e.touches && e.touches.length > 0) {
+          touch = e.touches[0];
+        }
+        if (touch) {
+          processCanvasInteraction(touch.clientX, touch.clientY);
+        } else if (placementPreview) {
+          processCanvasInteraction(placementPreview.screenX, placementPreview.screenY);
+        }
+        setPlacementPreview(null);
+        return;
+      }
+
       const tc = touchControlRef.current;
       if (!tc.active) return;
-      e.preventDefault();
-
-      lastTouchEndTimeRef.current = performance.now();
       const elapsed = performance.now() - tc.startTime;
       const totalDist = Math.hypot(tc.currentX - tc.startX, tc.currentY - tc.startY);
       const wasMoved = touchMovedRef.current || tc.isDragging || totalDist >= 14;
@@ -954,20 +1010,16 @@ export default function MelaCanvas({
 
       if (wasMoved) {
         // Drag movement completed: character stays right where he was released!
-        // Immediately clear any navigation targets so character NEVER walks back to previous place!
         playerRef.current.targetX = undefined;
         playerRef.current.targetY = undefined;
         setPlayer((prev) => (prev.targetX !== undefined ? { ...prev, targetX: undefined, targetY: undefined } : prev));
         return;
       }
 
-      // If legitimate quick stationary tap (< 14px moved, < 350ms elapsed), trigger tap interaction
-      if (!wasMoved && totalDist < 14 && elapsed < 350) {
+      // If legitimate tap on phone, walk or interact!
+      if (!wasMoved && totalDist < 14) {
         const rect = el.getBoundingClientRect();
-        handleCanvasClick({
-          clientX: tc.startX + rect.left,
-          clientY: tc.startY + rect.top
-        });
+        processCanvasInteraction(tc.startX + rect.left, tc.startY + rect.top);
       }
     };
 
@@ -982,7 +1034,7 @@ export default function MelaCanvas({
       el.removeEventListener('touchend', onTouchEnd);
       el.removeEventListener('touchcancel', onTouchEnd);
     };
-  }, [selectedCracker, inventory]);
+  }, [selectedCracker, inventory, setSelectedCracker]);
 
   return (
     <div
@@ -1171,7 +1223,58 @@ export default function MelaCanvas({
         </button>
       </div>
 
-      {/* Mobile Drag to Move Hint Pill */}
+      {/* Visual Cracker Placement Aim Reticle (Phone & Touch) */}
+      {placementPreview && selectedCracker && (
+        <div
+          style={{
+            position: 'fixed',
+            left: placementPreview.screenX,
+            top: placementPreview.screenY - 36,
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'none',
+            zIndex: 50,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            filter: 'drop-shadow(0 0 10px rgba(251, 191, 36, 0.8))'
+          }}
+        >
+          <div
+            style={{
+              width: 50,
+              height: 50,
+              borderRadius: '50%',
+              border: '2.5px solid #fbbf24',
+              boxShadow: '0 0 16px #f59e0b, inset 0 0 12px rgba(245, 158, 11, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 24,
+              background: 'radial-gradient(circle, rgba(245, 158, 11, 0.3) 0%, transparent 70%)'
+            }}
+          >
+            {selectedCracker.icon}
+          </div>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              color: '#fef08a',
+              textShadow: '0 1px 4px #000',
+              marginTop: 4,
+              backgroundColor: 'rgba(23, 14, 38, 0.85)',
+              padding: '2px 8px',
+              borderRadius: 10,
+              border: '1px solid rgba(251, 191, 36, 0.5)',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Release to place & ignite!
+          </span>
+        </div>
+      )}
+
+      {/* Mobile Interactive Hint Pill */}
       <div
         style={{
           position: 'fixed',
@@ -1180,22 +1283,28 @@ export default function MelaCanvas({
           transform: 'translateX(-50%)',
           zIndex: 42,
           pointerEvents: 'none',
-          backgroundColor: 'rgba(15, 10, 26, 0.82)',
+          backgroundColor: selectedCracker ? 'rgba(234, 88, 12, 0.92)' : 'rgba(15, 10, 26, 0.82)',
           backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(245, 158, 11, 0.4)',
+          border: selectedCracker ? '1.5px solid #fbbf24' : '1px solid rgba(245, 158, 11, 0.4)',
           borderRadius: 16,
-          padding: '3px 14px',
-          color: '#fef08a',
+          padding: '4px 14px',
+          color: selectedCracker ? '#fff' : '#fef08a',
           fontSize: 'clamp(10px, 2.5vw, 11px)',
           fontWeight: 700,
           display: 'flex',
           alignItems: 'center',
           gap: 6,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+          boxShadow: selectedCracker
+            ? '0 4px 16px rgba(234, 88, 12, 0.6), 0 0 10px #fbbf24'
+            : '0 4px 12px rgba(0,0,0,0.5)',
           whiteSpace: 'nowrap'
         }}
       >
-        <span>🕹️ Drag anywhere to move</span>
+        {selectedCracker ? (
+          <span>🎯 Tap anywhere on ground to place {selectedCracker.name}!</span>
+        ) : (
+          <span>🕹️ Drag anywhere to move • Tap to walk</span>
+        )}
       </div>
     </div>
   );

@@ -1994,20 +1994,17 @@ export default function MelaCanvas({
 
       {/* Dedicated Gun & Arrow Fire Action Controller (Mobile Right-Thumb & Desktop) */}
       {(() => {
-        const ownsBow = inventory.some((i) => i.id === 'bow' && i.count > 0);
-        const ownsGun = inventory.some((i) => i.id === 'gun' && i.count > 0);
         const isGun = selectedCracker?.id === 'gun';
         const isBow = selectedCracker?.id === 'bow';
         const hasWeaponArmed = isGun || isBow || selectedCracker?.isWeapon;
-        const dRavan = Math.hypot(player.x - MELA_ZONES.RAVAN.x, player.y - MELA_ZONES.RAVAN.y);
-        const isNearOrInsideArena = dRavan <= 360;
 
-        // Display if weapon is armed, or player owns weapon, or is near/inside battle arena
-        if (!hasWeaponArmed && !ownsBow && !ownsGun && !isNearOrInsideArena) {
+        // Fire button is ONLY active when Gun or Arrow is taken / equipped!
+        if (!hasWeaponArmed) {
           return null;
         }
 
-        const activeWeaponId = isGun ? 'gun' : (isBow ? 'bow' : (ownsGun ? 'gun' : 'bow'));
+        const ownsBow = inventory.some((i) => i.id === 'bow' && i.count > 0);
+        const ownsGun = inventory.some((i) => i.id === 'gun' && i.count > 0);
 
         const handleSelectWeapon = (wId) => {
           if (CRACKER_MAP[wId] && setSelectedCracker) {
@@ -2018,9 +2015,6 @@ export default function MelaCanvas({
 
         const handleFireDown = (e) => {
           if (e && e.stopPropagation) e.stopPropagation();
-          if (!hasWeaponArmed && (ownsBow || ownsGun)) {
-            handleSelectWeapon(activeWeaponId);
-          }
           if (navigator.vibrate) navigator.vibrate(12);
           startAutoFire(e);
         };
@@ -2032,13 +2026,6 @@ export default function MelaCanvas({
 
         const handleFireClick = (e) => {
           if (e && e.stopPropagation) e.stopPropagation();
-          if (!hasWeaponArmed && (ownsBow || ownsGun)) {
-            handleSelectWeapon(activeWeaponId);
-          }
-          if (!hasWeaponArmed && !ownsBow && !ownsGun) {
-            if (onOpenArmory) onOpenArmory();
-            return;
-          }
           fireWeaponAtRavan();
         };
 
@@ -2060,8 +2047,8 @@ export default function MelaCanvas({
               touchAction: 'manipulation'
             }}
           >
-            {/* Quick Weapon Switcher Pill (Arrow / Gun) */}
-            {(ownsBow || ownsGun || isNearOrInsideArena) && (
+            {/* Quick Switcher Pill if player owns both weapons */}
+            {(ownsBow && ownsGun) && (
               <div
                 style={{
                   display: 'flex',
@@ -2080,11 +2067,7 @@ export default function MelaCanvas({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (ownsBow) {
-                      handleSelectWeapon('bow');
-                    } else if (onOpenArmory) {
-                      onOpenArmory();
-                    }
+                    handleSelectWeapon('bow');
                   }}
                   style={{
                     display: 'flex',
@@ -2096,18 +2079,14 @@ export default function MelaCanvas({
                     cursor: 'pointer',
                     fontSize: 11,
                     fontWeight: 800,
-                    background: (hasWeaponArmed && !isGun) || (!hasWeaponArmed && activeWeaponId === 'bow')
+                    background: !isGun
                       ? 'linear-gradient(135deg, #d97706 0%, #b45309 100%)'
                       : 'transparent',
-                    color: (hasWeaponArmed && !isGun) || (!hasWeaponArmed && activeWeaponId === 'bow')
-                      ? '#ffffff'
-                      : '#fed7aa',
-                    boxShadow: (hasWeaponArmed && !isGun)
-                      ? '0 0 10px rgba(245, 158, 11, 0.7)'
-                      : 'none',
+                    color: !isGun ? '#ffffff' : '#fed7aa',
+                    boxShadow: !isGun ? '0 0 10px rgba(245, 158, 11, 0.7)' : 'none',
                     transition: 'all 0.15s ease'
                   }}
-                  title={ownsBow ? 'Equip Ram Dhanush (Bow & Arrow)' : 'Buy Bow in Armory'}
+                  title="Switch to Ram Dhanush (Bow & Arrow)"
                 >
                   <span style={{ fontSize: 13 }}>🏹</span>
                   <span>Arrow</span>
@@ -2118,11 +2097,7 @@ export default function MelaCanvas({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (ownsGun) {
-                      handleSelectWeapon('gun');
-                    } else if (onOpenArmory) {
-                      onOpenArmory();
-                    }
+                    handleSelectWeapon('gun');
                   }}
                   style={{
                     display: 'flex',
@@ -2134,150 +2109,117 @@ export default function MelaCanvas({
                     cursor: 'pointer',
                     fontSize: 11,
                     fontWeight: 800,
-                    background: (hasWeaponArmed && isGun) || (!hasWeaponArmed && activeWeaponId === 'gun')
+                    background: isGun
                       ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'
                       : 'transparent',
-                    color: (hasWeaponArmed && isGun) || (!hasWeaponArmed && activeWeaponId === 'gun')
-                      ? '#ffffff'
-                      : '#bae6fd',
-                    boxShadow: (hasWeaponArmed && isGun)
-                      ? '0 0 10px rgba(56, 189, 248, 0.7)'
-                      : 'none',
+                    color: isGun ? '#ffffff' : '#bae6fd',
+                    boxShadow: isGun ? '0 0 10px rgba(56, 189, 248, 0.7)' : 'none',
                     transition: 'all 0.15s ease'
                   }}
-                  title={ownsGun ? 'Equip Sparkler Gun' : 'Buy Gun in Armory'}
+                  title="Switch to Sparkler Gun"
                 >
                   <span style={{ fontSize: 13 }}>🔫</span>
                   <span>Gun</span>
-                  {!ownsGun && <span style={{ fontSize: 9, opacity: 0.9, color: '#fef08a' }}>+₹150</span>}
                 </button>
               </div>
             )}
 
             {/* Main Primary FIRE Button */}
-            {hasWeaponArmed || ownsBow || ownsGun ? (
-              <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                {/* Speed Multiplier Combo Flare Badge */}
-                {clickSpeedMultiplier > 1.15 && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: -22,
-                      background: 'linear-gradient(135deg, #7c2d12 0%, #dc2626 100%)',
-                      color: '#fef08a',
-                      fontSize: 10,
-                      fontWeight: 900,
-                      padding: '2px 8px',
-                      borderRadius: 12,
-                      border: '1.5px solid #fde047',
-                      letterSpacing: 0.5,
-                      boxShadow: '0 0 12px #f59e0b',
-                      whiteSpace: 'nowrap',
-                      animation: 'pulse 0.5s infinite'
-                    }}
-                  >
-                    ⚡ SPEED x{clickSpeedMultiplier.toFixed(1)}
-                  </div>
-                )}
-
-                <button
-                  id="fire-weapon-btn"
-                  onPointerDown={handleFireDown}
-                  onPointerUp={handleFireUp}
-                  onPointerLeave={handleFireUp}
-                  onPointerCancel={handleFireUp}
-                  onClick={handleFireClick}
+            <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              {/* Speed Multiplier Combo Flare Badge */}
+              {clickSpeedMultiplier > 1.15 && (
+                <div
                   style={{
-                    width: 78,
-                    height: 78,
-                    borderRadius: '50%',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 2,
-                    background: isGun
-                      ? (clickSpeedMultiplier > 1.3
-                          ? 'radial-gradient(circle at 35% 35%, #38bdf8 0%, #0284c7 50%, #f97316 100%)'
-                          : 'radial-gradient(circle at 35% 35%, #0284c7 0%, #0369a1 55%, #0c4a6e 100%)')
-                      : (clickSpeedMultiplier > 1.3
-                          ? 'radial-gradient(circle at 35% 35%, #fde047 0%, #ea580c 50%, #991b1b 100%)'
-                          : 'radial-gradient(circle at 35% 35%, #fbbf24 0%, #ea580c 55%, #7c2d12 100%)'),
-                    border: isGun
-                      ? (clickSpeedMultiplier > 1.3 ? '3.5px solid #ffffff' : '3px solid #38bdf8')
-                      : (clickSpeedMultiplier > 1.3 ? '3.5px solid #ffffff' : '3px solid #fef08a'),
-                    boxShadow: isGun
-                      ? (clickSpeedMultiplier > 1.3
-                          ? '0 0 32px rgba(56, 189, 248, 0.95), 0 8px 25px rgba(0,0,0,0.85)'
-                          : '0 0 24px rgba(56, 189, 248, 0.7), 0 8px 25px rgba(0,0,0,0.85)')
-                      : (clickSpeedMultiplier > 1.3
-                          ? '0 0 32px rgba(245, 158, 11, 0.95), 0 8px 25px rgba(0,0,0,0.85)'
-                          : '0 0 24px rgba(245, 158, 11, 0.7), 0 8px 25px rgba(0,0,0,0.85)'),
-                    transform: clickSpeedMultiplier > 1.25 ? 'scale(1.05)' : 'scale(1.0)',
-                    transition: 'transform 0.08s ease, box-shadow 0.08s ease',
-                    touchAction: 'none',
-                    userSelect: 'none',
-                    WebkitUserSelect: 'none'
+                    position: 'absolute',
+                    top: -22,
+                    background: 'linear-gradient(135deg, #7c2d12 0%, #dc2626 100%)',
+                    color: '#fef08a',
+                    fontSize: 10,
+                    fontWeight: 900,
+                    padding: '2px 8px',
+                    borderRadius: 12,
+                    border: '1.5px solid #fde047',
+                    letterSpacing: 0.5,
+                    boxShadow: '0 0 12px #f59e0b',
+                    whiteSpace: 'nowrap',
+                    animation: 'pulse 0.5s infinite'
                   }}
-                  title={isGun ? 'Hold or Tap to Rapid-Fire Gun!' : 'Hold or Tap to Fire Divine Arrows!'}
                 >
-                  <span style={{ fontSize: 28, lineHeight: 1, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))' }}>
-                    {isGun ? '🔫' : '🏹'}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 900,
-                      color: '#ffffff',
-                      letterSpacing: 0.8,
-                      textShadow: '0 1px 4px #000',
-                      lineHeight: 1
-                    }}
-                  >
-                    FIRE
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 8,
-                      fontWeight: 800,
-                      color: '#fef08a',
-                      letterSpacing: 0.5,
-                      textShadow: '0 1px 3px #000',
-                      lineHeight: 1
-                    }}
-                  >
-                    {isGun ? 'GUN' : 'ARROW'}
-                  </span>
-                </button>
-              </div>
-            ) : (
-              /* If player is near battle area but has no weapon yet, prominent Get Weapon button */
+                  ⚡ SPEED x{clickSpeedMultiplier.toFixed(1)}
+                </div>
+              )}
+
               <button
-                id="get-weapon-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onOpenArmory) onOpenArmory();
-                }}
+                id="fire-weapon-btn"
+                onPointerDown={handleFireDown}
+                onPointerUp={handleFireUp}
+                onPointerLeave={handleFireUp}
+                onPointerCancel={handleFireUp}
+                onClick={handleFireClick}
                 style={{
-                  background: 'linear-gradient(135deg, #7c2d12 0%, #b45309 50%, #d97706 100%)',
-                  border: '2.5px solid #fbbf24',
-                  borderRadius: 24,
-                  padding: '10px 18px',
-                  color: '#fef08a',
-                  fontSize: 12,
-                  fontWeight: 900,
+                  width: 78,
+                  height: 78,
+                  borderRadius: '50%',
                   cursor: 'pointer',
-                  boxShadow: '0 0 20px rgba(245, 158, 11, 0.65), 0 6px 20px rgba(0,0,0,0.8)',
                   display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
-                  gap: 8
+                  justifyContent: 'center',
+                  gap: 2,
+                  background: isGun
+                    ? (clickSpeedMultiplier > 1.3
+                        ? 'radial-gradient(circle at 35% 35%, #38bdf8 0%, #0284c7 50%, #f97316 100%)'
+                        : 'radial-gradient(circle at 35% 35%, #0284c7 0%, #0369a1 55%, #0c4a6e 100%)')
+                    : (clickSpeedMultiplier > 1.3
+                        ? 'radial-gradient(circle at 35% 35%, #fde047 0%, #ea580c 50%, #991b1b 100%)'
+                        : 'radial-gradient(circle at 35% 35%, #fbbf24 0%, #ea580c 55%, #7c2d12 100%)'),
+                  border: isGun
+                    ? (clickSpeedMultiplier > 1.3 ? '3.5px solid #ffffff' : '3px solid #38bdf8')
+                    : (clickSpeedMultiplier > 1.3 ? '3.5px solid #ffffff' : '3px solid #fef08a'),
+                  boxShadow: isGun
+                    ? (clickSpeedMultiplier > 1.3
+                        ? '0 0 32px rgba(56, 189, 248, 0.95), 0 8px 25px rgba(0,0,0,0.85)'
+                        : '0 0 24px rgba(56, 189, 248, 0.7), 0 8px 25px rgba(0,0,0,0.85)')
+                    : (clickSpeedMultiplier > 1.3
+                        ? '0 0 32px rgba(245, 158, 11, 0.95), 0 8px 25px rgba(0,0,0,0.85)'
+                        : '0 0 24px rgba(245, 158, 11, 0.7), 0 8px 25px rgba(0,0,0,0.85)'),
+                  transform: clickSpeedMultiplier > 1.25 ? 'scale(1.05)' : 'scale(1.0)',
+                  transition: 'transform 0.08s ease, box-shadow 0.08s ease',
+                  touchAction: 'none',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none'
                 }}
+                title={isGun ? 'Hold or Tap to Rapid-Fire Gun!' : 'Hold or Tap to Fire Divine Arrows!'}
               >
-                <span>🏹</span>
-                <span>Get Gun & Arrow!</span>
+                <span style={{ fontSize: 28, lineHeight: 1, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))' }}>
+                  {isGun ? '🔫' : '🏹'}
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 900,
+                    color: '#ffffff',
+                    letterSpacing: 0.8,
+                    textShadow: '0 1px 4px #000',
+                    lineHeight: 1
+                  }}
+                >
+                  FIRE
+                </span>
+                <span
+                  style={{
+                    fontSize: 8,
+                    fontWeight: 800,
+                    color: '#fef08a',
+                    letterSpacing: 0.5,
+                    textShadow: '0 1px 3px #000',
+                    lineHeight: 1
+                  }}
+                >
+                  {isGun ? 'GUN' : 'ARROW'}
+                </span>
               </button>
-            )}
+            </div>
           </div>
         );
       })()}

@@ -107,7 +107,7 @@ export class ActiveCracker {
     this.lanternDrift = 0;
   }
 
-  update(addParticle, triggerScreenShake) {
+  update(addParticle, triggerScreenShake, triggerSkyFlash) {
     if (this.state === 'FUSE') {
       this.fuseTime--;
       // Fuse spark and smoke
@@ -142,11 +142,11 @@ export class ActiveCracker {
 
       if (this.fuseTime <= 0) {
         this.state = 'BURSTING';
-        this.startBurst(triggerScreenShake);
+        this.startBurst(triggerScreenShake, triggerSkyFlash);
       }
     } else if (this.state === 'BURSTING') {
       this.burstTime--;
-      this.tickBurst(addParticle, triggerScreenShake);
+      this.tickBurst(addParticle, triggerScreenShake, triggerSkyFlash);
 
       if (this.burstTime <= 0) {
         this.state = 'DONE';
@@ -156,17 +156,19 @@ export class ActiveCracker {
     return this.state !== 'DONE';
   }
 
-  startBurst(triggerScreenShake) {
+  startBurst(triggerScreenShake, triggerSkyFlash) {
     switch (this.data.id) {
       case 'sutlibomb':
         this.soundEngine?.playSutliBomb();
-        if (triggerScreenShake) triggerScreenShake(12, 28);
+        if (triggerScreenShake) triggerScreenShake(14, 32);
+        if (triggerSkyFlash) triggerSkyFlash('rgba(255, 255, 240, 0.9)', 24);
         break;
       case 'rocket':
         this.soundEngine?.playRocketLaunch();
         break;
       case 'anar':
         this.soundEngine?.playAnarFountain();
+        if (triggerSkyFlash) triggerSkyFlash('rgba(251, 146, 60, 0.25)', 12);
         break;
       case 'chakri':
         this.soundEngine?.playChakriWhistle();
@@ -176,7 +178,7 @@ export class ActiveCracker {
     }
   }
 
-  tickBurst(addParticle, triggerScreenShake) {
+  tickBurst(addParticle, triggerScreenShake, triggerSkyFlash) {
     const { id } = this.data;
 
     // 1. Phuljhadi (Handheld / Ground Sparkler)
@@ -306,7 +308,8 @@ export class ActiveCracker {
         if (this.rocketVy <= -11 || this.burstTime < this.burstMax - 70) {
           this.rocketExploded = true;
           this.soundEngine?.playFireworkBang(1.1, 1.2);
-          if (triggerScreenShake) triggerScreenShake(6, 16);
+          if (triggerScreenShake) triggerScreenShake(8, 18);
+          if (triggerSkyFlash) triggerSkyFlash('rgba(251, 191, 36, 0.75)', 18);
 
           // Radial Peony Flowerburst (120 particles)
           const burstColors = ['#a855f7', '#38bdf8', '#ec4899', '#fde047', '#22c55e', '#ffffff'];
@@ -604,20 +607,45 @@ export class ActiveCracker {
 
     // Festive name badge showing who ignited the cracker live
     if (this.placedBy && this.state !== 'DONE') {
-      ctx.font = 'bold 10px "Outfit", sans-serif';
-      ctx.textAlign = 'center';
-      const label = `✨ ${this.placedBy}'s ${this.data.name || 'Cracker'}`;
-      const textW = ctx.measureText(label).width;
-      ctx.fillStyle = 'rgba(15, 10, 26, 0.88)';
-      ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 1;
+      const isFuse = this.state === 'FUSE';
+      const fuseSeconds = Math.max(0, this.fuseTime / 60).toFixed(1);
+      const icon = this.data.icon || '🎆';
+      const statusText = isFuse ? `⏳ ${fuseSeconds}s` : '💥 BURSTING!';
+      const label = `${icon} ${this.placedBy}'s ${this.data.name || 'Cracker'} [${statusText}]`;
+
+      // Vertical beacon light beam shooting upwards so it can be spotted easily
+      ctx.save();
+      const grad = ctx.createLinearGradient(0, 0, 0, -140);
+      grad.addColorStop(0, isFuse ? 'rgba(251, 191, 36, 0.45)' : 'rgba(239, 68, 68, 0.6)');
+      grad.addColorStop(1, 'rgba(251, 191, 36, 0)');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.roundRect(-textW / 2 - 6, -32, textW + 12, 16, 4);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, -140);
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.font = 'bold 11px "Outfit", sans-serif';
+      ctx.textAlign = 'center';
+      const textW = ctx.measureText(label).width;
+      const bw = textW + 16;
+      const bh = 22;
+      const by = -42;
+
+      ctx.fillStyle = isFuse ? 'rgba(15, 10, 26, 0.92)' : 'rgba(69, 10, 10, 0.95)';
+      ctx.strokeStyle = isFuse ? '#f59e0b' : '#ef4444';
+      ctx.lineWidth = 1.6;
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = isFuse ? '#f59e0b' : '#ef4444';
+      ctx.beginPath();
+      ctx.roundRect(-bw / 2, by, bw, bh, 6);
       ctx.fill();
       ctx.stroke();
+      ctx.shadowBlur = 0;
 
-      ctx.fillStyle = '#fef08a';
-      ctx.fillText(label, 0, -20);
+      ctx.fillStyle = isFuse ? '#fef08a' : '#ffffff';
+      ctx.fillText(label, 0, by + 15);
     }
 
     ctx.restore();

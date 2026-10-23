@@ -20,14 +20,29 @@ export default function MiniMap({
       if (!evt || !evt.x || !evt.y) return;
       const pingId = `ping_${Date.now()}_${Math.random()}`;
       setCrackerPings((prev) => [
-        ...prev.slice(-4),
+        ...prev.slice(-6),
         { id: pingId, x: evt.x, y: evt.y, icon: evt.icon || '💥', name: evt.placedBy || 'Friend' }
       ]);
       setTimeout(() => {
         setCrackerPings((prev) => prev.filter((p) => p.id !== pingId));
-      }, 3500);
+      }, 4500);
     });
-    return () => unsub();
+
+    const unsubHit = multiplayerManager.onRavanHit((evt) => {
+      const pingId = `ravan_hit_${Date.now()}_${Math.random()}`;
+      setCrackerPings((prev) => [
+        ...prev.slice(-6),
+        { id: pingId, x: MELA_ZONES.RAVAN.x, y: MELA_ZONES.RAVAN.y, icon: '💥', name: evt?.shooterName || 'Warrior' }
+      ]);
+      setTimeout(() => {
+        setCrackerPings((prev) => prev.filter((p) => p.id !== pingId));
+      }, 2500);
+    });
+
+    return () => {
+      unsub();
+      unsubHit();
+    };
   }, [multiplayerManager]);
 
   const mapW = 190;

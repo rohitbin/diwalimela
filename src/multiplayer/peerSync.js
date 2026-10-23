@@ -1,7 +1,8 @@
-// Real-time Multiplayer Synchronization via PeerJS (WebRTC) and BroadcastChannel
+// Real-time Multiplayer Synchronization via BroadcastChannel, MQTT WebSocket, and PeerJS (WebRTC)
 // Enables real people to join the Diwali Mela from different tabs, devices, or remote links!
 
 import Peer from 'peerjs';
+import mqtt from 'mqtt';
 
 class MultiplayerManager {
   constructor() {
@@ -11,6 +12,8 @@ class MultiplayerManager {
     this.isHost = false;
     this.connections = new Map(); // connId -> conn
     this.broadcastChannel = null;
+    this.mqttClient = null;
+    this.mqttTopic = null;
     this.onPeerUpdate = null; // callback(peersMap)
     this.onPlayerJoined = null; // callback(newPlayer)
     this.onCrackerEvent = null; // callback(event)
@@ -24,6 +27,12 @@ class MultiplayerManager {
     this.crackerListeners = new Set();
     this.diyaListeners = new Set();
     this.ravanListeners = new Set();
+    this.projectileListeners = new Set();
+    this.buffListeners = new Set();
+    this.bellListeners = new Set();
+    this.danceListeners = new Set();
+    this.dhamakaListeners = new Set();
+    this.processedMsgIds = new Set();
   }
 
   onRavanHit(callback) {
@@ -39,6 +48,31 @@ class MultiplayerManager {
   onDiya(callback) {
     this.diyaListeners.add(callback);
     return () => this.diyaListeners.delete(callback);
+  }
+
+  onProjectile(callback) {
+    this.projectileListeners.add(callback);
+    return () => this.projectileListeners.delete(callback);
+  }
+
+  onBuff(callback) {
+    this.buffListeners.add(callback);
+    return () => this.buffListeners.delete(callback);
+  }
+
+  onTempleBell(callback) {
+    this.bellListeners.add(callback);
+    return () => this.bellListeners.delete(callback);
+  }
+
+  onDance(callback) {
+    this.danceListeners.add(callback);
+    return () => this.danceListeners.delete(callback);
+  }
+
+  onGlobalDhamaka(callback) {
+    this.dhamakaListeners.add(callback);
+    return () => this.dhamakaListeners.delete(callback);
   }
 
   init(roomId = 'diwali-mela-main', myProfile, callbacks = {}) {
@@ -60,13 +94,16 @@ class MultiplayerManager {
       console.warn('BroadcastChannel not supported', e);
     }
 
-    // 2. Initialize PeerJS for genuine Internet WebRTC multiplayer
+    // 2. High-reliability public MQTT WebSocket connection (works across all browsers, networks & phones)
+    this.initMQTT();
+
+    // 3. Initialize PeerJS for direct WebRTC data channels
     this.initPeerJS();
 
-    // 3. Immediately announce presence across local channel
+    // 4. Immediately announce presence across all channels
     this.sendHandshake();
 
-    // 4. Regular heartbeat so stationary players never disappear or get desynced
+    // 5. Regular heartbeat so stationary players never disappear or get desynced
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = setInterval(() => {
       if (this.myProfile) {
@@ -74,28 +111,70 @@ class MultiplayerManager {
       }
     }, 1200);
 
-    // 5. Prune disconnected or stale peers who closed their tab
+    // 6. Prune disconnected or stale peers who closed their tab
     if (this.pruneTimer) clearInterval(this.pruneTimer);
     this.pruneTimer = setInterval(() => {
       this.pruneStalePeers();
-    }, 2500);
+    }, 3500);
 
-    // 6. Handle tab close/unload
+    // 7. Handle tab close/unload
     window.addEventListener('beforeunload', () => {
       this.disconnect();
     });
   }
 
+  initMQTT() {
+    try {
+      const sanitizedRoom = (this.roomId || 'diwali-mela-main').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const randomSuffix = Math.random().toString(36).substring(2, 8);
+      const clientId = `diwali_p_${sanitizedRoom}_${randomSuffix}`;
+      const topic = `diwalimela/${sanitizedRoom}/events`;
+      this.mqttTopic = topic;
+
+      // Connect to fast public MQTT WebSocket broker
+      this.mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+        clientId,
+        clean: true,
+        connectTimeout: 5000,
+        reconnectPeriod: 3000,
+        keepalive: 60
+      });
+
+      this.mqttClient.on('connect', () => {
+        this.isConnected = true;
+        this.mqttClient.subscribe(topic, { qos: 0 }, (err) => {
+          if (!err) {
+            this.sendHandshake();
+          }
+        });
+      });
+
+      this.mqttClient.on('message', (_t, payload) => {
+        try {
+          const str = payload.toString();
+          const data = JSON.parse(str);
+          this.handleIncomingData(data, 'mqtt');
+        } catch (_) {}
+      });
+
+      this.mqttClient.on('error', (err) => {
+        console.warn('MQTT notice:', err?.message || err);
+      });
+    } catch (e) {
+      console.warn('MQTT fallback to local channel & WebRTC:', e);
+    }
+  }
+
   initPeerJS() {
     try {
-      const sanitizedRoom = this.roomId.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const sanitizedRoom = (this.roomId || 'diwali-mela-main').replace(/[^a-zA-Z0-9_-]/g, '_');
       const hostId = `diwali_host_${sanitizedRoom}`;
       const randomSuffix = Math.random().toString(36).substring(2, 7);
       const clientId = `diwali_p_${sanitizedRoom}_${randomSuffix}`;
 
       // Try connecting as host first, fallback to client if host exists
       this.peer = new Peer(hostId, {
-        debug: 1,
+        debug: 0,
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
@@ -131,7 +210,7 @@ class MultiplayerManager {
   initClientPeer(clientId, hostId) {
     try {
       this.peer = new Peer(clientId, {
-        debug: 1,
+        debug: 0,
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
@@ -211,11 +290,23 @@ class MultiplayerManager {
     this.sendToAll(payload);
   }
 
-  handleIncomingData(data, sourceId) {
+  handleIncomingData(data, _sourceId) {
     if (!data || !data.type) return;
 
+    // Deduplication check to prevent repeating actions across channels
+    const msgId = data.msgId || `${data.type}_${data.senderId}_${data.timestamp || ''}_${data.event?.id || data.projectile?.id || ''}`;
+    if (this.processedMsgIds.has(msgId)) {
+      return;
+    }
+    this.processedMsgIds.add(msgId);
+    if (this.processedMsgIds.size > 600) {
+      const first = this.processedMsgIds.values().next().value;
+      this.processedMsgIds.delete(first);
+    }
+
     // Ignore self-echoes
-    if (data.senderId === this.peerId || data.senderId === this.myProfile?.id || data.player?.id === this.myProfile?.id) {
+    const myId = this.myProfile?.id;
+    if (myId && (data.senderId === myId || data.player?.id === myId)) {
       return;
     }
 
@@ -277,6 +368,61 @@ class MultiplayerManager {
         }
         this.crackerListeners.forEach((fn) => {
           try { fn(data.event); } catch (e) { console.error('Cracker listener error:', e); }
+        });
+        break;
+      }
+
+      case 'PROJECTILE_EVENT': {
+        this.projectileListeners.forEach((fn) => {
+          try { fn(data.projectile); } catch (e) { console.error('Projectile listener error:', e); }
+        });
+        break;
+      }
+
+      case 'BUFF_EVENT': {
+        if (data.buff && data.buff.playerId) {
+          const existing = this.remotePlayers.get(data.buff.playerId);
+          if (existing) {
+            this.remotePlayers.set(data.buff.playerId, {
+              ...existing,
+              activeBuffs: { ...(existing.activeBuffs || {}), [data.buff.buffId]: true }
+            });
+            if (this.onPeerUpdate) this.onPeerUpdate(new Map(this.remotePlayers));
+          }
+        }
+        this.buffListeners.forEach((fn) => {
+          try { fn(data.buff); } catch (e) { console.error('Buff listener error:', e); }
+        });
+        break;
+      }
+
+      case 'TEMPLE_BELL': {
+        this.bellListeners.forEach((fn) => {
+          try { fn(data.bell); } catch (e) { console.error('Bell listener error:', e); }
+        });
+        break;
+      }
+
+      case 'PLAYER_DANCE': {
+        if (data.dance && data.dance.playerId) {
+          const existing = this.remotePlayers.get(data.dance.playerId);
+          if (existing) {
+            this.remotePlayers.set(data.dance.playerId, {
+              ...existing,
+              isDancing: data.dance.isDancing
+            });
+            if (this.onPeerUpdate) this.onPeerUpdate(new Map(this.remotePlayers));
+          }
+        }
+        this.danceListeners.forEach((fn) => {
+          try { fn(data.dance); } catch (e) { console.error('Dance listener error:', e); }
+        });
+        break;
+      }
+
+      case 'GLOBAL_DHAMAKA': {
+        this.dhamakaListeners.forEach((fn) => {
+          try { fn(data.dhamaka); } catch (e) { console.error('Dhamaka listener error:', e); }
         });
         break;
       }
@@ -344,6 +490,67 @@ class MultiplayerManager {
     this.sendToAll(payload);
   }
 
+  // Send projectile fired (fiery arrow or spark bullet)
+  broadcastProjectile(projectileData) {
+    const payload = {
+      type: 'PROJECTILE_EVENT',
+      senderId: this.myProfile?.id || this.peerId,
+      projectile: projectileData,
+      timestamp: Date.now()
+    };
+    this.sendToAll(payload);
+  }
+
+  // Send sweet/chai food buff activated
+  broadcastPlayerBuff(buffData) {
+    const payload = {
+      type: 'BUFF_EVENT',
+      senderId: this.myProfile?.id || this.peerId,
+      buff: {
+        ...buffData,
+        playerId: this.myProfile?.id || this.peerId
+      },
+      timestamp: Date.now()
+    };
+    this.sendToAll(payload);
+  }
+
+  // Send temple bell ring event
+  broadcastTempleBell(bellData) {
+    const payload = {
+      type: 'TEMPLE_BELL',
+      senderId: this.myProfile?.id || this.peerId,
+      bell: bellData,
+      timestamp: Date.now()
+    };
+    this.sendToAll(payload);
+  }
+
+  // Send player dance state
+  broadcastPlayerDance(danceData) {
+    const payload = {
+      type: 'PLAYER_DANCE',
+      senderId: this.myProfile?.id || this.peerId,
+      dance: {
+        ...danceData,
+        playerId: this.myProfile?.id || this.peerId
+      },
+      timestamp: Date.now()
+    };
+    this.sendToAll(payload);
+  }
+
+  // Send global dhamaka screen flash and rumble for epic bombs
+  broadcastGlobalDhamaka(dhamakaData) {
+    const payload = {
+      type: 'GLOBAL_DHAMAKA',
+      senderId: this.myProfile?.id || this.peerId,
+      dhamaka: dhamakaData,
+      timestamp: Date.now()
+    };
+    this.sendToAll(payload);
+  }
+
   // Send festive chat message or greeting
   broadcastChatMessage(chatMessage) {
     const payload = {
@@ -381,7 +588,7 @@ class MultiplayerManager {
     const now = Date.now();
     let changed = false;
     this.remotePlayers.forEach((p, id) => {
-      if (now - (p.lastSeen || 0) > 7500) {
+      if (now - (p.lastSeen || 0) > 8500) {
         this.remotePlayers.delete(id);
         changed = true;
       }
@@ -392,6 +599,16 @@ class MultiplayerManager {
   }
 
   sendToAll(data) {
+    if (!data.msgId) {
+      data.msgId = `${data.type}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    }
+    // Remember our own sent message ID so we don't process it if echoed back
+    this.processedMsgIds.add(data.msgId);
+    if (this.processedMsgIds.size > 600) {
+      const first = this.processedMsgIds.values().next().value;
+      this.processedMsgIds.delete(first);
+    }
+
     // 1. BroadcastChannel (fastest for multiple tabs/windows on same PC/browser)
     if (this.broadcastChannel) {
       try {
@@ -399,7 +616,14 @@ class MultiplayerManager {
       } catch {}
     }
 
-    // 2. PeerJS connections (for separate devices/users across internet)
+    // 2. High-speed MQTT WebSocket (universal internet sync across devices & networks)
+    if (this.mqttClient && this.mqttClient.connected && this.mqttTopic) {
+      try {
+        this.mqttClient.publish(this.mqttTopic, JSON.stringify(data));
+      } catch {}
+    }
+
+    // 3. PeerJS direct WebRTC connections
     this.connections.forEach((conn) => {
       if (conn.open) {
         try {
@@ -428,6 +652,11 @@ class MultiplayerManager {
     if (this.broadcastChannel) {
       try {
         this.broadcastChannel.close();
+      } catch {}
+    }
+    if (this.mqttClient) {
+      try {
+        this.mqttClient.end(true);
       } catch {}
     }
     if (this.peer) {

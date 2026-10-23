@@ -38,7 +38,9 @@ export default function ChaiStallModal({
   onClose,
   coins,
   setCoins,
-  setActiveBuffs
+  setActiveBuffs,
+  multiplayerManager,
+  player
 }) {
   const [consumedMessage, setConsumedMessage] = useState(null);
 
@@ -62,6 +64,16 @@ export default function ChaiStallModal({
         buff: item.buff
       }
     }));
+
+    if (multiplayerManager) {
+      multiplayerManager.broadcastPlayerBuff({
+        buffId: item.id,
+        name: item.name,
+        icon: item.icon,
+        buff: item.buff,
+        playerName: player?.name || 'Friend'
+      });
+    }
 
     setConsumedMessage(`Wah! Enjoyed ${item.name} — ${item.buff}!`);
     setTimeout(() => setConsumedMessage(null), 3000);

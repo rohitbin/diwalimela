@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { soundEngine } from '../audio/soundEngine';
 import { Bell, Sparkles, X, Heart } from 'lucide-react';
 
-export default function TempleModal({ isOpen, onClose, setCoins }) {
+export default function TempleModal({ isOpen, onClose, setCoins, multiplayerManager, player }) {
   const [isRinging, setIsRinging] = useState(false);
   const [ringCount, setRingCount] = useState(0);
   const [blessingMessage, setBlessingMessage] = useState(null);
@@ -17,6 +17,12 @@ export default function TempleModal({ isOpen, onClose, setCoins }) {
 
     setRingCount((c) => c + 1);
     setCoins((c) => c + 50);
+
+    if (multiplayerManager) {
+      multiplayerManager.broadcastTempleBell({
+        playerName: player?.name || 'Devotee'
+      });
+    }
 
     const blessings = [
       '🔔 "Shubh Deepawali! Goddess Lakshmi blesses your home with abundant wealth and peace!" (+50 Coins)',

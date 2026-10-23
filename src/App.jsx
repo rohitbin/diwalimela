@@ -304,7 +304,15 @@ export default function App() {
     soundEngine.init();
     soundEngine.playDholakBeat(true);
     soundEngine.playCrowdCheer();
-    setTimeout(() => setIsDancing(false), 3500);
+    if (multiplayerManager) {
+      multiplayerManager.broadcastPlayerDance({ isDancing: true, playerName: player.name });
+    }
+    setTimeout(() => {
+      setIsDancing(false);
+      if (multiplayerManager) {
+        multiplayerManager.broadcastPlayerDance({ isDancing: false, playerName: player.name });
+      }
+    }, 3500);
   };
 
   // Keyboard number shortcuts to select crackers (Keys 1-8)
@@ -521,6 +529,8 @@ export default function App() {
           setCoins(c);
           setBellRung(true);
         }}
+        multiplayerManager={multiplayerManager}
+        player={player}
       />
 
       <BalloonShootingModal
@@ -540,6 +550,8 @@ export default function App() {
           setActiveBuffs(b);
           setChaiDrank(true);
         }}
+        multiplayerManager={multiplayerManager}
+        player={player}
       />
 
       <AvatarCustomizer

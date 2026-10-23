@@ -112,6 +112,9 @@ export default function MelaCanvas({
     camera: { x: 1000, y: 650 },
     cameraZoom: 1.0,
     wheelAngle: 0,
+    skyFlash: { color: 'rgba(255, 255, 255, 0)', alpha: 0, decay: 0.04 },
+    screenShake: { intensity: 0, duration: 0 },
+    flowerPetals: [],
     // Earthen Diyas across the mela
     diyas: [
       { id: 1, x: 880, y: 220, isLit: true },
@@ -173,9 +176,11 @@ export default function MelaCanvas({
   remotePlayersRef.current = remotePlayers;
   const lastBroadcastRef = useRef(0);
 
-  // Sync remote fireworks and diya lighting across real players
+  // Sync remote fireworks, weapons, diyas, buffs, bells, and global explosions across all real players
   useEffect(() => {
     if (!multiplayerManager) return;
+
+    // 1. Cracker placed/ignited by any user
     const unsubCracker = multiplayerManager.onCracker((event) => {
       if (!event || !event.crackerId) return;
       const crackerData = CRACKER_MAP[event.crackerId] || window.__CRACKER_MAP?.[event.crackerId];
@@ -191,18 +196,184 @@ export default function MelaCanvas({
       }
     });
 
+    // 2. Projectile fired (Divine Bow Arrow or Sparkler Blaster Gun) by any user
+    const unsubProj = multiplayerManager.onProjectile((data) => {
+      if (!data || data.shooterId === playerRef.current.id) return;
+      if (data.weaponId === 'gun') {
+        soundEngine.playGunShot();
+      } else {
+        soundEngine.playBowRelease();
+      }
+
+      worldRef.current.projectiles.push({
+        id: data.id || `proj_${Date.now()}`,
+        x: data.startX,
+        y: data.startY,
+        startX: data.startX,
+        startY: data.startY,
+        targetX: data.targetX,
+        targetY: data.targetY,
+        speed: data.speed || 28,
+        speedMultiplier: data.speedMultiplier || 1.0,
+        type: data.weaponId,
+        shooterName: data.shooterName || 'Warrior',
+        color: data.color || (data.weaponId === 'gun' ? '#38bdf8' : '#fbbf24'),
+        trail: [],
+        isRemote: true
+      });
+    });
+
+    // 3. Ravan Hit & Boss Impact from any user
+    const unsubRavanHit = multiplayerManager.onRavanHit((data) => {
+      if (!data) return;
+      soundEngine.playRavanHit();
+      worldRef.current.ravanHitFlash = 9;
+      worldRef.current.screenShake = { intensity: 3, duration: 4 };
+
+      // Impact spark particles at Ravan
+      const rx = MELA_ZONES.RAVAN.x + (Math.random() - 0.5) * 35;
+      const ry = MELA_ZONES.RAVAN.y + (Math.random() - 0.5) * 45;
+      for (let i = 0; i < 24; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const spd = 2 + Math.random() * 5.5;
+        worldRef.current.particles.push(
+          new Particle(
+            rx,
+            ry,
+            Math.cos(theta) * spd,
+            Math.sin(theta) * spd,
+            Math.random() > 0.4 ? '#fbbf24' : '#ef4444',
+            18 + Math.floor(Math.random() * 14),
+            1.8,
+            0.06,
+            0.95,
+            'spark'
+          )
+        );
+      }
+
+      // Floating -1 damage number
+      worldRef.current.floatingTexts.push({
+        x: rx,
+        y: ry - 20,
+        text: `-1 HP ✨ ${data.shooterName || 'Hero'}`,
+        color: data.weapon === 'gun' ? '#38bdf8' : '#fef08a',
+        alpha: 1.0,
+        vy: -1.7,
+        life: 55
+      });
+    });
+
+    // 4. Diya lighting by any user
     const unsubDiya = multiplayerManager.onDiya((diyaData) => {
       if (!diyaData) return;
       const target = worldRef.current.diyas.find((d) => d.id === diyaData.id);
       if (target) {
         target.isLit = true;
         soundEngine.playDiyaLight();
+
+        // Sparkle burst around diya
+        for (let i = 0; i < 16; i++) {
+          const theta = Math.random() * Math.PI * 2;
+          const spd = 1.0 + Math.random() * 2.5;
+          worldRef.current.particles.push(
+            new Particle(
+              target.x,
+              target.y - 4,
+              Math.cos(theta) * spd,
+              Math.sin(theta) * spd - 0.5,
+              '#fbbf24',
+              20,
+              1.8,
+              0.03,
+              0.96,
+              'spark'
+            )
+          );
+        }
+
+        if (diyaData.litBy) {
+          worldRef.current.floatingTexts.push({
+            x: target.x,
+            y: target.y - 18,
+            text: `🪔 Lit by ${diyaData.litBy}!`,
+            color: '#fef08a',
+            alpha: 1.0,
+            vy: -1.2,
+            life: 60
+          });
+        }
+      }
+    });
+
+    // 5. Temple Bell rung by any user
+    const unsubBell = multiplayerManager.onTempleBell((data) => {
+      soundEngine.playTempleBell();
+      const tx = MELA_ZONES.TEMPLE.x;
+      const ty = MELA_ZONES.TEMPLE.y;
+
+      // Golden marigold flower petal shower
+      for (let i = 0; i < 35; i++) {
+        worldRef.current.flowerPetals.push({
+          x: tx + (Math.random() - 0.5) * 120,
+          y: ty - 120 + Math.random() * 40,
+          vx: (Math.random() - 0.5) * 1.5,
+          vy: 0.8 + Math.random() * 1.4,
+          rot: Math.random() * Math.PI * 2,
+          vRot: (Math.random() - 0.5) * 0.08,
+          color: Math.random() > 0.5 ? '#f59e0b' : '#ea580c',
+          life: 140
+        });
+      }
+
+      worldRef.current.floatingTexts.push({
+        x: tx,
+        y: ty - 60,
+        text: `🔔 ${data.playerName || 'Devotee'} rang the holy Mandir Bell!`,
+        color: '#fef08a',
+        alpha: 1.0,
+        vy: -1.4,
+        life: 70
+      });
+    });
+
+    // 6. Global Dhamaka (Massive Sutli Bomb explosion felt everywhere)
+    const unsubDhamaka = multiplayerManager.onGlobalDhamaka((data) => {
+      worldRef.current.skyFlash = {
+        color: data.color || 'rgba(255, 255, 240, 0.9)',
+        alpha: 0.85,
+        decay: 0.035
+      };
+      worldRef.current.screenShake = {
+        intensity: data.intensity || 12,
+        duration: data.duration || 26
+      };
+      soundEngine.playSutliBomb();
+    });
+
+    // 7. Sweet / Chai Buff used by any user
+    const unsubBuff = multiplayerManager.onBuff((data) => {
+      if (data && data.playerName) {
+        worldRef.current.floatingTexts.push({
+          x: MELA_ZONES.CHAI_TAPRI.x,
+          y: MELA_ZONES.CHAI_TAPRI.y - 30,
+          text: `${data.icon || '☕'} ${data.playerName}: ${data.name || 'Warm Chai Boost'}!`,
+          color: '#fed7aa',
+          alpha: 1.0,
+          vy: -1.2,
+          life: 65
+        });
       }
     });
 
     return () => {
       if (unsubCracker) unsubCracker();
+      if (unsubProj) unsubProj();
+      if (unsubRavanHit) unsubRavanHit();
       if (unsubDiya) unsubDiya();
+      if (unsubBell) unsubBell();
+      if (unsubDhamaka) unsubDhamaka();
+      if (unsubBuff) unsubBuff();
     };
   }, [multiplayerManager]);
 
@@ -384,8 +555,11 @@ export default function MelaCanvas({
     const baseSpeed = weapon.id === 'gun' ? 32 : 25;
     const computedSpeed = Math.round(baseSpeed * finalMultiplier);
 
+    const projId = `proj_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const projColor = weapon.id === 'gun' ? '#38bdf8' : '#fbbf24';
+
     world.projectiles.push({
-      id: `proj_${Date.now()}_${Math.random()}`,
+      id: projId,
       x: p.x,
       y: p.y - 14,
       startX: p.x,
@@ -396,9 +570,26 @@ export default function MelaCanvas({
       speedMultiplier: finalMultiplier,
       type: weapon.id,
       shooterName: p.name || 'Hero',
-      color: weapon.id === 'gun' ? '#38bdf8' : '#fbbf24',
-      trail: []
+      color: projColor,
+      trail: [],
+      isLocal: true
     });
+
+    if (multiplayerManager) {
+      multiplayerManager.broadcastProjectile({
+        id: projId,
+        weaponId: weapon.id,
+        shooterId: p.id,
+        shooterName: p.name || 'Hero',
+        startX: p.x,
+        startY: p.y - 14,
+        targetX,
+        targetY,
+        speed: computedSpeed,
+        speedMultiplier: finalMultiplier,
+        color: projColor
+      });
+    }
 
     if (onRavanShot) onRavanShot(weapon.id);
   };
@@ -842,10 +1033,13 @@ export default function MelaCanvas({
       // Screen Shake effect decay
       let shakeOffsetX = 0;
       let shakeOffsetY = 0;
-      if (screenShake && screenShake.duration > 0) {
+      if (world.screenShake && world.screenShake.duration > 0) {
+        shakeOffsetX = (Math.random() - 0.5) * world.screenShake.intensity;
+        shakeOffsetY = (Math.random() - 0.5) * world.screenShake.intensity;
+        world.screenShake.duration--;
+      } else if (screenShake && screenShake.duration > 0) {
         shakeOffsetX = (Math.random() - 0.5) * screenShake.intensity;
         shakeOffsetY = (Math.random() - 0.5) * screenShake.intensity;
-        setScreenShake((prev) => (prev ? { ...prev, duration: prev.duration - 1 } : null));
       }
 
       // Ambient background fireworks in sky
@@ -878,11 +1072,21 @@ export default function MelaCanvas({
 
       // Update Active Crackers & Particles
       const addParticle = (pt) => world.particles.push(pt);
-      const triggerShake = (intensity, duration) => setScreenShake({ intensity, duration });
+      const triggerShake = (intensity, duration) => {
+        world.screenShake = { intensity, duration };
+      };
+      const triggerSkyFlash = (color, alpha) => {
+        world.skyFlash = { color: color || 'rgba(255, 255, 240, 0.9)', alpha: alpha || 0.85, decay: 0.035 };
+      };
 
-      world.activeCrackers = world.activeCrackers.filter((c) =>
-        c.update(addParticle, triggerShake)
-      );
+      world.activeCrackers = world.activeCrackers.filter((c) => {
+        const wasFuse = c.state === 'FUSE';
+        const alive = c.update(addParticle, triggerShake, triggerSkyFlash);
+        if (wasFuse && c.state === 'BURSTING' && c.onBurst) {
+          try { c.onBurst(); } catch (_) {}
+        }
+        return alive;
+      });
 
       world.particles = world.particles.filter((pt) => pt.update());
 
@@ -971,7 +1175,7 @@ export default function MelaCanvas({
           world.ravanHitFlash = 9;
 
           // 1 shot reduces Ravan's HP by exactly 1
-          if (setRavanHp) {
+          if (proj.isLocal && setRavanHp) {
             setRavanHp((prevHp) => {
               const nextHp = Math.max(0, prevHp - 1);
               try {
@@ -981,11 +1185,11 @@ export default function MelaCanvas({
             });
           }
 
-          // Floating -1 damage number rising above Ravan
+          // Floating -1 damage number rising above Ravan showing who hit
           world.floatingTexts.push({
             x: proj.targetX + (Math.random() - 0.5) * 24,
             y: proj.targetY - 20,
-            text: '-1 HP',
+            text: `-1 HP ✨ ${proj.shooterName || 'Hero'}`,
             color: proj.type === 'gun' ? '#38bdf8' : '#fef08a',
             alpha: 1.0,
             vy: -1.7,
@@ -1013,10 +1217,10 @@ export default function MelaCanvas({
           }
 
           // Subtle impact screen shake
-          setScreenShake({ intensity: 2.2, duration: 3 });
+          world.screenShake = { intensity: 2.2, duration: 3 };
 
-          // Broadcast hit event to live peers
-          if (multiplayerManager) {
+          // Broadcast hit event to live peers if local shooter
+          if (proj.isLocal && multiplayerManager) {
             multiplayerManager.broadcastRavanHit({
               damage: 1,
               shooterName: p.name || 'Hero',
@@ -1057,6 +1261,15 @@ export default function MelaCanvas({
         return ft.alpha > 0;
       });
 
+      // Update Flower Petals (Temple Bell shower)
+      world.flowerPetals = (world.flowerPetals || []).filter((pet) => {
+        pet.x += pet.vx;
+        pet.y += pet.vy;
+        pet.rot += pet.vRot;
+        pet.life--;
+        return pet.life > 0;
+      });
+
       // ==========================================
       // RENDER CANVAS SCENE
       // ==========================================
@@ -1075,7 +1288,8 @@ export default function MelaCanvas({
       renderEntranceArch(ctx);
 
       // C. Giant Ferris Wheel (विशाल झूला)
-      renderGiantFerrisWheel(ctx, world.wheelAngle, isRidingWheel, p);
+      const livePeers = remotePlayersRef.current;
+      renderGiantFerrisWheel(ctx, world.wheelAngle, isRidingWheel, p, livePeers);
 
       // D. Carnival Game Stalls: Balloon Shooting, Chai Tapri
       renderCarnivalAttractions(ctx, p);
@@ -1105,12 +1319,11 @@ export default function MelaCanvas({
       renderProjectiles(ctx, world.projectiles || []);
 
       // Real Online Players (WebRTC & Cross-Tab Multiplayer)
-      const livePeers = remotePlayersRef.current;
       if (livePeers && livePeers.size > 0) {
         livePeers.forEach((remPlayer) => {
           if (remPlayer.id === p.id) return; // Skip own player
           const heldCracker = remPlayer.holdingCracker ? (CRACKER_MAP[remPlayer.holdingCracker] || { id: remPlayer.holdingCracker }) : null;
-          renderCharacter(ctx, remPlayer, true, false, heldCracker, null, remPlayer.isDancing);
+          renderCharacter(ctx, remPlayer, true, false, heldCracker, remPlayer.activeBuffs, remPlayer.isDancing);
         });
       }
 
@@ -1125,16 +1338,22 @@ export default function MelaCanvas({
       // M2. Floating Damage Texts (-1 HP)
       renderFloatingTexts(ctx, world.floatingTexts || []);
 
+      // M3. Mandir Holy Flower Petals Shower
+      renderFlowerPetals(ctx, world.flowerPetals || []);
+
       // N. Night Sky Floating Lanterns (Kandils)
       renderFloatingLanterns(ctx, world.floatingLanterns);
 
-      // O. Festive Atmospheric Dark Vignette & Dynamic Lighting Overlay
+      // O. Festive Atmospheric Dark Vignette & Dynamic Lighting Overlay (with Full-sky flash on explosion)
       renderNightLightingGlow(ctx, world, p.x, p.y);
 
       // P. Visual Direction Compass when far from key spots
       renderDirectionGuides(ctx, p);
 
       ctx.restore();
+
+      // Q. Off-Screen Active Bomb Radar Beacons (so EVERY user sees and tracks ANY bomb in the mela!)
+      renderOffScreenBombBeacons(ctx, world, canvas.width, canvas.height, p);
 
       animationFrameId = requestAnimationFrame(render);
     };
@@ -1149,7 +1368,6 @@ export default function MelaCanvas({
     inventory,
     remotePlayers,
     multiplayerManager,
-    screenShake,
     activeBuffs,
     isRidingWheel,
     isDancing,
@@ -1774,7 +1992,7 @@ function renderGroundAndCourtyards(ctx, world) {
 // -------------------------------------------------------------
 // GIANT FERRIS WHEEL (विशाल झूला)
 // -------------------------------------------------------------
-function renderGiantFerrisWheel(ctx, angle, isRiding, player) {
+function renderGiantFerrisWheel(ctx, angle, isRiding, player, remotePlayers = null) {
   ctx.save();
   const wx = MELA_ZONES.FERRIS_WHEEL.x;
   const wy = MELA_ZONES.FERRIS_WHEEL.y;
@@ -1855,6 +2073,25 @@ function renderGiantFerrisWheel(ctx, angle, isRiding, player) {
       ctx.beginPath();
       ctx.arc(0, 8, 4, 0, Math.PI * 2);
       ctx.fill();
+
+      // Mini turban
+      const tCol = player?.outfit?.turban || player?.turbanColor || '#fbbf24';
+      ctx.fillStyle = tCol;
+      ctx.fillRect(-4, 3, 8, 3);
+    } else if (remotePlayers && remotePlayers.size > 0) {
+      let peerIdx = 1;
+      remotePlayers.forEach((rem) => {
+        if (rem.isRidingWheel && i === (peerIdx % spokes)) {
+          ctx.fillStyle = rem.color || '#38bdf8';
+          ctx.beginPath();
+          ctx.arc(0, 8, 4, 0, Math.PI * 2);
+          ctx.fill();
+          const tCol = rem.turbanColor || '#f43f5e';
+          ctx.fillStyle = tCol;
+          ctx.fillRect(-4, 3, 8, 3);
+        }
+        peerIdx++;
+      });
     }
 
     ctx.restore();
@@ -2266,14 +2503,44 @@ function renderCharacter(
   ctx.ellipse(0, 13, 13, 5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  if (isLocal && activeBuffs?.jalebi) {
-    ctx.shadowBlur = 18;
-    ctx.shadowColor = '#fbbf24';
-    ctx.strokeStyle = 'rgba(251, 191, 36, 0.6)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(0, 0, 24, 0, Math.PI * 2);
-    ctx.stroke();
+  // Consumed Sweet / Chai Aura (both local and remote players!)
+  const buffs = isLocal ? activeBuffs : char.activeBuffs;
+  if (buffs) {
+    if (buffs.jalebi) {
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = '#fbbf24';
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.65)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, 24, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    if (buffs.kulhad_chai) {
+      const t = performance.now() * 0.005;
+      ctx.fillStyle = 'rgba(254, 215, 170, 0.55)';
+      ctx.beginPath();
+      ctx.arc(Math.sin(t) * 7, -28 - Math.cos(t) * 4, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (buffs.kaju_katli) {
+      ctx.fillStyle = '#e2e8f0';
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(Math.cos(performance.now() * 0.006) * 16, -10, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Floating dance musical notes
+  const dancing = isLocal ? isDancing : char.isDancing;
+  if (dancing) {
+    const t = performance.now() * 0.004;
+    ctx.font = '12px serif';
+    ctx.fillStyle = '#f43f5e';
+    ctx.fillText('🎵', -10 + Math.sin(t) * 4, -50);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText('🎶', 10 + Math.cos(t) * 4, -54);
   }
 
   const walkOffset = char.isMoving || isDancing ? Math.sin(char.walkFrame || (performance.now() * 0.01)) * 4 : 0;
@@ -2309,26 +2576,131 @@ function renderCharacter(
     ctx.fill();
   }
 
+  // Equipped Weapon or Bomb / Cracker in Hand
   const holding = selectedCracker || (char.holdingCracker ? (CRACKER_MAP[char.holdingCracker] || { id: char.holdingCracker }) : null);
 
-  if (holding?.id === 'phuljhadi') {
-    ctx.strokeStyle = '#94a3b8';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(8, -4);
-    ctx.lineTo(16, -14);
-    ctx.stroke();
+  if (holding) {
+    // 1. Phuljhadi (Handheld Sparkler)
+    if (holding.id === 'phuljhadi') {
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(8, -4);
+      ctx.lineTo(18, -16);
+      ctx.stroke();
 
-    ctx.fillStyle = '#fbbf24';
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = '#fbbf24';
+      ctx.fillStyle = '#fbbf24';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(18, -16, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    // 2. Ram Dhanush (Divine Bow)
+    else if (holding.id === 'bow') {
+      ctx.save();
+      ctx.translate(12, -4);
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = '#f59e0b';
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, 13, -Math.PI * 0.45, Math.PI * 0.45);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#fef08a';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(-Math.PI * 0.45) * 13, Math.sin(-Math.PI * 0.45) * 13);
+      ctx.lineTo(Math.cos(Math.PI * 0.45) * 13, Math.sin(Math.PI * 0.45) * 13);
+      ctx.stroke();
+
+      // Quiver on back
+      ctx.fillStyle = '#78350f';
+      ctx.fillRect(-22, -18, 5, 14);
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(-23, -22, 7, 4);
+      ctx.restore();
+    }
+    // 3. Patakha Gun (Sparkler Blaster)
+    else if (holding.id === 'gun') {
+      ctx.save();
+      ctx.translate(10, -4);
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = '#38bdf8';
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(0, -3, 14, 6);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(10, -2, 6, 4);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(2, 2, 4, 6);
+      ctx.restore();
+    }
+    // 4. Sutli Bomb
+    else if (holding.id === 'sutlibomb') {
+      ctx.save();
+      ctx.translate(14, -4);
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = '#84cc16';
+      ctx.fillStyle = '#4d7c0f';
+      ctx.beginPath();
+      ctx.roundRect(-6, -6, 12, 12, 3);
+      ctx.fill();
+      ctx.strokeStyle = '#ca8a04';
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(-6, -6, 12, 12);
+      ctx.strokeStyle = '#fde047';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, -6);
+      ctx.lineTo(2, -10);
+      ctx.stroke();
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(2, -10, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    // 5. Rocket
+    else if (holding.id === 'rocket') {
+      ctx.save();
+      ctx.translate(13, -5);
+      ctx.rotate(-0.35);
+      ctx.fillStyle = '#78350f';
+      ctx.fillRect(-1, 0, 2, 16);
+      ctx.fillStyle = '#dc2626';
+      ctx.fillRect(-3, -10, 6, 10);
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.moveTo(-4, -10);
+      ctx.lineTo(0, -16);
+      ctx.lineTo(4, -10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    // 6. Generic icon
+    else if (holding.icon) {
+      ctx.font = '14px serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(holding.icon, 15, -4);
+    }
+
+    // Overhead equipped item badge
+    const badgeText = `${holding.icon || '✨'} ${holding.name || 'Item'}`;
+    ctx.font = 'bold 9px "Outfit", sans-serif';
+    const btw = ctx.measureText(badgeText).width;
+    ctx.fillStyle = 'rgba(23, 16, 36, 0.88)';
+    ctx.strokeStyle = holding.isWeapon ? '#f59e0b' : '#38bdf8';
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(16, -14, 3, 0, Math.PI * 2);
+    ctx.roundRect(-btw / 2 - 5, -48, btw + 10, 14, 4);
     ctx.fill();
-  } else if (holding?.icon) {
-    ctx.font = '12px serif';
+    ctx.stroke();
+    ctx.fillStyle = '#fef08a';
     ctx.textAlign = 'center';
-    ctx.fillText(holding.icon, 16, -6);
+    ctx.fillText(badgeText, 0, -37);
   }
 
   ctx.font = 'bold 11px "Outfit", sans-serif';
@@ -2412,6 +2784,15 @@ function renderNightLightingGlow(ctx, world, playerX, playerY) {
   ctx.beginPath();
   ctx.arc(playerX, playerY, 280, 0, Math.PI * 2);
   ctx.fill();
+
+  // Full-world atmospheric sky flash when any bomb or firework explodes
+  if (world.skyFlash && world.skyFlash.alpha > 0.01) {
+    ctx.fillStyle = world.skyFlash.color || 'rgba(255, 250, 220, 0.7)';
+    ctx.globalAlpha = Math.min(1.0, world.skyFlash.alpha);
+    ctx.fillRect(world.camera.x - 1400, world.camera.y - 1100, 2800, 2200);
+    world.skyFlash.alpha -= world.skyFlash.decay || 0.035;
+  }
+
   ctx.restore();
 }
 
@@ -2962,6 +3343,99 @@ function renderFloatingTexts(ctx, floatingTexts) {
     ctx.shadowColor = '#ef4444';
     ctx.textAlign = 'center';
     ctx.fillText(ft.text, ft.x, ft.y);
+    ctx.restore();
+  });
+}
+
+function renderFlowerPetals(ctx, petals) {
+  if (!petals || petals.length === 0) return;
+  ctx.save();
+  petals.forEach((p) => {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    ctx.fillStyle = p.color || '#f59e0b';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 5, 2.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  });
+  ctx.restore();
+}
+
+function renderOffScreenBombBeacons(ctx, world, canvasW, canvasH, player) {
+  if (!world.activeCrackers || world.activeCrackers.length === 0) return;
+
+  const camX = world.camera.x;
+  const camY = world.camera.y;
+  const zoom = world.cameraZoom || 1.0;
+
+  world.activeCrackers.forEach((c) => {
+    if (c.state === 'DONE') return;
+
+    // Convert world (c.x, c.y) to screen coordinates
+    const sx = (c.x - camX) * zoom + canvasW / 2;
+    const sy = (c.y - camY) * zoom + canvasH / 2;
+
+    // Margin from screen edges
+    const margin = 48;
+    const isOnScreen = sx >= margin && sx <= canvasW - margin && sy >= margin && sy <= canvasH - margin;
+    if (isOnScreen) return; // Already visible within screen viewport!
+
+    // Off-screen: Clamp radar beacon pill to screen border
+    const edgeMarginX = 85;
+    const edgeMarginY = 60;
+    const angle = Math.atan2(sy - canvasH / 2, sx - canvasW / 2);
+
+    const bx = Math.max(edgeMarginX, Math.min(canvasW - edgeMarginX, canvasW / 2 + Math.cos(angle) * (canvasW / 2 - edgeMarginX)));
+    const by = Math.max(edgeMarginY, Math.min(canvasH - edgeMarginY, canvasH / 2 + Math.sin(angle) * (canvasH / 2 - edgeMarginY)));
+
+    const dist = Math.round(Math.hypot(c.x - player.x, c.y - player.y) / 10);
+    const isFuse = c.state === 'FUSE';
+    const fuseSec = Math.max(0, c.fuseTime / 60).toFixed(1);
+    const icon = c.data?.icon || '💣';
+    const status = isFuse ? `⏳ ${fuseSec}s` : '💥 BURST!';
+
+    ctx.save();
+    ctx.translate(bx, by);
+
+    const pulse = Math.sin(performance.now() * 0.009) * 0.2 + 0.8;
+    ctx.shadowBlur = isFuse ? 12 : 22;
+    ctx.shadowColor = isFuse ? '#f59e0b' : '#ef4444';
+
+    const text = `${icon} ${c.placedBy || 'Friend'}: ${status} (${dist}m)`;
+    ctx.font = 'bold 11px "Outfit", sans-serif';
+    const tw = ctx.measureText(text).width;
+    const bw = tw + 22;
+    const bh = 24;
+
+    ctx.fillStyle = isFuse ? 'rgba(23, 16, 36, 0.94)' : 'rgba(88, 12, 12, 0.96)';
+    ctx.strokeStyle = isFuse ? `rgba(245, 158, 11, ${pulse})` : `rgba(239, 68, 68, ${pulse})`;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.roundRect(-bw / 2, -bh / 2, bw, bh, 12);
+    ctx.fill();
+    ctx.stroke();
+
+    // Direction arrow pointer attached to the pill pointing towards the bomb
+    ctx.save();
+    ctx.translate(Math.cos(angle) * (bw / 2 + 7), Math.sin(angle) * (bh / 2 + 3));
+    ctx.rotate(angle);
+    ctx.fillStyle = isFuse ? '#fbbf24' : '#ef4444';
+    ctx.beginPath();
+    ctx.moveTo(7, 0);
+    ctx.lineTo(-5, -5);
+    ctx.lineTo(-5, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = isFuse ? '#fef08a' : '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 0, 0);
+
     ctx.restore();
   });
 }

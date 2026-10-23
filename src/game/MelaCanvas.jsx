@@ -384,7 +384,8 @@ export default function MelaCanvas({
       const target = worldRef.current.diyas.find((d) => d.id === diyaData.id);
       if (target) {
         target.isLit = true;
-        soundEngine.playDiyaLight();
+        // Note: Candle/diya lighting sound is heard by the acting user only, not broadcast to everyone.
+        // Visual sparkles and floating notification remain for all players.
 
         // Sparkle burst around diya
         for (let i = 0; i < 16; i++) {

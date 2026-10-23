@@ -41,10 +41,27 @@ export default function MultiplayerBar({
   const handleShareInvite = () => {
     const url = new URL(window.location.href);
     url.searchParams.set('room', roomId);
-    navigator.clipboard.writeText(url.toString()).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2200);
-    });
+    const shareData = {
+      title: 'Diwali Mahotsav Mela 🪔',
+      text: 'Join me in the Diwali Mela! Burst crackers, enjoy sweets, and celebrate live together! ✨🎆',
+      url: url.toString()
+    };
+
+    if (navigator.share) {
+      navigator.share(shareData).catch((err) => {
+        if (err.name !== 'AbortError') {
+          navigator.clipboard.writeText(url.toString()).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2200);
+          });
+        }
+      });
+    } else {
+      navigator.clipboard.writeText(url.toString()).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2200);
+      });
+    }
   };
 
   return (

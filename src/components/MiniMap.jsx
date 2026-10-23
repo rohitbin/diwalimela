@@ -64,6 +64,7 @@ export default function MiniMap({
     { key: 'TEMPLE', label: 'Mandir', icon: '🔔', x: MELA_ZONES.TEMPLE.x, y: MELA_ZONES.TEMPLE.y },
     { key: 'RANGOLI_PAVILION', label: 'Rangoli', icon: '🌸', x: MELA_ZONES.RANGOLI_PAVILION.x, y: MELA_ZONES.RANGOLI_PAVILION.y },
     { key: 'WEAPON_STALL', label: 'Shastra Armory', icon: '🏹', x: MELA_ZONES.WEAPON_STALL.x, y: MELA_ZONES.WEAPON_STALL.y },
+    { key: 'RAVAN_GATE', label: 'Ravan Gate', icon: '🚪', x: MELA_ZONES.RAVAN_GATE?.x || 1380, y: MELA_ZONES.RAVAN_GATE?.y || 980 },
     { key: 'RAVAN', label: 'Ravan (10M HP)', icon: '👹', x: MELA_ZONES.RAVAN.x, y: MELA_ZONES.RAVAN.y }
   ];
 

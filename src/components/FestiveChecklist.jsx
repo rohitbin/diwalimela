@@ -22,7 +22,7 @@ export default function FestiveChecklist({
       id: 'ravan',
       title: 'Shoot 10-Headed Ravan Effigy (-1 HP)',
       done: ravanShotCount > 0,
-      target: MELA_ZONES.RAVAN
+      target: MELA_ZONES.RAVAN_GATE || MELA_ZONES.RAVAN
     },
     {
       id: 'wheel',

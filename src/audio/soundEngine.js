@@ -643,6 +643,28 @@ class SoundEngine {
       noise.stop(t + 0.12);
     } catch {}
   }
+
+  // 20. Ravan Arena Gate Pass (Resonant Regal Gong & Entry Chime)
+  playGatePass() {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+      [220, 440, 660, 880].forEach((freq, idx) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = idx === 0 ? 'sine' : 'triangle';
+        osc.frequency.setValueAtTime(freq, t);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.98, t + 1.2);
+        const amp = 0.14 / (idx + 1);
+        gain.gain.setValueAtTime(amp, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 1.25);
+      });
+    } catch {}
+  }
 }
 
 export const soundEngine = new SoundEngine();

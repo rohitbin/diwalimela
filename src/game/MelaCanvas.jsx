@@ -20,6 +20,7 @@ export const MELA_ZONES = {
   FERRIS_WHEEL: { x: 1650, y: 220, name: 'Mela Giant Wheel (विशाल झूला)' },
   BALLOON_STALL: { x: 1320, y: 220, name: 'Balloon Shooting Stall (गुब्बारा निशानेबाजी)' },
   CHAI_TAPRI: { x: 380, y: 420, name: 'Sharma Ji Chai Tapri (चाय टपरी)' },
+  RAVAN_GATE: { x: 1380, y: 980, name: 'Ravan Arena Gate (रावण दहन द्वार)' },
   RAVAN: { x: 1550, y: 980, name: 'Ravan Dahan Ground (रावण दहन - 10M HP)' },
   WEAPON_STALL: { x: 1240, y: 880, name: 'Shastra Armory (शस्त्रागार)' }
 };
@@ -57,6 +58,7 @@ export default function MelaCanvas({
   const [isRidingWheel, setIsRidingWheel] = useState(false);
   const [placementPreview, setPlacementPreview] = useState(null);
   const [clickSpeedMultiplier, setClickSpeedMultiplier] = useState(1.0);
+  const [gateNotice, setGateNotice] = useState(null);
   const autoFireIntervalRef = useRef(null);
   const speedResetTimeoutRef = useRef(null);
 
@@ -535,9 +537,25 @@ export default function MelaCanvas({
       worldRef.current.keys[e.code] = true;
 
       if (e.key.toLowerCase() === 'e' || e.code === 'Space' || e.key.toLowerCase() === 'f') {
+        const dGate = Math.hypot(playerRef.current.x - MELA_ZONES.RAVAN_GATE.x, playerRef.current.y - MELA_ZONES.RAVAN_GATE.y);
+        if (dGate < 65) {
+          const isInside = playerRef.current.x >= 1380;
+          const tx = isInside ? 1320 : 1445;
+          playerRef.current.targetX = tx;
+          playerRef.current.targetY = 980;
+          playerRef.current.isMoving = true;
+          setPlayer((prev) => ({ ...prev, targetX: tx, targetY: 980, isMoving: true }));
+          soundEngine.playGatePass?.();
+          setGateNotice({
+            text: isInside ? '🚪 Exited Ravan Arena' : '⚔️ Entered Ravan Arena! Tap Ravan or Press Space to Attack!',
+            time: Date.now()
+          });
+          return;
+        }
+
         const dRavan = Math.hypot(playerRef.current.x - MELA_ZONES.RAVAN.x, playerRef.current.y - MELA_ZONES.RAVAN.y);
         const hasWeapon = selectedCracker?.isWeapon || selectedCracker?.id === 'bow' || selectedCracker?.id === 'gun';
-        if (dRavan < 490 && hasWeapon) {
+        if (dRavan <= 185 && hasWeapon) {
           fireWeaponAtRavan();
           return;
         }
@@ -752,14 +770,32 @@ export default function MelaCanvas({
       return true;
     }
 
-    // Ravan Boss Ground (Shoot or open Armory if near)
+    // Ravan Gate Proximity
+    const dGate = dist(p.x, p.y, MELA_ZONES.RAVAN_GATE.x, MELA_ZONES.RAVAN_GATE.y);
+    if (dGate < 65) {
+      const isInside = p.x >= 1380;
+      const tx = isInside ? 1320 : 1445;
+      p.targetX = tx;
+      p.targetY = 980;
+      p.isMoving = true;
+      setPlayer((prev) => ({ ...prev, targetX: tx, targetY: 980, isMoving: true }));
+      soundEngine.playGatePass?.();
+      setGateNotice({
+        text: isInside ? '🚪 Exited Ravan Arena' : '⚔️ Entered Ravan Arena! Tap Ravan or Press Space to Attack!',
+        time: Date.now()
+      });
+      return true;
+    }
+
+    // Inside Ravan Arena (Shoot or armory prompt)
     const dRavan = dist(p.x, p.y, MELA_ZONES.RAVAN.x, MELA_ZONES.RAVAN.y);
-    if (dRavan < 480) {
+    if (dRavan <= 185) {
       const hasWeapon = selectedCracker?.isWeapon || selectedCracker?.id === 'bow' || selectedCracker?.id === 'gun';
       if (hasWeapon) {
         fireWeaponAtRavan();
         return true;
-      } else if (dRavan < 240) {
+      } else {
+        setGateNotice({ text: '🏹 Equip Bow or Gun from Armory to strike Ravan!', time: Date.now() });
         if (onOpenArmory) onOpenArmory();
         return true;
       }
@@ -831,22 +867,53 @@ export default function MelaCanvas({
     const p = playerRef.current;
     const dist = (x1, y1, x2, y2) => Math.hypot(x1 - x2, y1 - y2);
 
-    // 0. Weapon Action: If player tapped near Ravan or has weapon armed
-    const hasWeapon = selectedCracker?.isWeapon || selectedCracker?.id === 'bow' || selectedCracker?.id === 'gun';
-    const distToRavan = dist(p.x, p.y, MELA_ZONES.RAVAN.x, MELA_ZONES.RAVAN.y);
-    const clickNearRavan = dist(worldClickX, worldClickY, MELA_ZONES.RAVAN.x, MELA_ZONES.RAVAN.y) < 180;
+    // 0a. Clicked Ravan Arena Gate (Enter or Exit the arena)
+    const distToGate = dist(worldClickX, worldClickY, MELA_ZONES.RAVAN_GATE.x, MELA_ZONES.RAVAN_GATE.y);
+    if (distToGate < 65) {
+      const isInside = p.x >= 1380;
+      const tx = isInside ? 1320 : 1445;
+      p.targetX = tx;
+      p.targetY = 980;
+      p.isMoving = true;
+      setPlayer((prev) => ({ ...prev, targetX: tx, targetY: 980, isMoving: true }));
+      soundEngine.playGatePass?.();
+      setGateNotice({
+        text: isInside ? '🚪 Exited Ravan Arena' : '⚔️ Entered Ravan Arena! Tap Ravan to Shoot!',
+        time: Date.now()
+      });
+      return;
+    }
 
-    if (clickNearRavan) {
-      if (hasWeapon && distToRavan <= 490) {
+    // 0b. Ravan Arena & Effigy Interaction
+    const hasWeapon = selectedCracker?.isWeapon || selectedCracker?.id === 'bow' || selectedCracker?.id === 'gun';
+    const distToRavanCenter = dist(p.x, p.y, MELA_ZONES.RAVAN.x, MELA_ZONES.RAVAN.y);
+    const isInsideArena = distToRavanCenter <= 185;
+    const clickedInRavanArena = dist(worldClickX, worldClickY, MELA_ZONES.RAVAN.x, MELA_ZONES.RAVAN.y) <= 180;
+
+    if (clickedInRavanArena) {
+      if (!isInsideArena) {
+        // Player is outside! Guide them to the Gate
+        p.targetX = MELA_ZONES.RAVAN_GATE.x - 30;
+        p.targetY = MELA_ZONES.RAVAN_GATE.y;
+        p.isMoving = true;
+        setPlayer((prev) => ({ ...prev, targetX: MELA_ZONES.RAVAN_GATE.x - 30, targetY: MELA_ZONES.RAVAN_GATE.y, isMoving: true }));
+        setGateNotice({ text: '🚪 Enter through the Ravan Gate to fight Ravan!', time: Date.now() });
+        return;
+      }
+
+      // Inside the arena
+      if (hasWeapon) {
         fireWeaponAtRavan();
         return;
-      } else if (!hasWeapon && distToRavan <= 260) {
+      } else {
+        setGateNotice({ text: '🏹 Equip Bow or Gun from Armory to strike Ravan!', time: Date.now() });
         if (onOpenArmory) onOpenArmory();
         return;
       }
     }
 
-    if (hasWeapon && distToRavan <= 490) {
+    // Inside arena with weapon: clicking in the fighting ring fires weapon
+    if (isInsideArena && hasWeapon && dist(worldClickX, worldClickY, MELA_ZONES.RAVAN.x, MELA_ZONES.RAVAN.y) <= 220) {
       fireWeaponAtRavan();
       return;
     }
@@ -1104,6 +1171,39 @@ export default function MelaCanvas({
             isMoving = false;
             p.targetX = undefined;
             p.targetY = undefined;
+          }
+        }
+
+        // Ravan Effigy Scaffold solid collision (cannot walk through Ravan effigy base)
+        const dEffigy = Math.hypot(newX - 1550, newY - 980);
+        if (dEffigy < 45) {
+          const a = Math.atan2(newY - 980, newX - 1550);
+          newX = 1550 + Math.cos(a) * 45;
+          newY = 980 + Math.sin(a) * 45;
+        }
+
+        // Ravan Arena Circular Perimeter Fencing & Gate opening
+        // Gate is located at x: 1380, y: 980 (western opening |y - 980| <= 38)
+        const dCurrent = Math.hypot(p.x - 1550, p.y - 980);
+        const dNext = Math.hypot(newX - 1550, newY - 980);
+        const inGateOpening = Math.abs(newY - 980) <= 38 && newX <= 1405;
+
+        // Crossing into arena from outside:
+        if (dCurrent >= 168 && dNext < 168) {
+          if (!inGateOpening) {
+            // Blocked by arena fence! Push back to fence edge
+            const a = Math.atan2(newY - 980, newX - 1550);
+            newX = 1550 + Math.cos(a) * 172;
+            newY = 980 + Math.sin(a) * 172;
+          }
+        }
+        // Crossing out of arena from inside:
+        else if (dCurrent < 168 && dNext >= 168) {
+          if (!inGateOpening) {
+            // Blocked by arena fence! Keep inside
+            const a = Math.atan2(newY - 980, newX - 1550);
+            newX = 1550 + Math.cos(a) * 164;
+            newY = 980 + Math.sin(a) * 164;
           }
         }
 
@@ -1445,6 +1545,9 @@ export default function MelaCanvas({
 
       // E2. Shastra Armory Stall (शस्त्रागार - धनुष व बंदूक)
       renderWeaponArmoryStall(ctx, world, p);
+
+      // E2b. Grand Ravan Dahan Arena Gate (प्रवेश द्वार)
+      renderRavanGate(ctx, world, p);
 
       // E3. 10-Headed Ravan Effigy with 10,000,000 Boss HP Bar (रावण दहन)
       renderRavanEffigy(ctx, world, p, ravanHp);
@@ -1860,102 +1963,32 @@ export default function MelaCanvas({
         </div>
       )}
 
-      {/* On-screen Ravan Boss Attack & Armory Bar when near Ravan */}
-      {Math.hypot(player.x - MELA_ZONES.RAVAN.x, player.y - MELA_ZONES.RAVAN.y) < 480 && (
+      {/* Sleek In-Game Notification for Gate Entry / Boss Fight */}
+      {gateNotice && Date.now() - gateNotice.time < 3500 && (
         <div
+          id="ravan-gate-toast"
           style={{
             position: 'fixed',
-            bottom: 'max(195px, calc(env(safe-area-inset-bottom) + 185px))',
+            top: 'max(68px, calc(env(safe-area-inset-top) + 60px))',
             left: '50%',
             transform: 'translateX(-50%)',
-            zIndex: 55,
+            background: 'linear-gradient(135deg, rgba(127, 29, 29, 0.94) 0%, rgba(20, 10, 30, 0.96) 100%)',
+            border: '2px solid #fbbf24',
+            borderRadius: 24,
+            padding: '10px 22px',
+            color: '#fef08a',
+            fontSize: 13,
+            fontWeight: 800,
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
-            gap: 6,
-            pointerEvents: 'auto'
+            gap: 10,
+            boxShadow: '0 8px 30px rgba(0,0,0,0.8), 0 0 20px rgba(245, 158, 11, 0.5)',
+            zIndex: 65,
+            pointerEvents: 'none',
+            animation: 'fadeInDown 0.3s ease-out'
           }}
         >
-          {selectedCracker?.isWeapon ? (
-            <button
-              id="shoot-ravan-btn"
-              onPointerDown={startAutoFire}
-              onPointerUp={stopAutoFire}
-              onPointerLeave={stopAutoFire}
-              onClick={(e) => {
-                e.stopPropagation();
-                fireWeaponAtRavan();
-              }}
-              style={{
-                background: clickSpeedMultiplier > 1.3
-                  ? 'linear-gradient(135deg, #ef4444 0%, #f97316 50%, #eab308 100%)'
-                  : 'linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #7c2d12 100%)',
-                border: clickSpeedMultiplier > 1.3 ? '2.5px solid #ffffff' : '2.5px solid #fbbf24',
-                borderRadius: 28,
-                padding: '12px 28px',
-                color: '#ffffff',
-                fontSize: 15,
-                fontWeight: 900,
-                cursor: 'pointer',
-                boxShadow: clickSpeedMultiplier > 1.3
-                  ? '0 0 35px rgba(249, 115, 22, 0.9), 0 8px 25px rgba(0,0,0,0.7)'
-                  : '0 0 25px rgba(220, 38, 38, 0.75), 0 8px 25px rgba(0,0,0,0.7)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                letterSpacing: 0.5,
-                transform: clickSpeedMultiplier > 1.3 ? 'scale(1.04)' : 'scale(1.0)',
-                transition: 'transform 0.1s ease, box-shadow 0.1s ease',
-                userSelect: 'none',
-                WebkitUserSelect: 'none',
-                touchAction: 'manipulation'
-              }}
-            >
-              <span style={{ fontSize: 22 }}>{selectedCracker.id === 'gun' ? '🔫' : '🏹'}</span>
-              <span>SHOOT RAVAN (-1 HP)</span>
-              {clickSpeedMultiplier > 1.15 && (
-                <span
-                  style={{
-                    fontSize: 10,
-                    background: '#7c2d12',
-                    color: '#fef08a',
-                    padding: '3px 8px',
-                    borderRadius: 12,
-                    border: '1.5px solid #fde047',
-                    fontWeight: 900,
-                    letterSpacing: 0.5,
-                    boxShadow: '0 0 10px #f59e0b'
-                  }}
-                >
-                  ⚡ SPEED x{clickSpeedMultiplier.toFixed(1)}
-                </span>
-              )}
-            </button>
-          ) : (
-            <button
-              id="buy-weapon-ravan-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onOpenArmory) onOpenArmory();
-              }}
-              style={{
-                background: 'linear-gradient(135deg, #7c2d12 0%, #d97706 100%)',
-                border: '2px solid #fef08a',
-                borderRadius: 24,
-                padding: '10px 22px',
-                color: '#fef08a',
-                fontSize: 13,
-                fontWeight: 800,
-                cursor: 'pointer',
-                boxShadow: '0 0 20px rgba(245, 158, 11, 0.6), 0 4px 15px rgba(0,0,0,0.6)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8
-              }}
-            >
-              <span>🏹 Buy Bow / Gun in Armory to Shoot Ravan! 🔫</span>
-            </button>
-          )}
+          <span>{gateNotice.text}</span>
         </div>
       )}
 
@@ -2090,16 +2123,35 @@ function renderGroundAndCourtyards(ctx, world) {
   const ravanArenaX = MELA_ZONES.RAVAN.x;
   const ravanArenaY = MELA_ZONES.RAVAN.y;
   ctx.save();
-  ctx.fillStyle = 'rgba(69, 10, 10, 0.45)';
+
+  // Grand Connecting Pathway from Main Walkway to Ravan Gate
+  ctx.fillStyle = 'rgba(153, 27, 27, 0.45)';
+  ctx.fillRect(1120, 955, 260, 50);
+  ctx.strokeStyle = '#eab308';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1120, 955, 260, 50);
+
+  // Marigold border on path
+  for (let px = 1130; px <= 1370; px += 25) {
+    ctx.fillStyle = px % 50 === 0 ? '#f59e0b' : '#ea580c';
+    ctx.beginPath();
+    ctx.arc(px, 955, 3.5, 0, Math.PI * 2);
+    ctx.arc(px, 1005, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Arena Sacred Ground
+  ctx.fillStyle = 'rgba(69, 10, 10, 0.5)';
   ctx.beginPath();
   ctx.arc(ravanArenaX, ravanArenaY, 170, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.strokeStyle = '#dc2626';
-  ctx.lineWidth = 3;
-  ctx.setLineDash([12, 8]);
-  ctx.stroke();
-  ctx.setLineDash([]);
+  // Red Carpet continuing inside arena from gate
+  ctx.fillStyle = 'rgba(185, 28, 28, 0.65)';
+  ctx.fillRect(1380, 955, 80, 50);
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(1380, 955, 80, 50);
 
   // Inner sanctum ring
   ctx.strokeStyle = '#f59e0b';
@@ -2113,6 +2165,46 @@ function renderGroundAndCourtyards(ctx, world) {
   ctx.font = 'bold 13px "Cinzel", serif';
   ctx.textAlign = 'center';
   ctx.fillText('🔥 रावण दहन अखाड़ा (Ravan Dahan Arena) 🔥', ravanArenaX, ravanArenaY + 155);
+
+  // Arena Perimeter Barricade (Fencing with posts and garlands, leaving western gate opening)
+  const numPosts = 18;
+  const startAngle = Math.PI + 0.26; // south of gate
+  const endAngle = Math.PI * 3 - 0.26; // north of gate
+  const angleStep = (endAngle - startAngle) / numPosts;
+
+  ctx.strokeStyle = '#b45309';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(ravanArenaX, ravanArenaY, 170, startAngle, endAngle);
+  ctx.stroke();
+
+  // Swag Marigold Garlands & Brass Posts
+  for (let i = 0; i <= numPosts; i++) {
+    const a = startAngle + i * angleStep;
+    const postX = ravanArenaX + Math.cos(a) * 170;
+    const postY = ravanArenaY + Math.sin(a) * 170;
+
+    // Post Base & Pole
+    ctx.fillStyle = '#78350f';
+    ctx.beginPath();
+    ctx.arc(postX, postY, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Brass Finial
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(postX, postY - 3, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Diya on every 3rd post
+    if (i % 3 === 0) {
+      ctx.fillStyle = '#f97316';
+      ctx.beginPath();
+      ctx.arc(postX, postY, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
   ctx.restore();
 }
 
@@ -3319,6 +3411,202 @@ function renderRavanEffigy(ctx, world, player, ravanHp = 10000000) {
   ctx.fillText('🏹 1 Shot = -1 HP • Shoot with Ram Dhanush or Gun 🔫', 0, barY + 65);
 
   ctx.restore();
+
+  ctx.restore();
+}
+
+// -------------------------------------------------------------
+// GRAND RAVAN DAHAN ARENA GATE (भव्य रावण दहन प्रवेश द्वार)
+// -------------------------------------------------------------
+function renderRavanGate(ctx, world, player) {
+  const gx = MELA_ZONES.RAVAN_GATE.x; // 1380
+  const gy = MELA_ZONES.RAVAN_GATE.y; // 980
+  const effigyTime = world.effigyTimer || 0;
+  const distToPlayer = Math.hypot(player.x - gx, player.y - gy);
+  const isPlayerInside = player.x >= 1380;
+
+  ctx.save();
+
+  // 1. Grand Red Carpet Threshold
+  ctx.fillStyle = 'rgba(185, 28, 28, 0.85)';
+  ctx.fillRect(gx - 40, gy - 25, 80, 50);
+
+  // Gold Brocade Edges
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(gx - 40, gy - 25, 80, 50);
+
+  // Threshold Center Brass Divider
+  ctx.fillStyle = '#f59e0b';
+  ctx.fillRect(gx - 2, gy - 25, 4, 50);
+
+  // 2. Twin Pillars (North at gy - 45, South at gy + 45)
+  const pillars = [
+    { y: gy - 45, id: 1 },
+    { y: gy + 45, id: 2 }
+  ];
+
+  pillars.forEach((p) => {
+    // Pedestal Base
+    ctx.fillStyle = '#451a03';
+    ctx.strokeStyle = '#b45309';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(gx - 14, p.y - 12, 28, 24, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    // Carved Sandstone Shaft
+    ctx.fillStyle = '#78350f';
+    ctx.fillRect(gx - 8, p.y - 42, 16, 30);
+
+    // Gold Fluting Lines
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillRect(gx - 2, p.y - 40, 4, 26);
+
+    // Capital Bracket
+    ctx.fillStyle = '#92400e';
+    ctx.beginPath();
+    ctx.roundRect(gx - 12, p.y - 50, 24, 8, 3);
+    ctx.fill();
+
+    // Brass Mashaal (Torch Bowl)
+    ctx.fillStyle = '#b45309';
+    ctx.beginPath();
+    ctx.ellipse(gx, p.y - 52, 10, 4.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Animated Flickering Torch Flame
+    const flicker = Math.sin(effigyTime * 0.18 + p.id * 3) * 2;
+    const flameH = 14 + flicker;
+
+    ctx.save();
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = '#f97316';
+
+    // Outer Orange Flame
+    ctx.fillStyle = '#ea580c';
+    ctx.beginPath();
+    ctx.moveTo(gx - 7, p.y - 53);
+    ctx.quadraticCurveTo(gx - 4, p.y - 53 - flameH * 0.6, gx, p.y - 53 - flameH);
+    ctx.quadraticCurveTo(gx + 4, p.y - 53 - flameH * 0.6, gx + 7, p.y - 53);
+    ctx.closePath();
+    ctx.fill();
+
+    // Inner Yellow Flame
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.moveTo(gx - 4, p.y - 53);
+    ctx.quadraticCurveTo(gx - 2, p.y - 53 - flameH * 0.4, gx, p.y - 53 - flameH * 0.7);
+    ctx.quadraticCurveTo(gx + 2, p.y - 53 - flameH * 0.4, gx + 4, p.y - 53);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  });
+
+  // 3. Overhead Toran & Arch Beam
+  ctx.strokeStyle = '#78350f';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(gx, gy - 45);
+  ctx.lineTo(gx, gy + 45);
+  ctx.stroke();
+
+  // Hanging Marigold Garlands (Double Swag across opening)
+  for (let sw = -1; sw <= 1; sw += 2) {
+    const midX = gx - sw * 6;
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(gx, gy - 45);
+    ctx.quadraticCurveTo(midX, gy, gx, gy + 45);
+    ctx.stroke();
+  }
+
+  // Marigold & Mango Leaf rosettes along arch
+  for (let ay = gy - 40; ay <= gy + 40; ay += 16) {
+    // Leaf
+    ctx.fillStyle = '#15803d';
+    ctx.beginPath();
+    ctx.ellipse(gx - 6, ay, 5, 2.5, Math.PI / 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Marigold
+    ctx.fillStyle = ay % 32 === 0 ? '#f59e0b' : '#ea580c';
+    ctx.beginPath();
+    ctx.arc(gx, ay, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.arc(gx, ay, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 4. Regal Overhead Signboard
+  ctx.save();
+  ctx.translate(gx - 6, gy);
+
+  // Plaque Background
+  ctx.shadowBlur = 16;
+  ctx.shadowColor = '#dc2626';
+  ctx.fillStyle = '#7f1d1d';
+  ctx.beginPath();
+  ctx.roundRect(-22, -42, 44, 84, 8);
+  ctx.fill();
+
+  // Plaque Gold Border
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Rotated text for vertical gate orientation facing west
+  ctx.rotate(-Math.PI / 2);
+
+  ctx.font = 'bold 11px "Cinzel", serif';
+  ctx.fillStyle = '#fef08a';
+  ctx.textAlign = 'center';
+  ctx.fillText('👹 रावण दहन द्वार 🏹', 0, -4);
+
+  ctx.font = 'bold 9px "Outfit", sans-serif';
+  ctx.fillStyle = '#fed7aa';
+  ctx.fillText('⚔️ RAVAN ARENA GATE ⚔️', 0, 8);
+
+  ctx.restore();
+
+  // 5. Interactive Proximity Prompt (Floating Badge)
+  if (distToPlayer < 140) {
+    const pulse = 1 + Math.sin(effigyTime * 0.08) * 0.04;
+    ctx.save();
+    ctx.translate(gx - 20, gy);
+    ctx.scale(pulse, pulse);
+
+    const promptText = isPlayerInside
+      ? '🚪 [ Click Gate ] Exit Arena'
+      : '🚪 [ Click Gate / Walk In ] Enter Ravan Arena ⚔️';
+
+    ctx.font = 'bold 11px "Outfit", sans-serif';
+    const textW = ctx.measureText(promptText).width;
+
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = isPlayerInside ? '#38bdf8' : '#fbbf24';
+    ctx.fillStyle = 'rgba(15, 10, 25, 0.92)';
+    ctx.beginPath();
+    ctx.roundRect(-textW / 2 - 12, -75, textW + 24, 26, 13);
+    ctx.fill();
+
+    ctx.strokeStyle = isPlayerInside ? '#38bdf8' : '#fbbf24';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.fillText(promptText, 0, -58);
+
+    ctx.restore();
+  }
 
   ctx.restore();
 }

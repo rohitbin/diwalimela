@@ -1,5 +1,4 @@
-// Live Chat Overlay & Quick Festive Greetings Dock
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Send, MessageCircle, X } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
 
@@ -15,10 +14,17 @@ const QUICK_GREETINGS = [
 export default function ChatOverlay({
   onSendMessage,
   chatMessages,
-  player
+  player,
+  isOpen: externalIsOpen,
+  setIsOpen: externalSetIsOpen
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = externalSetIsOpen !== undefined ? externalSetIsOpen : setInternalIsOpen;
+
+  const [hasUnread, setHasUnread] = useState(false);
   const [customText, setCustomText] = useState('');
+  const chatEndRef = useRef(null);
 
   const handleSend = (text) => {
     if (!text || !text.trim()) return;
@@ -30,6 +36,32 @@ export default function ChatOverlay({
   const userChatMessages = (chatMessages || []).filter(
     (msg) => msg.senderId !== 'system' && !msg.isSystem
   );
+
+  const prevCountRef = useRef(userChatMessages.length);
+  const isInitialMount = useRef(true);
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      prevCountRef.current = userChatMessages.length;
+      return;
+    }
+
+    if (userChatMessages.length > prevCountRef.current) {
+      // New chat message arrived!
+      if (!isOpen) {
+        setHasUnread(true);
+      }
+    }
+    prevCountRef.current = userChatMessages.length;
+  }, [userChatMessages.length, isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setHasUnread(false);
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [isOpen, userChatMessages.length]);
 
   return (
     <div
@@ -74,16 +106,36 @@ export default function ChatOverlay({
               alignItems: 'center'
             }}
           >
-            <span style={{ color: '#fef08a', fontSize: 13, fontWeight: 700 }}>
-              💬 Mela Live Chat
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <span style={{ color: '#fef08a', fontSize: 13, fontWeight: 700 }}>
+                💬 Mela Live Chat
+              </span>
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  backgroundColor: '#22c55e',
+                  boxShadow: '0 0 6px #22c55e'
+                }}
+                title="Live Chat Active"
+              />
+            </div>
             <button
+              id="chat-close-button"
               onClick={() => setIsOpen(false)}
+              aria-label="Close chat"
               style={{
-                background: 'none',
+                background: 'rgba(255, 255, 255, 0.08)',
                 border: 'none',
+                borderRadius: 6,
                 color: '#cbd5e1',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '6px 8px',
+                touchAction: 'manipulation'
               }}
             >
               <X size={16} />
@@ -117,6 +169,7 @@ export default function ChatOverlay({
                 </div>
               ))
             )}
+            <div ref={chatEndRef} />
           </div>
 
           {/* Quick Greetings Chips */}
@@ -202,26 +255,53 @@ export default function ChatOverlay({
       {/* Toggle button */}
       {!isOpen && (
         <button
-          onClick={() => setIsOpen(true)}
+          id="chat-toggle-button"
+          onClick={() => {
+            setIsOpen(true);
+            setHasUnread(false);
+          }}
           style={{
-            backgroundColor: 'rgba(18, 12, 30, 0.9)',
-            border: '1px solid rgba(245, 158, 11, 0.4)',
+            position: 'relative',
+            backgroundColor: 'rgba(18, 12, 30, 0.92)',
+            border: hasUnread ? '1.5px solid #ef4444' : '1px solid rgba(245, 158, 11, 0.4)',
             borderRadius: 20,
-            padding: '7px 13px',
+            padding: '7px 14px',
             color: '#fef08a',
             fontSize: 12,
             fontWeight: 700,
             display: 'flex',
             alignItems: 'center',
-            gap: 6,
+            gap: 7,
             cursor: 'pointer',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+            boxShadow: hasUnread
+              ? '0 0 14px rgba(239, 68, 68, 0.65), 0 4px 16px rgba(0,0,0,0.5)'
+              : '0 4px 16px rgba(0,0,0,0.5)',
             touchAction: 'manipulation',
-            whiteSpace: 'nowrap'
+            whiteSpace: 'nowrap',
+            transition: 'all 0.2s ease'
           }}
         >
-          <MessageCircle size={15} color="#fbbf24" />
+          <MessageCircle size={16} color={hasUnread ? '#f87171' : '#fbbf24'} />
           <span>Chat</span>
+
+          {/* Red notification dot */}
+          {hasUnread && (
+            <span
+              id="chat-unread-dot"
+              style={{
+                position: 'absolute',
+                top: -3,
+                right: -3,
+                width: 10,
+                height: 10,
+                backgroundColor: '#ef4444',
+                borderRadius: '50%',
+                border: '2px solid #ffffff',
+                boxShadow: '0 0 8px #ef4444',
+                animation: 'redDotPulse 1.4s infinite ease-in-out'
+              }}
+            />
+          )}
         </button>
       )}
     </div>

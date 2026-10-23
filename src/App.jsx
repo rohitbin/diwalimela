@@ -19,6 +19,7 @@ import confetti from 'canvas-confetti';
 import { CRACKERS, INITIAL_INVENTORY } from './data/crackers';
 import { multiplayerManager } from './multiplayer/peerSync';
 import { soundEngine } from './audio/soundEngine';
+import { MessageCircle } from 'lucide-react';
 
 window.__CRACKER_MAP = CRACKERS.reduce((acc, c) => {
   acc[c.id] = c;
@@ -121,6 +122,41 @@ export default function App() {
   const [remotePlayers, setRemotePlayers] = useState(new Map());
   const [chatMessages, setChatMessages] = useState([]);
   const [onlineCount, setOnlineCount] = useState(1);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+
+  // Floating header corner chat toasts (up to 3, auto-disappear after 4 seconds)
+  const [headerChatToasts, setHeaderChatToasts] = useState([]);
+  const toastTimersRef = React.useRef(new Map());
+
+  const triggerChatToast = (msg) => {
+    if (!msg || !msg.text) return;
+    const toastId = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const newToast = {
+      id: toastId,
+      senderId: msg.senderId,
+      senderName: msg.senderName || 'Friend',
+      text: msg.text,
+      timestamp: Date.now()
+    };
+
+    // Show up to 3 new chats on the screen in the header corner
+    setHeaderChatToasts((prev) => [...prev.slice(-2), newToast]);
+
+    // Automatically disappear after 4 seconds
+    const timer = setTimeout(() => {
+      setHeaderChatToasts((prev) => prev.filter((t) => t.id !== toastId));
+      toastTimersRef.current.delete(toastId);
+    }, 4000);
+
+    toastTimersRef.current.set(toastId, timer);
+  };
+
+  useEffect(() => {
+    return () => {
+      toastTimersRef.current.forEach((t) => clearTimeout(t));
+      toastTimersRef.current.clear();
+    };
+  }, []);
 
   // Screen shake & Buffs
   const [screenShake, setScreenShake] = useState(null);
@@ -200,6 +236,7 @@ export default function App() {
       },
       onChatMessage: (msg) => {
         setChatMessages((prev) => [...prev.slice(-25), msg]);
+        triggerChatToast(msg);
         setRemotePlayers((prev) => {
           const next = new Map(prev);
           const target = next.get(msg.senderId);
@@ -245,6 +282,7 @@ export default function App() {
       timestamp: Date.now()
     };
     setChatMessages((prev) => [...prev.slice(-25), msg]);
+    triggerChatToast(msg);
 
     setPlayer((prev) => ({ ...prev, bubble: text }));
     setTimeout(() => {
@@ -451,8 +489,91 @@ export default function App() {
         isDancing={isDancing}
       />
 
+      {/* 3 New Header Corner Floating Chat Toasts (Disappear after 4 seconds) */}
+      {headerChatToasts.length > 0 && (
+        <div
+          id="header-corner-chat-toasts"
+          style={{
+            position: 'fixed',
+            top: 'max(88px, calc(env(safe-area-inset-top) + 80px))',
+            left: 'max(10px, env(safe-area-inset-left))',
+            zIndex: 42,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            maxWidth: 'min(300px, calc(100vw - 24px))',
+            pointerEvents: 'auto'
+          }}
+        >
+          {headerChatToasts.map((toast) => (
+            <div
+              key={toast.id}
+              onClick={() => {
+                setIsChatOpen(true);
+                setHeaderChatToasts((prev) => prev.filter((t) => t.id !== toast.id));
+              }}
+              style={{
+                backgroundColor: 'rgba(18, 12, 30, 0.94)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(245, 158, 11, 0.45)',
+                borderLeft: '3.5px solid #f59e0b',
+                borderRadius: 12,
+                padding: '7px 12px',
+                boxShadow: '0 6px 20px rgba(0, 0, 0, 0.65)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                cursor: 'pointer',
+                animation: 'chatToastSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+              title="Click to open chat"
+            >
+              <MessageCircle size={15} color="#fbbf24" style={{ flexShrink: 0 }} />
+              <div
+                style={{
+                  fontSize: 12,
+                  lineHeight: 1.35,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  flex: 1
+                }}
+              >
+                <strong
+                  style={{
+                    color: toast.senderId === player?.id ? '#fbbf24' : '#38bdf8',
+                    marginRight: 4
+                  }}
+                >
+                  {toast.senderName}:
+                </strong>
+                <span style={{ color: '#f8fafc' }}>{toast.text}</span>
+              </div>
+
+              {/* 4-second auto-dismiss progress bar */}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  height: 2,
+                  backgroundColor: '#f59e0b',
+                  animation: 'chatProgress 4s linear forwards',
+                  width: '100%',
+                  opacity: 0.8
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* 8. Live Chat Overlay */}
       <ChatOverlay
+        isOpen={isChatOpen}
+        setIsOpen={setIsChatOpen}
         onSendMessage={handleSendMessage}
         chatMessages={chatMessages}
         player={player}

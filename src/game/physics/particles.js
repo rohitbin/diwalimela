@@ -160,15 +160,15 @@ export class ActiveCracker {
     switch (this.data.id) {
       case 'sutlibomb':
         this.soundEngine?.playSutliBomb();
-        if (triggerScreenShake) triggerScreenShake(14, 32);
-        if (triggerSkyFlash) triggerSkyFlash('rgba(255, 255, 240, 0.9)', 24);
+        if (triggerScreenShake) triggerScreenShake(14, 28);
+        if (triggerSkyFlash) triggerSkyFlash('rgba(254, 240, 138, 0.3)', 8);
         break;
       case 'rocket':
         this.soundEngine?.playRocketLaunch();
         break;
       case 'anar':
         this.soundEngine?.playAnarFountain();
-        if (triggerSkyFlash) triggerSkyFlash('rgba(251, 146, 60, 0.25)', 12);
+        if (triggerSkyFlash) triggerSkyFlash('rgba(251, 146, 60, 0.2)', 6);
         break;
       case 'chakri':
         this.soundEngine?.playChakriWhistle();
@@ -309,7 +309,7 @@ export class ActiveCracker {
           this.rocketExploded = true;
           this.soundEngine?.playFireworkBang(1.1, 1.2);
           if (triggerScreenShake) triggerScreenShake(8, 18);
-          if (triggerSkyFlash) triggerSkyFlash('rgba(251, 191, 36, 0.75)', 18);
+          if (triggerSkyFlash) triggerSkyFlash('rgba(251, 191, 36, 0.25)', 8);
 
           // Radial Peony Flowerburst (120 particles)
           const burstColors = ['#a855f7', '#38bdf8', '#ec4899', '#fde047', '#22c55e', '#ffffff'];

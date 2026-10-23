@@ -112,7 +112,7 @@ export default function MelaCanvas({
     camera: { x: 1000, y: 650 },
     cameraZoom: 1.0,
     wheelAngle: 0,
-    skyFlash: { color: 'rgba(255, 255, 255, 0)', alpha: 0, decay: 0.04 },
+    skyFlash: { color: 'rgba(254, 240, 138, 0.25)', alpha: 0, decay: 0.05 },
     screenShake: { intensity: 0, duration: 0 },
     flowerPetals: [],
     // Earthen Diyas across the mela
@@ -340,13 +340,13 @@ export default function MelaCanvas({
     // 6. Global Dhamaka (Massive Sutli Bomb explosion felt everywhere)
     const unsubDhamaka = multiplayerManager.onGlobalDhamaka((data) => {
       worldRef.current.skyFlash = {
-        color: data.color || 'rgba(255, 255, 240, 0.9)',
-        alpha: 0.85,
-        decay: 0.035
+        color: data?.color || 'rgba(254, 240, 138, 0.3)',
+        alpha: 0.28,
+        decay: 0.045
       };
       worldRef.current.screenShake = {
-        intensity: data.intensity || 12,
-        duration: data.duration || 26
+        intensity: data?.intensity || 12,
+        duration: data?.duration || 26
       };
       soundEngine.playSutliBomb();
     });
@@ -1075,8 +1075,27 @@ export default function MelaCanvas({
       const triggerShake = (intensity, duration) => {
         world.screenShake = { intensity, duration };
       };
-      const triggerSkyFlash = (color, alpha) => {
-        world.skyFlash = { color: color || 'rgba(255, 255, 240, 0.9)', alpha: alpha || 0.85, decay: 0.035 };
+      const triggerSkyFlash = (color, durationOrAlpha, customDecay) => {
+        let maxAlpha = 0.28;
+        let decay = 0.045;
+
+        if (typeof durationOrAlpha === 'number') {
+          if (durationOrAlpha > 1.0) {
+            // Frame count passed (e.g., 6, 8, 12)
+            const frames = Math.max(4, Math.min(durationOrAlpha, 16));
+            decay = maxAlpha / frames;
+          } else {
+            // Normalized opacity passed
+            maxAlpha = Math.min(0.28, durationOrAlpha);
+            decay = customDecay || 0.045;
+          }
+        }
+
+        world.skyFlash = {
+          color: color || 'rgba(254, 240, 138, 0.3)',
+          alpha: maxAlpha,
+          decay
+        };
       };
 
       world.activeCrackers = world.activeCrackers.filter((c) => {
@@ -2785,12 +2804,15 @@ function renderNightLightingGlow(ctx, world, playerX, playerY) {
   ctx.arc(playerX, playerY, 280, 0, Math.PI * 2);
   ctx.fill();
 
-  // Full-world atmospheric sky flash when any bomb or firework explodes
-  if (world.skyFlash && world.skyFlash.alpha > 0.01) {
-    ctx.fillStyle = world.skyFlash.color || 'rgba(255, 250, 220, 0.7)';
-    ctx.globalAlpha = Math.min(1.0, world.skyFlash.alpha);
+  // Atmospheric sky flash when any bomb or firework explodes (soft golden bloom, never blinding white screen)
+  if (world.skyFlash && world.skyFlash.alpha > 0.005) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = world.skyFlash.color || 'rgba(254, 240, 138, 0.25)';
+    ctx.globalAlpha = Math.min(0.28, Math.max(0, world.skyFlash.alpha));
     ctx.fillRect(world.camera.x - 1400, world.camera.y - 1100, 2800, 2200);
-    world.skyFlash.alpha -= world.skyFlash.decay || 0.035;
+    ctx.restore();
+    world.skyFlash.alpha -= world.skyFlash.decay || 0.045;
   }
 
   ctx.restore();

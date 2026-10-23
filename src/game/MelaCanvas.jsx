@@ -82,19 +82,83 @@ export default function MelaCanvas({
   });
   const [touchIndicator, setTouchIndicator] = useState(null);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [joystickKnob, setJoystickKnob] = useState({ x: 0, y: 0, active: false });
+  const joystickCenterRef = useRef({ x: 0, y: 0 });
+  const joystickPointerIdRef = useRef(null);
 
   useEffect(() => {
     const checkTouch = () => {
       setIsTouchDevice(
         'ontouchstart' in window ||
         navigator.maxTouchPoints > 0 ||
-        window.innerWidth < 768
+        window.innerWidth <= 1024
       );
     };
     checkTouch();
     window.addEventListener('resize', checkTouch);
     return () => window.removeEventListener('resize', checkTouch);
   }, []);
+
+  const handleJoystickPointerDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    joystickPointerIdRef.current = e.pointerId;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (_) {}
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    joystickCenterRef.current = { x: cx, y: cy };
+
+    const dx = e.clientX - cx;
+    const dy = e.clientY - cy;
+    updateJoystickFromDelta(dx, dy);
+  };
+
+  const handleJoystickPointerMove = (e) => {
+    if (joystickPointerIdRef.current !== e.pointerId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const { x: cx, y: cy } = joystickCenterRef.current;
+    const dx = e.clientX - cx;
+    const dy = e.clientY - cy;
+    updateJoystickFromDelta(dx, dy);
+  };
+
+  const handleJoystickPointerUp = (e) => {
+    if (joystickPointerIdRef.current !== e.pointerId) return;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+    joystickPointerIdRef.current = null;
+    setJoystickKnob({ x: 0, y: 0, active: false });
+    touchControlRef.current.active = false;
+    touchControlRef.current.isDragging = false;
+    playerRef.current.targetX = undefined;
+    playerRef.current.targetY = undefined;
+  };
+
+  const updateJoystickFromDelta = (dx, dy) => {
+    const maxR = 30;
+    const dist = Math.hypot(dx, dy);
+    const clampedDist = Math.min(dist, maxR);
+    const angle = dist > 0 ? Math.atan2(dy, dx) : 0;
+    const knobX = Math.cos(angle) * clampedDist;
+    const knobY = Math.sin(angle) * clampedDist;
+
+    setJoystickKnob({ x: knobX, y: knobY, active: true });
+
+    // Directly update touchControlRef for 60fps game loop
+    const tc = touchControlRef.current;
+    tc.active = true;
+    tc.originX = 0;
+    tc.originY = 0;
+    tc.currentX = knobX;
+    tc.currentY = knobY;
+    tc.isDragging = dist > 4;
+  };
 
   // Game World State
   const worldRef = useRef({
@@ -908,7 +972,7 @@ export default function MelaCanvas({
         let moveY = 0;
         // Smooth, balanced character speed (neither too fast nor too slow)
         let speed = 4.2;
-        if (activeBuffs?.kulhad_chai) speed *= 1.15;
+        if (activeBuffs?.kulhad_chai || activeBuffs?.adrak_chai || activeBuffs?.kesar_chai) speed *= 1.2;
 
         // Frame-rate independent delta time: keeps speed constant and smooth
         const now = performance.now();
@@ -1489,6 +1553,16 @@ export default function MelaCanvas({
       touchControlRef.current.currentX = x;
       touchControlRef.current.currentY = y;
 
+      // Sync fixed joystick knob to touch movement
+      const maxR = 30;
+      const angle = dist > 0 ? Math.atan2(y - touchControlRef.current.originY, x - touchControlRef.current.originX) : 0;
+      const clampedDist = Math.min(dist, maxR);
+      setJoystickKnob({
+        x: Math.cos(angle) * clampedDist,
+        y: Math.sin(angle) * clampedDist,
+        active: true
+      });
+
       setTouchIndicator({
         originX: rect.left + touchControlRef.current.originX,
         originY: rect.top + touchControlRef.current.originY,
@@ -1526,6 +1600,7 @@ export default function MelaCanvas({
       tc.active = false;
       tc.isDragging = false;
       setTouchIndicator(null);
+      setJoystickKnob({ x: 0, y: 0, active: false });
 
       if (wasMoved) {
         // Drag movement completed: character stays right where he was released!
@@ -1624,67 +1699,93 @@ export default function MelaCanvas({
         </div>
       )}
 
-      {/* On-screen Festive Dynamic Touch Joystick Indicator for iPhone/Mobile */}
-      {touchIndicator && (
+      {/* Fixed On-Screen Festive Virtual Joystick for Mobile, Tablet & Touch Devices */}
+      {(isTouchDevice || (typeof window !== 'undefined' && window.innerWidth <= 1024)) && (
         <div
+          id="fixed-virtual-joystick"
+          onPointerDown={handleJoystickPointerDown}
+          onPointerMove={handleJoystickPointerMove}
+          onPointerUp={handleJoystickPointerUp}
+          onPointerCancel={handleJoystickPointerUp}
           style={{
             position: 'fixed',
-            left: touchIndicator.originX - 44,
-            top: touchIndicator.originY - 44,
-            width: 88,
-            height: 88,
+            left: 'max(18px, env(safe-area-inset-left))',
+            bottom: 'max(78px, calc(env(safe-area-inset-bottom) + 70px))',
+            width: 96,
+            height: 96,
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(245, 158, 11, 0.35) 0%, rgba(23, 14, 38, 0.7) 100%)',
-            border: '2px solid rgba(251, 191, 36, 0.85)',
-            boxShadow: '0 0 24px rgba(245, 158, 11, 0.5), inset 0 0 12px rgba(245, 158, 11, 0.3)',
-            pointerEvents: 'none',
+            background: 'radial-gradient(circle, rgba(245, 158, 11, 0.28) 0%, rgba(20, 12, 34, 0.92) 100%)',
+            border: '2.5px solid rgba(251, 191, 36, 0.75)',
+            boxShadow: '0 8px 25px rgba(0,0,0,0.7), 0 0 20px rgba(245, 158, 11, 0.35)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 9999,
-            transform: 'translate3d(0,0,0)'
+            zIndex: 60,
+            touchAction: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            cursor: 'grab'
           }}
+          title="Virtual Joystick: Drag to Move Character"
         >
-          {/* Outer Diya Petals decorative ring */}
+          {/* Directional Arrow Markers */}
+          <span style={{ position: 'absolute', top: 5, fontSize: 10, color: '#fef08a', opacity: 0.85, fontWeight: 900, pointerEvents: 'none' }}>▲</span>
+          <span style={{ position: 'absolute', bottom: 5, fontSize: 10, color: '#fef08a', opacity: 0.85, fontWeight: 900, pointerEvents: 'none' }}>▼</span>
+          <span style={{ position: 'absolute', left: 6, fontSize: 10, color: '#fef08a', opacity: 0.85, fontWeight: 900, pointerEvents: 'none' }}>◄</span>
+          <span style={{ position: 'absolute', right: 6, fontSize: 10, color: '#fef08a', opacity: 0.85, fontWeight: 900, pointerEvents: 'none' }}>►</span>
+
+          {/* Decorative dashed golden ring */}
           <div
             style={{
               position: 'absolute',
-              inset: 4,
+              inset: 5,
               borderRadius: '50%',
-              border: '1px dashed rgba(254, 240, 138, 0.55)',
+              border: '1px dashed rgba(254, 240, 138, 0.4)',
               pointerEvents: 'none'
             }}
           />
-          {/* Thumb Knob (Golden Diya Flame) */}
-          {(() => {
-            const dx = touchIndicator.currentX - touchIndicator.originX;
-            const dy = touchIndicator.currentY - touchIndicator.originY;
-            const dist = Math.hypot(dx, dy);
-            const maxR = 32;
-            const clampedDist = Math.min(dist, maxR);
-            const angle = dist > 0 ? Math.atan2(dy, dx) : 0;
-            const knobX = Math.cos(angle) * clampedDist;
-            const knobY = Math.sin(angle) * clampedDist;
-            return (
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #fde047 0%, #ea580c 100%)',
-                  border: '2px solid #ffffff',
-                  boxShadow: '0 0 18px #fbbf24, 0 4px 10px rgba(0,0,0,0.6)',
-                  transform: `translate(${knobX}px, ${knobY}px)`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 18
-                }}
-              >
-                🪔
-              </div>
-            );
-          })()}
+
+          {/* Golden Diya Flame Joystick Knob */}
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #fde047 0%, #f59e0b 50%, #ea580c 100%)',
+              border: '2.5px solid #ffffff',
+              boxShadow: joystickKnob.active
+                ? '0 0 24px #fbbf24, 0 6px 14px rgba(0,0,0,0.8)'
+                : '0 0 14px rgba(251, 191, 36, 0.6), 0 4px 10px rgba(0,0,0,0.6)',
+              transform: `translate(${joystickKnob.x}px, ${joystickKnob.y}px)`,
+              transition: joystickKnob.active ? 'none' : 'transform 0.15s cubic-bezier(0.18, 0.89, 0.32, 1.28)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+              fontSize: 16
+            }}
+          >
+            🪔
+          </div>
+
+          {/* Helper label below joystick so users immediately see how to move */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: -19,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              whiteSpace: 'nowrap',
+              fontSize: 9,
+              fontWeight: 900,
+              color: '#fef08a',
+              letterSpacing: 0.8,
+              textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+              pointerEvents: 'none'
+            }}
+          >
+            🕹️ DRAG TO MOVE
+          </div>
         </div>
       )}
 

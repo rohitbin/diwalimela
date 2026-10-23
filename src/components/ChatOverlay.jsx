@@ -27,12 +27,16 @@ export default function ChatOverlay({
     setCustomText('');
   };
 
+  const userChatMessages = (chatMessages || []).filter(
+    (msg) => msg.senderId !== 'system' && !msg.isSystem
+  );
+
   return (
     <div
       style={{
         position: 'fixed',
-        left: 'max(8px, env(safe-area-inset-left))',
-        bottom: 'max(76px, calc(env(safe-area-inset-bottom) + 68px))',
+        left: 'max(14px, env(safe-area-inset-left))',
+        bottom: 'max(198px, calc(env(safe-area-inset-bottom) + 188px))',
         zIndex: 45,
         display: 'flex',
         flexDirection: 'column',
@@ -98,13 +102,14 @@ export default function ChatOverlay({
               maxHeight: 180
             }}
           >
-            {chatMessages.length === 0 ? (
-              <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center' }}>
-                Send a Diwali greeting to people in the mela!
+            {userChatMessages.length === 0 ? (
+              <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: '16px 8px' }}>
+                💬 No chat messages yet.<br />
+                <span style={{ fontSize: 11, color: '#fde047' }}>Send a Diwali greeting or message below!</span>
               </div>
             ) : (
-              chatMessages.map((msg, i) => (
-                <div key={i} style={{ fontSize: 12 }}>
+              userChatMessages.map((msg, i) => (
+                <div key={i} style={{ fontSize: 12, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   <strong style={{ color: msg.senderName === player?.name ? '#fbbf24' : '#38bdf8' }}>
                     {msg.senderName}:
                   </strong>{' '}

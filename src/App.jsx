@@ -110,16 +110,6 @@ export default function App() {
         } catch (_) {}
         return next;
       });
-      setScreenShake({ intensity: 2.2, duration: 3 });
-      setChatMessages((prev) => [
-        ...prev.slice(-25),
-        {
-          senderId: 'system',
-          senderName: '🏹 Ravan Dahan Alert',
-          text: `💥 ${data.shooterName || 'A Warrior'} hit Ravan! (-${dmg} HP)`,
-          timestamp: Date.now()
-        }
-      ]);
     });
     return () => unsub();
   }, []);
@@ -187,16 +177,7 @@ export default function App() {
       });
     } catch (_) {}
 
-    // Add entry announcement to chat log
-    setChatMessages((prev) => [
-      ...prev.slice(-25),
-      {
-        senderId: 'system',
-        senderName: '🪔 Diwali Mela',
-        text: `✨ ${profile.name} entered the Diwali Celebration Mela! Shubh Deepawali!`,
-        timestamp: Date.now()
-      }
-    ]);
+    // Local player entered mela
 
     // 2. Initialize Multiplayer Peer connection
     multiplayerManager.init(profile.roomId, updatedPlayer, {
@@ -215,15 +196,7 @@ export default function App() {
             colors: ['#fbbf24', '#f59e0b', '#38bdf8', '#ec4899']
           });
         } catch (_) {}
-        setChatMessages((prev) => [
-          ...prev.slice(-25),
-          {
-            senderId: 'system',
-            senderName: '🪔 Diwali Mela',
-            text: `🎆 ${newRemotePlayer.name} entered the Diwali Celebration Mela!`,
-            timestamp: Date.now()
-          }
-        ]);
+        // Player join handled by popup banner
       },
       onChatMessage: (msg) => {
         setChatMessages((prev) => [...prev.slice(-25), msg]);
@@ -237,15 +210,6 @@ export default function App() {
         });
       },
       onCrackerEvent: (evt) => {
-        setChatMessages((prev) => [
-          ...prev.slice(-25),
-          {
-            senderId: 'system',
-            senderName: '🎆 Dhamaka Alert',
-            text: `✨ ${evt.placedBy || 'A Friend'} ignited a ${evt.crackerName || 'Cracker'}! 🪔`,
-            timestamp: Date.now()
-          }
-        ]);
         setCrackerAlert({
           id: Date.now(),
           text: `${evt.placedBy || 'Friend'} ignited a ${evt.crackerName || 'Cracker'}! ${evt.icon || '🎆'}`

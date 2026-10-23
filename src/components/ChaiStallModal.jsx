@@ -14,22 +14,22 @@ const CHAI_ITEMS = [
     description: 'Freshly brewed aromatic tea infused with crushed ginger, cardamom, and tulsi in a traditional clay cup. Warms the soul!'
   },
   {
-    id: 'samosa',
-    name: 'Garma-Garam Samosa',
-    hindiName: 'गरमा-गरम समोसा',
-    price: 30,
-    icon: '🥟',
-    buff: 'Energy Boost +30%',
-    description: 'Crispy golden pastry stuffed with spiced potatoes and green peas, served with sweet tamarind and spicy mint chutneys.'
+    id: 'adrak_chai',
+    name: 'Kadak Adrak Elaichi Chai',
+    hindiName: 'कड़क अदरक इलायची चाय',
+    price: 25,
+    icon: '🍵',
+    buff: 'Energy Boost +35%',
+    description: 'Strong festive tea boiled with fresh crushed ginger and aromatic green cardamom. Energizes your celebration walk!'
   },
   {
-    id: 'bhutta',
-    name: 'Roasted Bhutta (Corn)',
-    hindiName: 'भुना हुआ भुट्टा',
-    price: 25,
-    icon: '🌽',
-    buff: 'Festival Happiness +40',
-    description: 'Charcoal-grilled sweet corn rubbed with juicy lime and tangy rock salt chaat masala. Classic Mela delicacy!'
+    id: 'kesar_chai',
+    name: 'Kesar Malai Shahi Chai',
+    hindiName: 'केसर मलाई शाही चाय',
+    price: 35,
+    icon: '🫖',
+    buff: 'Royal Festive Aura + Luck',
+    description: 'Rich royal tea garnished with saffron strands and pure cream. An auspicious Diwali royal blessing!'
   }
 ];
 

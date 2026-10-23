@@ -194,7 +194,8 @@ export const INITIAL_INVENTORY = [
   { id: 'anar', count: 2 },
   { id: 'rocket', count: 2 },
   { id: 'ladi', count: 1 },
-  { id: 'sutlibomb', count: 1 }
+  { id: 'sutlibomb', count: 1 },
+  { id: 'bow', count: 1 }
 ];
 
 export const SWEETS = [

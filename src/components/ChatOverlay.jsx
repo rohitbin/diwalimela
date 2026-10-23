@@ -36,7 +36,7 @@ export default function ChatOverlay({
       style={{
         position: 'fixed',
         left: 'max(14px, env(safe-area-inset-left))',
-        bottom: 'max(198px, calc(env(safe-area-inset-bottom) + 188px))',
+        bottom: 'max(78px, calc(env(safe-area-inset-bottom) + 70px))',
         zIndex: 45,
         display: 'flex',
         flexDirection: 'column',

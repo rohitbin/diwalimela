@@ -83,6 +83,8 @@ export default function MelaCanvas({
   const [touchIndicator, setTouchIndicator] = useState(null);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [joystickKnob, setJoystickKnob] = useState({ x: 0, y: 0, active: false });
+  const joystickVectorRef = useRef({ active: false, x: 0, y: 0 });
+  const joystickElRef = useRef(null);
   const joystickCenterRef = useRef({ x: 0, y: 0 });
   const joystickPointerIdRef = useRef(null);
 
@@ -99,6 +101,40 @@ export default function MelaCanvas({
     return () => window.removeEventListener('resize', checkTouch);
   }, []);
 
+  const updateJoystickFromClientPos = (clientX, clientY) => {
+    let { x: cx, y: cy } = joystickCenterRef.current;
+    if ((cx === 0 && cy === 0) && joystickElRef.current) {
+      const rect = joystickElRef.current.getBoundingClientRect();
+      cx = rect.left + rect.width / 2;
+      cy = rect.top + rect.height / 2;
+      joystickCenterRef.current = { x: cx, y: cy };
+    }
+
+    const dx = clientX - cx;
+    const dy = clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    const maxR = 32;
+    const clampedDist = Math.min(dist, maxR);
+    const angle = dist > 0 ? Math.atan2(dy, dx) : 0;
+    const knobX = Math.cos(angle) * clampedDist;
+    const knobY = Math.sin(angle) * clampedDist;
+
+    setJoystickKnob({ x: knobX, y: knobY, active: true });
+
+    if (dist > 3) {
+      const intensity = Math.min(1.0, dist / maxR);
+      joystickVectorRef.current = {
+        active: true,
+        x: (dx / dist) * intensity,
+        y: (dy / dist) * intensity
+      };
+      playerRef.current.targetX = undefined;
+      playerRef.current.targetY = undefined;
+    } else {
+      joystickVectorRef.current = { active: false, x: 0, y: 0 };
+    }
+  };
+
   const handleJoystickPointerDown = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -112,52 +148,70 @@ export default function MelaCanvas({
     const cy = rect.top + rect.height / 2;
     joystickCenterRef.current = { x: cx, y: cy };
 
-    const dx = e.clientX - cx;
-    const dy = e.clientY - cy;
-    updateJoystickFromDelta(dx, dy);
+    updateJoystickFromClientPos(e.clientX, e.clientY);
   };
 
   const handleJoystickPointerMove = (e) => {
     if (joystickPointerIdRef.current !== e.pointerId) return;
     e.preventDefault();
     e.stopPropagation();
-    const { x: cx, y: cy } = joystickCenterRef.current;
-    const dx = e.clientX - cx;
-    const dy = e.clientY - cy;
-    updateJoystickFromDelta(dx, dy);
+    updateJoystickFromClientPos(e.clientX, e.clientY);
   };
 
   const handleJoystickPointerUp = (e) => {
     if (joystickPointerIdRef.current !== e.pointerId) return;
+    e.preventDefault();
+    e.stopPropagation();
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch (_) {}
     joystickPointerIdRef.current = null;
+    joystickVectorRef.current = { active: false, x: 0, y: 0 };
     setJoystickKnob({ x: 0, y: 0, active: false });
-    touchControlRef.current.active = false;
-    touchControlRef.current.isDragging = false;
     playerRef.current.targetX = undefined;
     playerRef.current.targetY = undefined;
   };
 
-  const updateJoystickFromDelta = (dx, dy) => {
-    const maxR = 30;
-    const dist = Math.hypot(dx, dy);
-    const clampedDist = Math.min(dist, maxR);
-    const angle = dist > 0 ? Math.atan2(dy, dx) : 0;
-    const knobX = Math.cos(angle) * clampedDist;
-    const knobY = Math.sin(angle) * clampedDist;
+  const handleJoystickTouchStart = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.touches.length === 0) return;
+    const touch = e.touches[0];
+    joystickPointerIdRef.current = touch.identifier;
+    if (joystickElRef.current) {
+      const rect = joystickElRef.current.getBoundingClientRect();
+      joystickCenterRef.current = {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2
+      };
+    }
+    updateJoystickFromClientPos(touch.clientX, touch.clientY);
+  };
 
-    setJoystickKnob({ x: knobX, y: knobY, active: true });
+  const handleJoystickTouchMove = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    let touch = null;
+    for (let i = 0; i < e.touches.length; i++) {
+      if (e.touches[i].identifier === joystickPointerIdRef.current) {
+        touch = e.touches[i];
+        break;
+      }
+    }
+    if (!touch && e.touches.length > 0) touch = e.touches[0];
+    if (touch) {
+      updateJoystickFromClientPos(touch.clientX, touch.clientY);
+    }
+  };
 
-    // Directly update touchControlRef for 60fps game loop
-    const tc = touchControlRef.current;
-    tc.active = true;
-    tc.originX = 0;
-    tc.originY = 0;
-    tc.currentX = knobX;
-    tc.currentY = knobY;
-    tc.isDragging = dist > 4;
+  const handleJoystickTouchEnd = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    joystickPointerIdRef.current = null;
+    joystickVectorRef.current = { active: false, x: 0, y: 0 };
+    setJoystickKnob({ x: 0, y: 0, active: false });
+    playerRef.current.targetX = undefined;
+    playerRef.current.targetY = undefined;
   };
 
   // Game World State
@@ -986,20 +1040,29 @@ export default function MelaCanvas({
         if (world.keys['a'] || world.keys['keya'] || world.keys['arrowleft']) moveX -= 1;
         if (world.keys['d'] || world.keys['keyd'] || world.keys['arrowright']) moveX += 1;
 
-        // Touch drag control for iPhone and mobile devices (with responsive full speed)
-        const tc = touchControlRef.current;
-        if (tc.active) {
-          const dx = tc.currentX - tc.originX;
-          const dy = tc.currentY - tc.originY;
-          const dist = Math.hypot(dx, dy);
-          if (dist > 5) {
-            const norm = Math.min(1.0, Math.max(0.85, dist / 22));
-            moveX = (dx / dist) * norm;
-            moveY = (dy / dist) * norm;
-            tc.isDragging = true;
-            touchMovedRef.current = true;
-            p.targetX = undefined;
-            p.targetY = undefined;
+        // 1. Direct Virtual Joystick Vector (Guaranteed smooth control)
+        const jv = joystickVectorRef.current;
+        if (jv && jv.active) {
+          moveX = jv.x;
+          moveY = jv.y;
+          p.targetX = undefined;
+          p.targetY = undefined;
+        } else {
+          // 2. Fallback Touch drag control on canvas
+          const tc = touchControlRef.current;
+          if (tc.active) {
+            const dx = tc.currentX - tc.originX;
+            const dy = tc.currentY - tc.originY;
+            const dist = Math.hypot(dx, dy);
+            if (dist > 5) {
+              const norm = Math.min(1.0, Math.max(0.85, dist / 22));
+              moveX = (dx / dist) * norm;
+              moveY = (dy / dist) * norm;
+              tc.isDragging = true;
+              touchMovedRef.current = true;
+              p.targetX = undefined;
+              p.targetY = undefined;
+            }
           }
         }
 
@@ -1013,7 +1076,8 @@ export default function MelaCanvas({
           p.targetY = undefined;
 
           const len = Math.hypot(moveX, moveY);
-          const moveMult = tc.active ? Math.min(1.0, Math.hypot(moveX, moveY)) : 1.0;
+          const jvActive = jv && jv.active;
+          const moveMult = jvActive ? Math.min(1.0, len) : 1.0;
           newX += (moveX / len) * frameSpeed * moveMult;
           newY += (moveY / len) * frameSpeed * moveMult;
           isMoving = true;
@@ -1463,7 +1527,7 @@ export default function MelaCanvas({
     if (!el) return;
 
     const onTouchStart = (e) => {
-      if (e.target.closest('button')) return;
+      if (e.target.closest('button') || e.target.closest('#fixed-virtual-joystick')) return;
       if (e.touches.length === 0) return;
       e.preventDefault(); // Stop iOS Safari from scrolling or zooming
 
@@ -1506,6 +1570,7 @@ export default function MelaCanvas({
     };
 
     const onTouchMove = (e) => {
+      if (e.target.closest('#fixed-virtual-joystick')) return;
       e.preventDefault();
       if (e.touches.length === 0) return;
 
@@ -1572,6 +1637,7 @@ export default function MelaCanvas({
     };
 
     const onTouchEnd = (e) => {
+      if (e.target.closest('#fixed-virtual-joystick')) return;
       e.preventDefault();
       lastTouchEndTimeRef.current = performance.now();
 
@@ -1699,24 +1765,30 @@ export default function MelaCanvas({
         </div>
       )}
 
-      {/* Fixed On-Screen Festive Virtual Joystick for Mobile, Tablet & Touch Devices */}
+      {/* Fixed On-Screen Festive Virtual Joystick Centered for Mobile, Tablet & Touch Devices */}
       {(isTouchDevice || (typeof window !== 'undefined' && window.innerWidth <= 1024)) && (
         <div
+          ref={joystickElRef}
           id="fixed-virtual-joystick"
           onPointerDown={handleJoystickPointerDown}
           onPointerMove={handleJoystickPointerMove}
           onPointerUp={handleJoystickPointerUp}
           onPointerCancel={handleJoystickPointerUp}
+          onTouchStart={handleJoystickTouchStart}
+          onTouchMove={handleJoystickTouchMove}
+          onTouchEnd={handleJoystickTouchEnd}
+          onTouchCancel={handleJoystickTouchEnd}
           style={{
             position: 'fixed',
-            left: 'max(18px, env(safe-area-inset-left))',
-            bottom: 'max(78px, calc(env(safe-area-inset-bottom) + 70px))',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            bottom: 'max(74px, calc(env(safe-area-inset-bottom) + 68px))',
             width: 96,
             height: 96,
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(245, 158, 11, 0.28) 0%, rgba(20, 12, 34, 0.92) 100%)',
-            border: '2.5px solid rgba(251, 191, 36, 0.75)',
-            boxShadow: '0 8px 25px rgba(0,0,0,0.7), 0 0 20px rgba(245, 158, 11, 0.35)',
+            background: 'radial-gradient(circle, rgba(245, 158, 11, 0.3) 0%, rgba(20, 12, 34, 0.94) 100%)',
+            border: '2.5px solid rgba(251, 191, 36, 0.85)',
+            boxShadow: '0 8px 28px rgba(0,0,0,0.8), 0 0 24px rgba(245, 158, 11, 0.45)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1729,10 +1801,10 @@ export default function MelaCanvas({
           title="Virtual Joystick: Drag to Move Character"
         >
           {/* Directional Arrow Markers */}
-          <span style={{ position: 'absolute', top: 5, fontSize: 10, color: '#fef08a', opacity: 0.85, fontWeight: 900, pointerEvents: 'none' }}>▲</span>
-          <span style={{ position: 'absolute', bottom: 5, fontSize: 10, color: '#fef08a', opacity: 0.85, fontWeight: 900, pointerEvents: 'none' }}>▼</span>
-          <span style={{ position: 'absolute', left: 6, fontSize: 10, color: '#fef08a', opacity: 0.85, fontWeight: 900, pointerEvents: 'none' }}>◄</span>
-          <span style={{ position: 'absolute', right: 6, fontSize: 10, color: '#fef08a', opacity: 0.85, fontWeight: 900, pointerEvents: 'none' }}>►</span>
+          <span style={{ position: 'absolute', top: 5, fontSize: 10, color: '#fef08a', opacity: 0.9, fontWeight: 900, pointerEvents: 'none' }}>▲</span>
+          <span style={{ position: 'absolute', bottom: 5, fontSize: 10, color: '#fef08a', opacity: 0.9, fontWeight: 900, pointerEvents: 'none' }}>▼</span>
+          <span style={{ position: 'absolute', left: 6, fontSize: 10, color: '#fef08a', opacity: 0.9, fontWeight: 900, pointerEvents: 'none' }}>◄</span>
+          <span style={{ position: 'absolute', right: 6, fontSize: 10, color: '#fef08a', opacity: 0.9, fontWeight: 900, pointerEvents: 'none' }}>►</span>
 
           {/* Decorative dashed golden ring */}
           <div
@@ -1740,7 +1812,7 @@ export default function MelaCanvas({
               position: 'absolute',
               inset: 5,
               borderRadius: '50%',
-              border: '1px dashed rgba(254, 240, 138, 0.4)',
+              border: '1px dashed rgba(254, 240, 138, 0.45)',
               pointerEvents: 'none'
             }}
           />
@@ -1755,14 +1827,14 @@ export default function MelaCanvas({
               border: '2.5px solid #ffffff',
               boxShadow: joystickKnob.active
                 ? '0 0 24px #fbbf24, 0 6px 14px rgba(0,0,0,0.8)'
-                : '0 0 14px rgba(251, 191, 36, 0.6), 0 4px 10px rgba(0,0,0,0.6)',
+                : '0 0 16px rgba(251, 191, 36, 0.7), 0 4px 10px rgba(0,0,0,0.6)',
               transform: `translate(${joystickKnob.x}px, ${joystickKnob.y}px)`,
               transition: joystickKnob.active ? 'none' : 'transform 0.15s cubic-bezier(0.18, 0.89, 0.32, 1.28)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               pointerEvents: 'none',
-              fontSize: 16
+              fontSize: 18
             }}
           >
             🪔
@@ -1794,7 +1866,7 @@ export default function MelaCanvas({
         <div
           style={{
             position: 'fixed',
-            bottom: 'max(90px, calc(env(safe-area-inset-bottom) + 84px))',
+            bottom: 'max(195px, calc(env(safe-area-inset-bottom) + 185px))',
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 55,

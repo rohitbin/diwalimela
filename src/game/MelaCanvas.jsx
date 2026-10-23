@@ -317,11 +317,7 @@ export default function MelaCanvas({
     // 2. Projectile fired (Divine Bow Arrow or Sparkler Blaster Gun) by any user
     const unsubProj = multiplayerManager.onProjectile((data) => {
       if (!data || data.shooterId === playerRef.current.id) return;
-      if (data.weaponId === 'gun') {
-        soundEngine.playGunShot();
-      } else {
-        soundEngine.playBowRelease();
-      }
+      // Note: Arrow / weapon sounds are heard by the shooter only, not broadcast to everyone
 
       worldRef.current.projectiles.push({
         id: data.id || `proj_${Date.now()}`,
@@ -344,7 +340,7 @@ export default function MelaCanvas({
     // 3. Ravan Hit & Boss Impact from any user
     const unsubRavanHit = multiplayerManager.onRavanHit((data) => {
       if (!data) return;
-      soundEngine.playRavanHit();
+      // Visual hit flash and spark particles for all players; impact sound heard by shooter only
       worldRef.current.ravanHitFlash = 9;
       worldRef.current.screenShake = { intensity: 3, duration: 4 };
 
@@ -426,7 +422,7 @@ export default function MelaCanvas({
 
     // 5. Temple Bell rung by any user
     const unsubBell = multiplayerManager.onTempleBell((data) => {
-      soundEngine.playTempleBell();
+      // Note: Temple bell ring sound is heard by the user only, not everyone; visual flower petals and text remain
       const tx = MELA_ZONES.TEMPLE.x;
       const ty = MELA_ZONES.TEMPLE.y;
 
@@ -1317,8 +1313,10 @@ export default function MelaCanvas({
         if (proj.trail.length > 5) proj.trail.shift();
 
         if (distToTarget <= proj.speed) {
-          // Direct Impact on Ravan effigy!
-          soundEngine.playRavanHit();
+          // Direct Impact on Ravan effigy! (Sound played to local shooter only)
+          if (proj.isLocal) {
+            soundEngine.playRavanHit();
+          }
           world.ravanHitFlash = 9;
 
           // 1 shot reduces Ravan's HP by exactly 1

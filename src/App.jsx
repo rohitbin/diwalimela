@@ -15,6 +15,7 @@ import ChatOverlay from './components/ChatOverlay';
 import MiniMap from './components/MiniMap';
 import FestiveChecklist from './components/FestiveChecklist';
 import PlayerJoinPopup from './components/PlayerJoinPopup';
+import InstallPromptModal from './components/InstallPromptModal';
 import confetti from 'canvas-confetti';
 import { CRACKERS, INITIAL_INVENTORY } from './data/crackers';
 import { multiplayerManager } from './multiplayer/peerSync';
@@ -123,6 +124,40 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([]);
   const [onlineCount, setOnlineCount] = useState(1);
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  // Progressive Web App (PWA) Install Prompt
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  useEffect(() => {
+    const standalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true;
+    setIsStandalone(standalone);
+
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      if (!standalone) {
+        setIsInstallModalOpen(true);
+      }
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Prompt user to install the game when landing on the website
+    const timer = setTimeout(() => {
+      if (!standalone) {
+        setIsInstallModalOpen(true);
+      }
+    }, 1200);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      clearTimeout(timer);
+    };
+  }, []);
 
   // Floating header corner chat toasts (up to 3, auto-disappear after 4 seconds)
   const [headerChatToasts, setHeaderChatToasts] = useState([]);
@@ -363,6 +398,8 @@ export default function App() {
         onlineCount={onlineCount}
         onOpenCustomizer={() => setIsCustomizerOpen(true)}
         onOpenGuide={() => setIsGuideOpen(true)}
+        onOpenInstall={() => setIsInstallModalOpen(true)}
+        isStandalone={isStandalone}
         coins={coins}
         player={player}
         currentZone={getCurrentZoneName(player.x, player.y)}
@@ -650,6 +687,17 @@ export default function App() {
       <DiwaliGuideModal
         isOpen={isGuideOpen}
         onClose={() => setIsGuideOpen(false)}
+      />
+
+      {/* 10. PWA Install Prompt Modal */}
+      <InstallPromptModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        deferredPrompt={deferredPrompt}
+        onInstallAccepted={() => {
+          setIsStandalone(true);
+          setIsInstallModalOpen(false);
+        }}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 // Modern Glassmorphic Top Navigation & HUD Bar
 import React, { useState } from 'react';
 import { soundEngine } from '../audio/soundEngine';
-import { Users, Volume2, VolumeX, Music, Share2, HelpCircle, User, Sparkles, Check, MapPin } from 'lucide-react';
+import { Users, Volume2, VolumeX, Music, Share2, HelpCircle, User, Sparkles, Check, MapPin, Download } from 'lucide-react';
 
 export default function MultiplayerBar({
   roomId,
@@ -10,7 +10,9 @@ export default function MultiplayerBar({
   onOpenGuide,
   coins,
   player,
-  currentZone
+  currentZone,
+  onOpenInstall,
+  isStandalone
 }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isMusicOn, setIsMusicOn] = useState(false);
@@ -235,7 +237,7 @@ export default function MultiplayerBar({
         </div>
       )}
 
-      {/* 3. Right: Audio, Invite Friends, Guide */}
+      {/* 3. Right: Audio, Invite Friends, Install, Guide */}
       <div
         style={{
           display: 'flex',
@@ -244,6 +246,36 @@ export default function MultiplayerBar({
           pointerEvents: 'auto'
         }}
       >
+        {/* Install App Button */}
+        {!isStandalone && onOpenInstall && (
+          <button
+            onClick={onOpenInstall}
+            style={{
+              backgroundColor: 'rgba(245, 158, 11, 0.22)',
+              backdropFilter: 'blur(12px)',
+              border: '1.5px solid #f59e0b',
+              borderRadius: isMobile ? '50%' : 20,
+              width: isMobile ? 32 : 'auto',
+              height: isMobile ? 32 : 'auto',
+              padding: isMobile ? 0 : '6px 13px',
+              color: '#fef08a',
+              fontSize: 12,
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              cursor: 'pointer',
+              boxShadow: '0 0 12px rgba(245, 158, 11, 0.4), 0 4px 14px rgba(0,0,0,0.4)',
+              touchAction: 'manipulation'
+            }}
+            title="Install Diwali Mela App on your Phone"
+          >
+            <Download size={isMobile ? 15 : 14} color="#fbbf24" />
+            {!isMobile && <span>Install App</span>}
+          </button>
+        )}
+
         {/* Invite Friends */}
         <button
           onClick={handleShareInvite}

@@ -113,7 +113,7 @@ export const CRACKERS = [
     duration: 3.5,
     isHandheld: false,
     safetyRating: 'Stay 10 Meters Away',
-    description: 'Iconic jute-wound green bomb with legendary deep bass impact! Triggers realistic ground rumble, dust ring, and screen vibration.',
+    description: 'Iconic jute-wound green bomb with legendary deep bass impact! Triggers realistic ground rumble, dust ring, and golden shockwave.',
     instructions: 'Place on ground, light the fuse, run back quickly, and cover ears!',
     burstPower: 5,
     tag: 'Super Heavy'

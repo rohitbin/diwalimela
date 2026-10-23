@@ -345,8 +345,8 @@ export default function MelaCanvas({
         decay: 0.045
       };
       worldRef.current.screenShake = {
-        intensity: data?.intensity || 12,
-        duration: data?.duration || 26
+        intensity: 0,
+        duration: 0
       };
       soundEngine.playSutliBomb();
     });
@@ -1072,8 +1072,8 @@ export default function MelaCanvas({
 
       // Update Active Crackers & Particles
       const addParticle = (pt) => world.particles.push(pt);
-      const triggerShake = (intensity, duration) => {
-        world.screenShake = { intensity, duration };
+      const triggerShake = () => {
+        // Screen vibration disabled after explosions per user preference
       };
       const triggerSkyFlash = (color, durationOrAlpha, customDecay) => {
         let maxAlpha = 0.28;

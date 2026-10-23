@@ -160,7 +160,6 @@ export class ActiveCracker {
     switch (this.data.id) {
       case 'sutlibomb':
         this.soundEngine?.playSutliBomb();
-        if (triggerScreenShake) triggerScreenShake(14, 28);
         if (triggerSkyFlash) triggerSkyFlash('rgba(254, 240, 138, 0.3)', 8);
         break;
       case 'rocket':
@@ -308,7 +307,6 @@ export class ActiveCracker {
         if (this.rocketVy <= -11 || this.burstTime < this.burstMax - 70) {
           this.rocketExploded = true;
           this.soundEngine?.playFireworkBang(1.1, 1.2);
-          if (triggerScreenShake) triggerScreenShake(8, 18);
           if (triggerSkyFlash) triggerSkyFlash('rgba(251, 191, 36, 0.25)', 8);
 
           // Radial Peony Flowerburst (120 particles)
@@ -339,7 +337,6 @@ export class ActiveCracker {
       // Rapid pops every 5-8 frames
       if (this.burstTime % 6 === 0) {
         this.soundEngine?.playLadiPop();
-        if (triggerScreenShake) triggerScreenShake(2, 4);
 
         const offsetX = (Math.random() - 0.5) * 32;
         const offsetY = (Math.random() - 0.5) * 12;
@@ -455,7 +452,6 @@ export class ActiveCracker {
 
         setTimeout(() => {
           this.soundEngine?.playFireworkBang(0.9 + Math.random() * 0.4, 1.1);
-          if (triggerScreenShake) triggerScreenShake(5, 14);
 
           for (let p = 0; p < 75; p++) {
             const theta = Math.random() * Math.PI * 2;

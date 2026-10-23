@@ -996,7 +996,11 @@ export default function MelaCanvas({
 
   // Click on Canvas to walk or place cracker (Desktop mouse clicks)
   const handleCanvasClick = (e) => {
-    // Suppress synthetic clicks fired right after touch drag / release
+    // Suppress clicks originating from buttons or UI controllers
+    if (e.target && e.target.closest && (e.target.closest('button') || e.target.closest('#weapon-fire-controller') || e.target.closest('#fixed-virtual-joystick'))) {
+      return;
+    }
+    // Suppress synthetic clicks fired right after touch drag / release or button press
     if (performance.now() - lastTouchEndTimeRef.current < 450) {
       return;
     }
@@ -1629,7 +1633,7 @@ export default function MelaCanvas({
     if (!el) return;
 
     const onTouchStart = (e) => {
-      if (e.target.closest('button') || e.target.closest('#fixed-virtual-joystick')) return;
+      if (e.target.closest('button') || e.target.closest('#fixed-virtual-joystick') || e.target.closest('#weapon-fire-controller')) return;
       if (e.touches.length === 0) return;
       e.preventDefault(); // Stop iOS Safari from scrolling or zooming
 
@@ -1638,7 +1642,9 @@ export default function MelaCanvas({
       const x = touch.clientX - rect.left;
       const y = touch.clientY - rect.top;
 
-      if (selectedCracker) {
+      const isPlacementCracker = selectedCracker && !selectedCracker.isWeapon && selectedCracker.id !== 'bow' && selectedCracker.id !== 'gun';
+
+      if (isPlacementCracker) {
         // Placement Mode for Phone: track aiming position
         setPlacementPreview({
           screenX: touch.clientX,
@@ -1672,11 +1678,13 @@ export default function MelaCanvas({
     };
 
     const onTouchMove = (e) => {
-      if (e.target.closest('#fixed-virtual-joystick')) return;
+      if (e.target.closest('button') || e.target.closest('#fixed-virtual-joystick') || e.target.closest('#weapon-fire-controller')) return;
       e.preventDefault();
       if (e.touches.length === 0) return;
 
-      if (selectedCracker) {
+      const isPlacementCracker = selectedCracker && !selectedCracker.isWeapon && selectedCracker.id !== 'bow' && selectedCracker.id !== 'gun';
+
+      if (isPlacementCracker) {
         let touch = null;
         for (let i = 0; i < e.touches.length; i++) {
           if (e.touches[i].identifier === placementPreview?.touchId) {
@@ -1739,11 +1747,13 @@ export default function MelaCanvas({
     };
 
     const onTouchEnd = (e) => {
-      if (e.target.closest('#fixed-virtual-joystick')) return;
+      if (e.target.closest('button') || e.target.closest('#fixed-virtual-joystick') || e.target.closest('#weapon-fire-controller')) return;
       e.preventDefault();
       lastTouchEndTimeRef.current = performance.now();
 
-      if (selectedCracker) {
+      const isPlacementCracker = selectedCracker && !selectedCracker.isWeapon && selectedCracker.id !== 'bow' && selectedCracker.id !== 'gun';
+
+      if (isPlacementCracker) {
         let touch = null;
         if (e.changedTouches && e.changedTouches.length > 0) {
           touch = e.changedTouches[0];
@@ -2014,24 +2024,59 @@ export default function MelaCanvas({
         };
 
         const handleFireDown = (e) => {
-          if (e && e.stopPropagation) e.stopPropagation();
+          if (e) {
+            if (e.preventDefault) e.preventDefault();
+            if (e.stopPropagation) e.stopPropagation();
+            if (e.nativeEvent && e.nativeEvent.stopImmediatePropagation) e.nativeEvent.stopImmediatePropagation();
+          }
+          lastTouchEndTimeRef.current = performance.now();
           if (navigator.vibrate) navigator.vibrate(12);
           startAutoFire(e);
         };
 
         const handleFireUp = (e) => {
-          if (e && e.stopPropagation) e.stopPropagation();
+          if (e) {
+            if (e.preventDefault) e.preventDefault();
+            if (e.stopPropagation) e.stopPropagation();
+            if (e.nativeEvent && e.nativeEvent.stopImmediatePropagation) e.nativeEvent.stopImmediatePropagation();
+          }
+          lastTouchEndTimeRef.current = performance.now();
           stopAutoFire(e);
         };
 
         const handleFireClick = (e) => {
-          if (e && e.stopPropagation) e.stopPropagation();
+          if (e) {
+            if (e.preventDefault) e.preventDefault();
+            if (e.stopPropagation) e.stopPropagation();
+            if (e.nativeEvent && e.nativeEvent.stopImmediatePropagation) e.nativeEvent.stopImmediatePropagation();
+          }
+          lastTouchEndTimeRef.current = performance.now();
           fireWeaponAtRavan();
         };
 
         return (
           <div
             id="weapon-fire-controller"
+            onPointerDown={(e) => {
+              if (e && e.stopPropagation) e.stopPropagation();
+            }}
+            onTouchStart={(e) => {
+              if (e && e.stopPropagation) e.stopPropagation();
+            }}
+            onTouchMove={(e) => {
+              if (e && e.stopPropagation) e.stopPropagation();
+            }}
+            onTouchEnd={(e) => {
+              if (e && e.stopPropagation) e.stopPropagation();
+              lastTouchEndTimeRef.current = performance.now();
+            }}
+            onTouchCancel={(e) => {
+              if (e && e.stopPropagation) e.stopPropagation();
+              lastTouchEndTimeRef.current = performance.now();
+            }}
+            onClick={(e) => {
+              if (e && e.stopPropagation) e.stopPropagation();
+            }}
             style={{
               position: 'fixed',
               right: 'max(20px, calc(env(safe-area-inset-right) + 16px))',
@@ -2044,7 +2089,7 @@ export default function MelaCanvas({
               pointerEvents: 'auto',
               userSelect: 'none',
               WebkitUserSelect: 'none',
-              touchAction: 'manipulation'
+              touchAction: 'none'
             }}
           >
             {/* Quick Switcher Pill if player owns both weapons */}
@@ -2125,7 +2170,11 @@ export default function MelaCanvas({
             )}
 
             {/* Main Primary FIRE Button */}
-            <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div
+              onPointerDown={(e) => { if (e && e.stopPropagation) e.stopPropagation(); }}
+              onTouchStart={(e) => { if (e && e.stopPropagation) e.stopPropagation(); }}
+              style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+            >
               {/* Speed Multiplier Combo Flare Badge */}
               {clickSpeedMultiplier > 1.15 && (
                 <div
@@ -2151,6 +2200,7 @@ export default function MelaCanvas({
 
               <button
                 id="fire-weapon-btn"
+                type="button"
                 onPointerDown={handleFireDown}
                 onPointerUp={handleFireUp}
                 onPointerLeave={handleFireUp}
@@ -2226,7 +2276,7 @@ export default function MelaCanvas({
 
 
       {/* Visual Cracker Placement Aim Reticle (Phone & Touch) */}
-      {placementPreview && selectedCracker && (
+      {placementPreview && selectedCracker && !selectedCracker.isWeapon && selectedCracker.id !== 'bow' && selectedCracker.id !== 'gun' && (
         <div
           style={{
             position: 'fixed',

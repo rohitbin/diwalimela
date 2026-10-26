@@ -20,6 +20,7 @@ export const MELA_ZONES = {
   FERRIS_WHEEL: { x: 1650, y: 220, name: 'Mela Giant Wheel (विशाल झूला)' },
   BALLOON_STALL: { x: 1320, y: 220, name: 'Balloon Shooting Stall (गुब्बारा निशानेबाजी)' },
   CHAI_TAPRI: { x: 380, y: 420, name: 'Sharma Ji Chai Tapri (चाय टपरी)' },
+  DJ_FLOOR: { x: 740, y: 360, name: 'Yo Yo DJ Dance Floor (यो यो डीजे फ्लोर - Casa Tupka)' },
   RAVAN_GATE: { x: 1380, y: 980, name: 'Ravan Arena Gate (रावण दहन द्वार)' },
   RAVAN: { x: 1550, y: 980, name: 'Ravan Dahan Ground (रावण दहन - 10M HP)' },
   WEAPON_STALL: { x: 1240, y: 880, name: 'Shastra Armory (शस्त्रागार)' }
@@ -306,6 +307,21 @@ export default function MelaCanvas({
       bubble: null,
       facing: 'down'
     },
+    // Yo Yo Honey Singh DJ Stage & Party Dancers
+    djStage: {
+      x: 740,
+      y: 310,
+      djX: 740,
+      djY: 295,
+      bubble: '🔥 YO YO: "Casa casa casa tupka tequila!" 🎧',
+      bubbleTimer: 0,
+      scratchAngle: 0
+    },
+    djDancers: [
+      { id: 'dj_d1', name: 'Bunty', x: 695, y: 368, color: '#ec4899', outfit: { top: '#ec4899', bottom: '#1e293b' }, danceStyle: 'bhangra' },
+      { id: 'dj_d2', name: 'Simran', x: 740, y: 400, color: '#06b6d4', outfit: { top: '#06b6d4', bottom: '#f8fafc' }, danceStyle: 'hiphop' },
+      { id: 'dj_d3', name: 'Rocky', x: 785, y: 368, color: '#a855f7', outfit: { top: '#a855f7', bottom: '#0f172a' }, danceStyle: 'party' }
+    ],
     nextAmbientFireworkTime: 140,
     lastFrameTime: performance.now()
   });
@@ -1066,6 +1082,16 @@ export default function MelaCanvas({
         }
         return;
       }
+    }
+
+    // 0a-3. Clicked Yo Yo Honey Singh DJ Dance Floor (Walk and dance to Casa Tupka)
+    const distToDj = dist(worldClickX, worldClickY, MELA_ZONES.DJ_FLOOR.x, MELA_ZONES.DJ_FLOOR.y);
+    if (distToDj < 75) {
+      p.targetX = MELA_ZONES.DJ_FLOOR.x;
+      p.targetY = MELA_ZONES.DJ_FLOOR.y;
+      p.isMoving = true;
+      setPlayer((prev) => ({ ...prev, targetX: MELA_ZONES.DJ_FLOOR.x, targetY: MELA_ZONES.DJ_FLOOR.y, isMoving: true }));
+      return;
     }
 
     // 0a. Clicked Ravan Arena Gate (Enter or Exit the arena)
@@ -1859,6 +1885,70 @@ export default function MelaCanvas({
         }
       }
 
+      // Update Yo Yo Honey Singh DJ Dance Floor & Casa Tupka Spatial Audio
+      const djFloor = MELA_ZONES.DJ_FLOOR;
+      const dDj = Math.hypot(p.x - djFloor.x, p.y - djFloor.y);
+      const isInsideDjFloor = dDj <= 85;
+
+      // Spatial volume: only characters that enter (or approach) can hear Casa Tupka!
+      let djVol = 0;
+      if (dDj <= 85) {
+        djVol = 1.0;
+      } else if (dDj <= 155) {
+        djVol = (155 - dDj) / 70;
+      }
+      soundEngine.updateCasaTupkaSpatial?.(djVol);
+
+      // Automatic dancing for characters entering the dance floor!
+      if (isInsideDjFloor && !p.isSitting) {
+        if (!p.inDjFloor) {
+          p.inDjFloor = true;
+          if (setIsDancing) setIsDancing(true);
+          if (multiplayerManager) {
+            multiplayerManager.broadcastPlayerDance({ isDancing: true, playerName: p.name });
+          }
+        }
+        // Spawn party glitter sparkles on the floor around dancing player
+        if (Math.random() > 0.55) {
+          const partyColors = ['#ec4899', '#06b6d4', '#facc15', '#a855f7', '#22c55e', '#ffffff'];
+          world.particles.push(
+            new Particle(
+              p.x + (Math.random() - 0.5) * 24,
+              p.y - 10 + (Math.random() - 0.5) * 16,
+              (Math.random() - 0.5) * 1.2,
+              -0.6 - Math.random() * 0.8,
+              partyColors[Math.floor(Math.random() * partyColors.length)],
+              20 + Math.floor(Math.random() * 16),
+              1.6,
+              0.03,
+              0.96,
+              'star'
+            )
+          );
+        }
+      } else if (p.inDjFloor && dDj > 95) {
+        p.inDjFloor = false;
+        if (setIsDancing) setIsDancing(false);
+        if (multiplayerManager) {
+          multiplayerManager.broadcastPlayerDance({ isDancing: false, playerName: p.name });
+        }
+      }
+
+      // DJ Yo Yo speech bubble alternating timer
+      if (world.djStage) {
+        world.djStage.bubbleTimer = (world.djStage.bubbleTimer || 0) + 1;
+        if (world.djStage.bubbleTimer % 240 === 0) {
+          const quotes = [
+            '🔥 YO YO: "Casa casa casa tupka tequila!" 🎧',
+            '🎶 "Party karni party pehle YO YO bulao! 🕺🔊"',
+            '💥 "Bada hot hai weather jab baje reggaeton! 🔥"',
+            '✨ "Tara rum bam bam bam bam! 💃"',
+            '🎤 "Yo Yo Honey Singh in the House! 🪔"'
+          ];
+          world.djStage.bubble = quotes[Math.floor((world.djStage.bubbleTimer / 240) % quotes.length)];
+        }
+      }
+
       // ==========================================
       // RENDER CANVAS SCENE
       // ==========================================
@@ -1882,6 +1972,9 @@ export default function MelaCanvas({
 
       // D. Carnival Game Stalls: Balloon Shooting, Sharma Ji Chai Tapri (10 chairs patio)
       renderCarnivalAttractions(ctx, world, p);
+
+      // D2. Yo Yo Honey Singh DJ Stage & LED Dance Floor (Casa Tupka)
+      renderYoYoDjDanceFloor(ctx, world, p, livePeers);
 
       // E. Stalls: Cracker Shop, Temple
       renderMelaStalls(ctx, world, p);
@@ -1959,6 +2052,7 @@ export default function MelaCanvas({
     return () => {
       window.removeEventListener('resize', resizeCanvas);
       cancelAnimationFrame(animationFrameId);
+      soundEngine.updateCasaTupkaSpatial?.(0);
     };
   }, [
     selectedCracker,
@@ -2399,6 +2493,44 @@ export default function MelaCanvas({
           >
             <span>🚶</span> Stand Up
           </button>
+        </div>
+      )}
+
+      {/* Dancing on Yo Yo Honey Singh DJ Floor Banner */}
+      {Math.hypot(player.x - MELA_ZONES.DJ_FLOOR.x, player.y - MELA_ZONES.DJ_FLOOR.y) <= 85 && !player.isSitting && (
+        <div
+          id="dj-floor-banner"
+          style={{
+            position: 'fixed',
+            bottom: 'max(95px, calc(env(safe-area-inset-bottom) + 90px))',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'linear-gradient(135deg, rgba(88, 28, 135, 0.96) 0%, rgba(15, 23, 42, 0.98) 100%)',
+            border: '2px solid #ec4899',
+            borderRadius: 28,
+            padding: '8px 22px',
+            color: '#fef08a',
+            fontSize: 13,
+            fontWeight: 800,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            boxShadow: '0 8px 30px rgba(0,0,0,0.85), 0 0 25px rgba(236, 72, 153, 0.7)',
+            zIndex: 65,
+            animation: 'fadeInUp 0.3s ease-out',
+            pointerEvents: 'none'
+          }}
+        >
+          <span style={{ fontSize: 22 }}>🕺</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <span style={{ color: '#f472b6', fontSize: 11, fontWeight: 900, letterSpacing: 0.6 }}>
+              🔥 YO YO HONEY SINGH DJ STAGE
+            </span>
+            <span style={{ color: '#fef08a', fontSize: 13, fontWeight: 800 }}>
+              Dancing to "Casa Tupka" • Dembow Party Beat! 🎶
+            </span>
+          </div>
+          <span style={{ fontSize: 20 }}>🎧</span>
         </div>
       )}
 
@@ -3626,6 +3758,471 @@ function renderChaiServer(ctx, server) {
 
     ctx.fillStyle = '#431407';
     ctx.fillText(server.bubble, 0, by + 14);
+  }
+
+  ctx.restore();
+}
+
+// -------------------------------------------------------------
+// YO YO HONEY SINGH DJ DANCE FLOOR & CASA TUPKA PARTY STAGE
+// Spatial Audio: Only characters on or near the floor hear Casa Tupka!
+// Automatic Dancing: Characters on the floor groove & dance!
+// -------------------------------------------------------------
+function renderYoYoDjDanceFloor(ctx, world, player, remotePlayers) {
+  const dist = (x1, y1, x2, y2) => Math.hypot(x1 - x2, y1 - y2);
+  const now = performance.now();
+  const djStage = world.djStage;
+
+  ctx.save();
+
+  // 1. Surrounding Dark Club Carpet & Lighting Glow
+  const floorX = 645;
+  const floorY = 320;
+  const floorW = 190;
+  const floorH = 130;
+
+  // Ambient Club Glow underneath
+  const ambientPulse = Math.sin(now * 0.005) * 0.15 + 0.85;
+  ctx.save();
+  ctx.shadowBlur = 24;
+  ctx.shadowColor = 'rgba(236, 72, 153, 0.45)';
+  ctx.fillStyle = 'rgba(15, 10, 28, 0.82)';
+  ctx.beginPath();
+  ctx.roundRect(floorX - 8, floorY - 8, floorW + 16, floorH + 16, 20);
+  ctx.fill();
+  ctx.restore();
+
+  // Outer border with neon glow
+  ctx.strokeStyle = `rgba(236, 72, 153, ${ambientPulse})`;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.roundRect(floorX, floorY, floorW, floorH, 14);
+  ctx.stroke();
+
+  // 2. Pulsating LED Matrix Dance Floor Tiles (6 Columns x 4 Rows)
+  const cols = 6;
+  const rows = 4;
+  const tileW = (floorW - 14) / cols;
+  const tileH = (floorH - 14) / rows;
+  const partyColors = [
+    '#ec4899', // Hot Pink
+    '#06b6d4', // Cyan
+    '#8b5cf6', // Violet
+    '#facc15', // Neon Amber
+    '#10b981', // Lime Green
+    '#f43f5e'  // Electric Rose
+  ];
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const tx = floorX + 7 + c * tileW;
+      const ty = floorY + 7 + r * tileH;
+      const colorIndex = Math.floor((c + r * 2 + Math.floor(now * 0.003)) % partyColors.length);
+      const baseCol = partyColors[colorIndex];
+      const pulseAlpha = Math.sin(now * 0.008 + (c * 0.8) + (r * 1.2)) * 0.35 + 0.65;
+
+      ctx.fillStyle = baseCol;
+      ctx.globalAlpha = pulseAlpha * 0.55;
+      ctx.beginPath();
+      ctx.roundRect(tx + 2, ty + 2, tileW - 4, tileH - 4, 4);
+      ctx.fill();
+
+      ctx.strokeStyle = baseCol;
+      ctx.globalAlpha = pulseAlpha * 0.85;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1.0;
+
+  // 3. Sweeping Overhead Laser Beams (Pink, Cyan, Gold)
+  const laserAngles = [
+    Math.sin(now * 0.002) * 0.45 - 0.45,
+    Math.sin(now * 0.0025 + 1) * 0.45 - 0.15,
+    Math.sin(now * 0.0022 + 2) * 0.45 + 0.15,
+    Math.sin(now * 0.0027 + 3) * 0.45 + 0.45
+  ];
+  const laserColors = ['rgba(236, 72, 153, 0.45)', 'rgba(6, 182, 212, 0.45)', 'rgba(250, 204, 21, 0.45)', 'rgba(168, 85, 247, 0.45)'];
+
+  laserAngles.forEach((ang, idx) => {
+    ctx.strokeStyle = laserColors[idx];
+    ctx.lineWidth = 2.5;
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = laserColors[idx];
+    ctx.beginPath();
+    ctx.moveTo(740, 290);
+    ctx.lineTo(740 + Math.sin(ang) * 150, 290 + Math.cos(ang) * 150);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  });
+
+  // 4. DJ Stage Platform (North of dance floor)
+  const stageX = 645;
+  const stageY = 250;
+  const stageW = 190;
+  const stageH = 68;
+
+  // Raised platform deck
+  ctx.fillStyle = '#1e1b2e';
+  ctx.beginPath();
+  ctx.roundRect(stageX, stageY, stageW, stageH, [10, 10, 2, 2]);
+  ctx.fill();
+  ctx.strokeStyle = '#475569';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Silver Stage Truss Pillars on Left & Right
+  const trusses = [
+    { x: stageX + 6, y: stageY },
+    { x: stageX + stageW - 14, y: stageY }
+  ];
+  trusses.forEach((truss) => {
+    ctx.fillStyle = '#64748b';
+    ctx.fillRect(truss.x, truss.y - 30, 8, stageH + 30);
+    // Crossbars
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1.2;
+    for (let ty = truss.y - 30; ty <= truss.y + stageH; ty += 12) {
+      ctx.beginPath();
+      ctx.moveTo(truss.x, ty);
+      ctx.lineTo(truss.x + 8, ty + 6);
+      ctx.stroke();
+    }
+  });
+
+  // Overhead Cross Truss connecting pillars
+  ctx.fillStyle = '#64748b';
+  ctx.fillRect(stageX + 6, stageY - 30, stageW - 12, 6);
+  ctx.strokeStyle = '#94a3b8';
+  ctx.strokeRect(stageX + 6, stageY - 30, stageW - 12, 6);
+
+  // Moving-head stage lights mounted on overhead truss
+  const spotXs = [stageX + 35, stageX + 75, stageX + 115, stageX + 155];
+  spotXs.forEach((sx, idx) => {
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(sx - 5, stageY - 34, 10, 6);
+    ctx.fillStyle = partyColors[idx % partyColors.length];
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.beginPath();
+    ctx.arc(sx, stageY - 25, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+
+  // Grand Illuminated Stage Banner: YO YO HONEY SINGH • CASA TUPKA
+  ctx.save();
+  ctx.shadowBlur = 14;
+  ctx.shadowColor = '#ec4899';
+  ctx.fillStyle = 'rgba(23, 15, 38, 0.94)';
+  ctx.strokeStyle = '#ec4899';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(stageX + 18, stageY - 24, stageW - 36, 18, 5);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#fef08a';
+  ctx.font = 'bold 10px "Cinzel", serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🔥 YO YO HONEY SINGH • CASA TUPKA 🔥', 740, stageY - 11);
+  ctx.restore();
+
+  // 5. Giant Subwoofer Speaker Stacks (Left & Right)
+  const speakers = [
+    { x: stageX + 18, y: stageY + 12 },
+    { x: stageX + stageW - 34, y: stageY + 12 }
+  ];
+
+  speakers.forEach((spk) => {
+    // Speaker cabinet
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(spk.x, spk.y, 16, 48);
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(spk.x, spk.y, 16, 48);
+
+    // 3 Woofer Cones pulsing with sub-bass
+    const bassPulse = Math.sin(now * 0.015) * 1.5;
+    for (let c = 0; c < 3; c++) {
+      const cy = spk.y + 8 + c * 15;
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.arc(spk.x + 8, cy, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Cone center
+      ctx.fillStyle = '#f43f5e';
+      ctx.beginPath();
+      ctx.arc(spk.x + 8, cy, 2.5 + bassPulse, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+
+  // 6. DJ Console Table & Mixing Decks
+  const deskX = 705;
+  const deskY = stageY + 28;
+  const deskW = 70;
+  const deskH = 26;
+
+  ctx.fillStyle = '#090d16';
+  ctx.fillRect(deskX, deskY, deskW, deskH);
+  ctx.strokeStyle = '#06b6d4';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(deskX, deskY, deskW, deskH);
+
+  // Dual Turntables (CDJ / Vinyl records)
+  // Left turntable
+  ctx.fillStyle = '#1e293b';
+  ctx.beginPath();
+  ctx.arc(deskX + 14, deskY + 13, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#0f172a';
+  ctx.beginPath();
+  ctx.arc(deskX + 14, deskY + 13, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#f43f5e';
+  ctx.beginPath();
+  ctx.arc(deskX + 14, deskY + 13, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Right turntable
+  ctx.fillStyle = '#1e293b';
+  ctx.beginPath();
+  ctx.arc(deskX + deskW - 14, deskY + 13, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#0f172a';
+  ctx.beginPath();
+  ctx.arc(deskX + deskW - 14, deskY + 13, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#06b6d4';
+  ctx.beginPath();
+  ctx.arc(deskX + deskW - 14, deskY + 13, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Center DJ Mixer with Animated VU Equalizer Spectrum Bars
+  const eqX = deskX + 28;
+  const eqY = deskY + 5;
+  for (let b = 0; b < 5; b++) {
+    const barH = 3 + Math.abs(Math.sin(now * 0.012 + b)) * 11;
+    ctx.fillStyle = b < 3 ? '#22c55e' : (b === 3 ? '#eab308' : '#ef4444');
+    ctx.fillRect(eqX + b * 3, eqY + 14 - barH, 2, barH);
+  }
+
+  // 7. DJ YO YO (Character on Stage behind console)
+  const djX = 740;
+  const djY = stageY + 16;
+  ctx.save();
+  ctx.translate(djX, djY);
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  ctx.beginPath();
+  ctx.ellipse(0, 10, 8, 3.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Torso: Black Hip-Hop Sleeveless Vest
+  ctx.fillStyle = '#0f172a';
+  ctx.beginPath();
+  ctx.roundRect(-8, -10, 16, 16, [3, 3, 1, 1]);
+  ctx.fill();
+
+  // Heavy Gold Cuban Link Chain & Pendant
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(0, -6, 5, 0, Math.PI);
+  ctx.stroke();
+  ctx.fillStyle = '#fde047';
+  ctx.fillRect(-1.5, -1, 3, 3); // Gold locket
+
+  // Head
+  ctx.fillStyle = '#fed7aa';
+  ctx.beginPath();
+  ctx.arc(0, -16, 7.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Beard / Stubble
+  ctx.fillStyle = 'rgba(30, 27, 75, 0.65)';
+  ctx.fillRect(-5, -13, 10, 3.5);
+
+  // Black Sunglasses with Neon Reflection
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(-6, -18, 5, 3.5);
+  ctx.fillRect(1, -18, 5, 3.5);
+  ctx.strokeStyle = '#06b6d4'; // neon cyan reflection
+  ctx.lineWidth = 0.8;
+  ctx.strokeRect(-6, -18, 5, 3.5);
+  ctx.strokeRect(1, -18, 5, 3.5);
+
+  // Backward Cap / Bandana
+  ctx.fillStyle = '#dc2626';
+  ctx.beginPath();
+  ctx.arc(0, -19, 7.5, Math.PI, 0);
+  ctx.fill();
+  ctx.fillRect(-7, -20, 14, 3);
+
+  // Big DJ Headphones around neck/ear
+  ctx.fillStyle = '#1e293b';
+  ctx.fillRect(-9, -21, 3, 8);
+  ctx.fillRect(6, -21, 3, 8);
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(0, -20, 8, Math.PI * 0.9, Math.PI * 2.1);
+  ctx.stroke();
+
+  // Animated Arms: Scratching deck on Left, Pumping fist on Right!
+  const scratchMove = Math.sin(now * 0.018) * 4;
+  const fistPump = Math.sin(now * 0.015) * 5;
+
+  // Left arm (scratching)
+  ctx.strokeStyle = '#fed7aa';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-6, -7);
+  ctx.lineTo(-14 + scratchMove, 3);
+  ctx.stroke();
+
+  // Right arm (fist in air)
+  ctx.beginPath();
+  ctx.moveTo(6, -7);
+  ctx.lineTo(13, -15 + fistPump);
+  ctx.stroke();
+  ctx.fillStyle = '#fed7aa';
+  ctx.beginPath();
+  ctx.arc(13, -15 + fistPump, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Overhead DJ Name Tag
+  ctx.font = 'bold 9.5px "Outfit", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#f472b6';
+  ctx.fillText('🎧 DJ YO YO (Yo Yo Honey Singh)', 0, -32);
+
+  // Floating Speech Bubble with Casa Tupka lyrics
+  const bubbleText = djStage?.bubble || '🔥 YO YO: "Casa casa casa tupka tequila!" 🎧';
+  ctx.font = 'bold 9.5px "Outfit", sans-serif';
+  const textWidth = ctx.measureText(bubbleText).width;
+  const pad = 8;
+  const bw = textWidth + pad * 2;
+  const bh = 20;
+  const bx = -bw / 2;
+  const by = -62;
+
+  ctx.fillStyle = 'rgba(23, 15, 38, 0.96)';
+  ctx.strokeStyle = '#ec4899';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(bx, by, bw, bh, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Bubble triangle tail
+  ctx.beginPath();
+  ctx.moveTo(-4, by + bh);
+  ctx.lineTo(0, by + bh + 4);
+  ctx.lineTo(4, by + bh);
+  ctx.fill();
+
+  ctx.fillStyle = '#fef08a';
+  ctx.fillText(bubbleText, 0, by + 14);
+
+  ctx.restore();
+
+  // 8. NPC Dancers Grooving on the LED Floor
+  const dancers = world.djDancers || [];
+  dancers.forEach((dancer) => {
+    ctx.save();
+    const bob = Math.sin(now * 0.014 + (dancer.danceOffset || 0)) * 4;
+    const sway = Math.cos(now * 0.01 + (dancer.danceOffset || 0)) * 3;
+
+    ctx.translate(dancer.x + sway, dancer.y + bob);
+
+    // Dancer shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.beginPath();
+    ctx.ellipse(0, 11 - bob, 8, 3.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Legs
+    ctx.fillStyle = dancer.outfit?.bottom || '#1e293b';
+    ctx.fillRect(-5, 2, 3, 9);
+    ctx.fillRect(2, 2, 3, 9);
+
+    // Torso
+    ctx.fillStyle = dancer.outfit?.top || dancer.color || '#ec4899';
+    ctx.beginPath();
+    ctx.roundRect(-7, -10, 14, 13, [3, 3, 1, 1]);
+    ctx.fill();
+
+    // Head
+    ctx.fillStyle = '#fed7aa';
+    ctx.beginPath();
+    ctx.arc(0, -15, 6.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Hair / accessories
+    ctx.fillStyle = dancer.turbanColor || '#1e1b4b';
+    ctx.beginPath();
+    ctx.arc(0, -17, 6.5, Math.PI, 0);
+    ctx.fill();
+
+    // Glowing Neon Party Shades
+    ctx.fillStyle = '#06b6d4';
+    ctx.fillRect(-5, -16, 10, 2.5);
+
+    // Raised dancing arms
+    ctx.strokeStyle = '#fed7aa';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-6, -7);
+    ctx.lineTo(-11, -16 + Math.sin(now * 0.014) * 3);
+    ctx.moveTo(6, -7);
+    ctx.lineTo(11, -16 - Math.sin(now * 0.014) * 3);
+    ctx.stroke();
+
+    // Floating party music note
+    ctx.font = '11px serif';
+    ctx.fillStyle = '#f472b6';
+    ctx.fillText('🎵', 6, -26);
+
+    // Overhead name
+    ctx.font = 'bold 8.5px "Outfit", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fef08a';
+    ctx.fillText(`${dancer.name} 🕺`, 0, -23);
+
+    ctx.restore();
+  });
+
+  // 9. Remote Players on Dance Floor: Show Party Glow & Notes!
+  if (remotePlayers && remotePlayers.size > 0) {
+    remotePlayers.forEach((rem) => {
+      const dRem = dist(rem.x, rem.y, 740, 375);
+      if (dRem <= 85) {
+        ctx.save();
+        ctx.font = '12px serif';
+        ctx.fillStyle = '#f43f5e';
+        ctx.fillText('🎶', rem.x + 8, rem.y - 45);
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillText('🎵', rem.x - 8, rem.y - 42);
+        ctx.restore();
+      }
+    });
+  }
+
+  // 10. Walk-in Guide text when player is standing near the dance floor (outside 85px, within 145px)
+  const distToFloorCenter = dist(player.x, player.y, 740, 375);
+  if (distToFloorCenter > 85 && distToFloorCenter <= 145 && !player.isSitting) {
+    ctx.save();
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#000000';
+    ctx.fillStyle = '#f472b6';
+    ctx.font = 'bold 11px "Outfit", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🎧 [ Step Inside to Hear Casa Tupka & Dance! ] 🕺🎶', 740, floorY + floorH + 20);
+    ctx.restore();
   }
 
   ctx.restore();

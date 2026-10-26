@@ -25,6 +25,9 @@ class SoundEngine {
     if (this.ambientGain) {
       this.ambientGain.gain.setValueAtTime(this.isMuted ? 0 : 0.12, this.ctx?.currentTime || 0);
     }
+    if (this.casaTupkaGain) {
+      this.casaTupkaGain.gain.setValueAtTime(this.isMuted ? 0 : (this.casaTupkaTargetVol || 0) * 0.28, this.ctx?.currentTime || 0);
+    }
     return this.isMuted;
   }
 
@@ -1122,6 +1125,334 @@ class SoundEngine {
       og.connect(this.ctx.destination);
       osc.start(t + 0.15);
       osc.stop(t + 0.5);
+    } catch {}
+  }
+
+  // =============================================================
+  // YO YO HONEY SINGH - CASA TUPKA (PROCEDURAL DJ MUSIC ENGINE)
+  // Spatial Audio: Auditory range 150px, full blast on dance floor!
+  // =============================================================
+  initCasaTupkaEngine() {
+    if (this.casaTupkaInitialized) return;
+    this.init();
+    if (!this.ctx) return;
+
+    this.casaTupkaGain = this.ctx.createGain();
+    this.casaTupkaGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
+    this.casaTupkaGain.connect(this.ctx.destination);
+
+    this.casaTupkaStep = 0;
+    this.casaTupkaRunning = false;
+    this.casaTupkaInterval = null;
+    this.casaTupkaInitialized = true;
+    this.casaTupkaTargetVol = 0.0;
+  }
+
+  updateCasaTupkaSpatial(targetVolume = 0.0) {
+    if (!this.ctx) this.init();
+    if (!this.casaTupkaInitialized) this.initCasaTupkaEngine();
+    if (!this.casaTupkaGain) return;
+
+    const effectiveVol = this.isMuted ? 0 : Math.max(0, Math.min(1.0, targetVolume));
+    this.casaTupkaTargetVol = effectiveVol;
+
+    const t = this.ctx.currentTime;
+    // Smooth spatial fade in / fade out
+    this.casaTupkaGain.gain.cancelScheduledValues(t);
+    this.casaTupkaGain.gain.linearRampToValueAtTime(effectiveVol * 0.32, t + 0.08);
+
+    if (effectiveVol > 0.01) {
+      if (!this.casaTupkaRunning) {
+        this.startCasaTupkaLoop();
+      }
+    } else {
+      if (this.casaTupkaRunning && effectiveVol <= 0.001) {
+        // Soft stop after delay to prevent pop
+        if (this.casaTupkaStopTimeout) clearTimeout(this.casaTupkaStopTimeout);
+        this.casaTupkaStopTimeout = setTimeout(() => {
+          if (this.casaTupkaTargetVol <= 0.001 && this.casaTupkaRunning) {
+            this.stopCasaTupkaLoop();
+          }
+        }, 1200);
+      }
+    }
+  }
+
+  startCasaTupkaLoop() {
+    if (this.casaTupkaRunning || !this.ctx) return;
+    this.casaTupkaRunning = true;
+    this.casaTupkaStep = 0;
+
+    // 105 BPM -> 16th note = 142.85ms
+    const stepDurationMs = 142.85;
+
+    // Melodic notes for Casa Tupka Lead (D minor / G minor party anthem)
+    // "Ca-sa ca-sa ca-sa ca-sa ca-sa tup-ka te-qui-la"
+    // "Ta-ra rum bam bam bam bam"
+    const leadNotes = [
+      // Bar 1 & 2: "Casa casa casa casa casa tupka tequila"
+      // 0     1     2     3     4     5     6     7     8     9    10    11    12    13    14    15
+      293.66, 0, 293.66, 0, 293.66, 0, 293.66, 0, 293.66, 0, 261.63, 0, 233.08, 0, 220.0, 196.0,
+      196.0,  0, 196.0,  0, 220.0,  0, 233.08, 0, 261.63, 0, 293.66, 0, 261.63, 0, 220.0, 0,
+
+      // Bar 3 & 4: "Tara rum bam bam bam bam" + Yo Yo Hook!
+      // 32    33    34    35    36    37    38    39    40    41    42    43    44    45    46    47
+      349.23, 0, 392.0,  0, 349.23, 0, 293.66, 0, 261.63, 0, 293.66, 293.66, 0, 0, 392.0, 0,
+      440.0,  0, 392.0,  0, 349.23, 0, 329.63, 0, 293.66, 0, 261.63, 0, 293.66, 0, 0, 0
+    ];
+
+    // Sub-bassline (deep 808 synth bass)
+    const bassNotes = [
+      // Bar 1: G1 (49Hz) -> Bb1 (58.27Hz)
+      49.0, 0, 49.0, 0, 49.0, 0, 58.27, 0, 49.0, 0, 49.0, 0, 58.27, 0, 49.0, 0,
+      // Bar 2: Eb1 (38.89Hz) -> F1 (43.65Hz)
+      38.89, 0, 38.89, 0, 43.65, 0, 43.65, 0, 38.89, 0, 38.89, 0, 43.65, 0, 36.71, 0,
+      // Bar 3: G1 -> Bb1
+      49.0, 0, 49.0, 0, 49.0, 0, 58.27, 0, 49.0, 0, 49.0, 0, 58.27, 0, 49.0, 0,
+      // Bar 4: Eb1 -> D1
+      38.89, 0, 38.89, 0, 43.65, 0, 43.65, 0, 36.71, 0, 36.71, 0, 43.65, 0, 49.0, 0
+    ];
+
+    this.casaTupkaInterval = setInterval(() => {
+      if (!this.casaTupkaRunning || !this.ctx || this.isMuted) return;
+
+      const t = this.ctx.currentTime;
+      const step = this.casaTupkaStep % 64;
+      const barStep = step % 16;
+
+      // 1. Reggaeton Dembow Drums:
+      // Kick: steps 0, 8 (on the 1 and 3 beats of 4/4)
+      if (barStep === 0 || barStep === 8) {
+        this.synthesizeCasaTupkaKick(t);
+      }
+
+      // Snare / Rimshot: steps 6, 12 ("boom... cha-boom... cha" dembow rhythm!)
+      if (barStep === 6 || barStep === 12) {
+        this.synthesizeCasaTupkaSnare(t);
+      }
+
+      // Hi-Hats: crisp 16th notes
+      if (step % 2 === 0) {
+        this.synthesizeCasaTupkaHat(t, barStep === 4 || barStep === 14);
+      }
+
+      // 2. Punchy Sub-Bassline
+      const bassFreq = bassNotes[step];
+      if (bassFreq > 0) {
+        this.synthesizeCasaTupkaBass(t, bassFreq);
+      }
+
+      // 3. Lead Hook (Casa Tupka Anthem melody)
+      const leadFreq = leadNotes[step];
+      if (leadFreq > 0) {
+        this.synthesizeCasaTupkaLead(t, leadFreq);
+      }
+
+      // 4. Party Air Horn on Step 0 of each 64-step loop!
+      if (step === 0) {
+        this.synthesizePartyAirHorn(t);
+      }
+
+      // 5. Honey Singh "Yo Yo!" voice stab on step 48
+      if (step === 48) {
+        this.synthesizeYoYoVoiceStab(t);
+      }
+
+      this.casaTupkaStep++;
+    }, stepDurationMs);
+  }
+
+  stopCasaTupkaLoop() {
+    if (this.casaTupkaInterval) {
+      clearInterval(this.casaTupkaInterval);
+      this.casaTupkaInterval = null;
+    }
+    this.casaTupkaRunning = false;
+    this.casaTupkaStep = 0;
+  }
+
+  // Punchy 808 Reggaeton Kick Drum
+  synthesizeCasaTupkaKick(t) {
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(140, t);
+      osc.frequency.exponentialRampToValueAtTime(42, t + 0.16);
+
+      gain.gain.setValueAtTime(0.75, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+
+      osc.connect(gain);
+      gain.connect(this.casaTupkaGain);
+      osc.start(t);
+      osc.stop(t + 0.24);
+    } catch {}
+  }
+
+  // Crisp Dembow Snare / Rimshot
+  synthesizeCasaTupkaSnare(t) {
+    try {
+      // Noise component
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.createNoiseBuffer(0.12);
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(2200, t);
+      filter.Q.setValueAtTime(3.0, t);
+
+      const ng = this.ctx.createGain();
+      ng.gain.setValueAtTime(0.45, t);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+
+      noise.connect(filter);
+      filter.connect(ng);
+      ng.connect(this.casaTupkaGain);
+      noise.start(t);
+      noise.stop(t + 0.12);
+
+      // Tonal rimshot body
+      const osc = this.ctx.createOscillator();
+      const og = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(330, t);
+      osc.frequency.exponentialRampToValueAtTime(160, t + 0.08);
+      og.gain.setValueAtTime(0.35, t);
+      og.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+
+      osc.connect(og);
+      og.connect(this.casaTupkaGain);
+      osc.start(t);
+      osc.stop(t + 0.1);
+    } catch {}
+  }
+
+  // Hi-Hat
+  synthesizeCasaTupkaHat(t, isOpen = false) {
+    try {
+      const dur = isOpen ? 0.14 : 0.045;
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.createNoiseBuffer(dur);
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'highpass';
+      filter.frequency.setValueAtTime(8000, t);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(isOpen ? 0.18 : 0.09, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.casaTupkaGain);
+      noise.start(t);
+      noise.stop(t + dur);
+    } catch {}
+  }
+
+  // Sub-Bass
+  synthesizeCasaTupkaBass(t, freq) {
+    try {
+      const osc = this.ctx.createOscillator();
+      const filter = this.ctx.createBiquadFilter();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, t);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(260, t);
+      filter.Q.setValueAtTime(4.0, t);
+
+      gain.gain.setValueAtTime(0.48, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.casaTupkaGain);
+      osc.start(t);
+      osc.stop(t + 0.25);
+    } catch {}
+  }
+
+  // Brassy Club Lead Synth (Casa Tupka Hook)
+  synthesizeCasaTupkaLead(t, freq) {
+    try {
+      const osc1 = this.ctx.createOscillator();
+      const osc2 = this.ctx.createOscillator();
+      const filter = this.ctx.createBiquadFilter();
+      const gain = this.ctx.createGain();
+
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(freq, t);
+
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(freq * 1.004, t); // slight detune for fat club lead
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1800, t);
+      filter.Q.setValueAtTime(3.0, t);
+
+      gain.gain.setValueAtTime(0.24, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+
+      osc1.connect(filter);
+      osc2.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.casaTupkaGain);
+
+      osc1.start(t);
+      osc2.start(t);
+      osc1.stop(t + 0.2);
+      osc2.stop(t + 0.2);
+    } catch {}
+  }
+
+  // Classic Dancehall Air Horn Drop
+  synthesizePartyAirHorn(t) {
+    try {
+      const freqs = [466.16, 554.37, 698.46]; // Bb4, C#5, F5
+      freqs.forEach((f) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(f, t);
+        osc.frequency.exponentialRampToValueAtTime(f * 0.98, t + 0.35);
+
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+
+        osc.connect(gain);
+        gain.connect(this.casaTupkaGain);
+        osc.start(t);
+        osc.stop(t + 0.42);
+      });
+    } catch {}
+  }
+
+  // "Yo Yo!" Synthesized Voice / Scratch Chirp
+  synthesizeYoYoVoiceStab(t) {
+    try {
+      const osc = this.ctx.createOscillator();
+      const filter = this.ctx.createBiquadFilter();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(300, t);
+      osc.frequency.exponentialRampToValueAtTime(620, t + 0.08);
+      osc.frequency.exponentialRampToValueAtTime(260, t + 0.18);
+
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1100, t);
+      filter.Q.setValueAtTime(6.0, t);
+
+      gain.gain.setValueAtTime(0.25, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.casaTupkaGain);
+      osc.start(t);
+      osc.stop(t + 0.22);
     } catch {}
   }
 }

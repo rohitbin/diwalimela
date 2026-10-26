@@ -35,7 +35,8 @@ function getCurrentZoneName(x, y) {
   if (x > 1400 && y >= 800) return '👹 Ravan Dahan Ground (रावण दहन - 10M HP)';
   if (x > 1150 && y >= 800) return '🏹 Shastra Armory (शस्त्रागार)';
   if (x > 1250 && y >= 650) return 'Deepotsav East Courtyard';
-  if (x < 750 && y < 650) return '☕ Sharma Ji Chai Tapri';
+  if (x >= 630 && x <= 850 && y >= 250 && y <= 480) return '🎧 Yo Yo DJ Dance Floor (Casa Tupka)';
+  if (x < 630 && y < 650) return '☕ Sharma Ji Chai Tapri';
   if (x < 750 && y >= 650) return 'Lakshmi-Ganesh Mandir';
   if (y > 1050) return 'Rangoli Utsav Pavilion';
   return 'Deepotsav Central Plaza';

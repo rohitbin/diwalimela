@@ -61,7 +61,7 @@ export default function MiniMap({
     { key: 'BALLOON_STALL', label: 'Balloons', icon: '🎯', x: MELA_ZONES.BALLOON_STALL.x, y: MELA_ZONES.BALLOON_STALL.y },
     { key: 'CRACKER_SHOP', label: 'Patakha Shop', icon: '🧨', x: MELA_ZONES.CRACKER_SHOP.x, y: MELA_ZONES.CRACKER_SHOP.y },
     { key: 'CHAI_TAPRI', label: 'Chai Tapri', icon: '☕', x: MELA_ZONES.CHAI_TAPRI.x, y: MELA_ZONES.CHAI_TAPRI.y },
-    { key: 'DJ_FLOOR', label: 'DJ Casa Tupka', icon: '🎧', x: MELA_ZONES.DJ_FLOOR?.x || 740, y: MELA_ZONES.DJ_FLOOR?.y || 360 },
+    { key: 'DJ_FLOOR', label: 'Yo Yo DJ Floor', icon: '🎧', x: MELA_ZONES.DJ_FLOOR?.x || 740, y: MELA_ZONES.DJ_FLOOR?.y || 360 },
     { key: 'TEMPLE', label: 'Mandir', icon: '🔔', x: MELA_ZONES.TEMPLE.x, y: MELA_ZONES.TEMPLE.y },
     { key: 'RANGOLI_PAVILION', label: 'Rangoli', icon: '🌸', x: MELA_ZONES.RANGOLI_PAVILION.x, y: MELA_ZONES.RANGOLI_PAVILION.y },
     { key: 'WEAPON_STALL', label: 'Shastra Armory', icon: '🏹', x: MELA_ZONES.WEAPON_STALL.x, y: MELA_ZONES.WEAPON_STALL.y },

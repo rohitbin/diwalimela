@@ -13,6 +13,7 @@ export default function InventoryHotbar({
   onOpenBalloonGame,
   onOpenChaiTapri,
   onOpenArmory,
+  onOpenDjJukebox,
   onTriggerDance,
   isDancing
 }) {
@@ -78,6 +79,31 @@ export default function InventoryHotbar({
           >
             <span style={{ fontSize: 18 }}>🏹</span>
             <span style={{ marginTop: 2 }}>Armory</span>
+          </button>
+
+          {/* Yo Yo Honey Singh DJ Jukebox & Dance Floor */}
+          <button
+            onClick={onOpenDjJukebox}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(236, 72, 153, 0.25)',
+              border: '1.5px solid #ec4899',
+              borderRadius: 12,
+              padding: '4px 8px',
+              color: '#fbcfe8',
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: 'pointer',
+              minWidth: 50,
+              height: 52
+            }}
+            title="Yo Yo Honey Singh DJ Jukebox & Songs"
+          >
+            <span style={{ fontSize: 18 }}>🎧</span>
+            <span style={{ marginTop: 2 }}>DJ Yo Yo</span>
           </button>
 
           {/* Dance / Celebrate Emote */}

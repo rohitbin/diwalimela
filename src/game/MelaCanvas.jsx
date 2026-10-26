@@ -65,6 +65,7 @@ export default function MelaCanvas({
   onOpenBalloonGame,
   onOpenChaiTapri,
   onOpenArmory,
+  onOpenDjJukebox,
   ravanHp = 10000000,
   setRavanHp,
   onRavanShot,
@@ -88,8 +89,17 @@ export default function MelaCanvas({
   const [placementPreview, setPlacementPreview] = useState(null);
   const [clickSpeedMultiplier, setClickSpeedMultiplier] = useState(1.0);
   const [gateNotice, setGateNotice] = useState(null);
+  const [currentDjTrack, setCurrentDjTrack] = useState(() => soundEngine.getCurrentHoneySinghTrack?.());
   const autoFireIntervalRef = useRef(null);
   const speedResetTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    const handleTrackChange = (e) => {
+      if (e.detail) setCurrentDjTrack(e.detail);
+    };
+    window.addEventListener('honeySinghTrackChanged', handleTrackChange);
+    return () => window.removeEventListener('honeySinghTrackChanged', handleTrackChange);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -956,6 +966,12 @@ export default function MelaCanvas({
       return true;
     }
 
+    // Yo Yo Honey Singh DJ Stage / Jukebox
+    if (dist(p.x, p.y, MELA_ZONES.DJ_FLOOR.x, MELA_ZONES.DJ_FLOOR.y) < 120) {
+      if (onOpenDjJukebox) onOpenDjJukebox();
+      return true;
+    }
+
     // Weapon Armory Stall (Shastra Armory)
     if (dist(p.x, p.y, MELA_ZONES.WEAPON_STALL.x, MELA_ZONES.WEAPON_STALL.y) < 140) {
       if (onOpenArmory) onOpenArmory();
@@ -1084,8 +1100,13 @@ export default function MelaCanvas({
       }
     }
 
-    // 0a-3. Clicked Yo Yo Honey Singh DJ Dance Floor (Walk and dance to Casa Tupka)
+    // 0a-3. Clicked Yo Yo Honey Singh DJ Stage / Booth (Open Jukebox) or Dance Floor
     const distToDj = dist(worldClickX, worldClickY, MELA_ZONES.DJ_FLOOR.x, MELA_ZONES.DJ_FLOOR.y);
+    const distToStage = dist(worldClickX, worldClickY, 740, 280);
+    if (distToStage < 55) {
+      if (onOpenDjJukebox) onOpenDjJukebox();
+      return;
+    }
     if (distToDj < 75) {
       p.targetX = MELA_ZONES.DJ_FLOOR.x;
       p.targetY = MELA_ZONES.DJ_FLOOR.y;
@@ -1938,7 +1959,8 @@ export default function MelaCanvas({
       if (world.djStage) {
         world.djStage.bubbleTimer = (world.djStage.bubbleTimer || 0) + 1;
         if (world.djStage.bubbleTimer % 240 === 0) {
-          const quotes = [
+          const currentTrack = soundEngine.getCurrentHoneySinghTrack?.();
+          const quotes = currentTrack?.lyrics || [
             '🔥 YO YO: "Casa casa casa tupka tequila!" 🎧',
             '🎶 "Party karni party pehle YO YO bulao! 🕺🔊"',
             '💥 "Bada hot hai weather jab baje reggaeton! 🔥"',
@@ -2508,7 +2530,7 @@ export default function MelaCanvas({
             background: 'linear-gradient(135deg, rgba(88, 28, 135, 0.96) 0%, rgba(15, 23, 42, 0.98) 100%)',
             border: '2px solid #ec4899',
             borderRadius: 28,
-            padding: '8px 22px',
+            padding: '8px 18px',
             color: '#fef08a',
             fontSize: 13,
             fontWeight: 800,
@@ -2517,20 +2539,69 @@ export default function MelaCanvas({
             gap: 12,
             boxShadow: '0 8px 30px rgba(0,0,0,0.85), 0 0 25px rgba(236, 72, 153, 0.7)',
             zIndex: 65,
-            animation: 'fadeInUp 0.3s ease-out',
-            pointerEvents: 'none'
+            animation: 'fadeInUp 0.3s ease-out'
           }}
         >
           <span style={{ fontSize: 22 }}>🕺</span>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <span style={{ color: '#f472b6', fontSize: 11, fontWeight: 900, letterSpacing: 0.6 }}>
+            <span style={{ color: '#f472b6', fontSize: 10, fontWeight: 900, letterSpacing: 0.6 }}>
               🔥 YO YO HONEY SINGH DJ STAGE
             </span>
-            <span style={{ color: '#fef08a', fontSize: 13, fontWeight: 800 }}>
-              Dancing to "Casa Tupka" • Dembow Party Beat! 🎶
+            <span style={{ color: '#fef08a', fontSize: 12.5, fontWeight: 800 }}>
+              Dancing to "{currentDjTrack?.title || 'Casa Tupka'}" • {currentDjTrack?.bpm || 105} BPM 🎶
             </span>
           </div>
-          <span style={{ fontSize: 20 }}>🎧</span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                soundEngine.nextHoneySinghTrack();
+              }}
+              style={{
+                background: 'rgba(255, 255, 255, 0.12)',
+                border: '1px solid rgba(236, 72, 153, 0.6)',
+                borderRadius: 14,
+                padding: '5px 10px',
+                color: '#fbcfe8',
+                fontSize: 11,
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}
+              title="Next Yo Yo Honey Singh Song"
+            >
+              <span>⏭️</span> Next
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onOpenDjJukebox) onOpenDjJukebox();
+              }}
+              style={{
+                background: 'linear-gradient(135deg, #ec4899 0%, #d946ef 100%)',
+                border: 'none',
+                borderRadius: 14,
+                padding: '5px 12px',
+                color: '#ffffff',
+                fontSize: 11,
+                fontWeight: 800,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(236, 72, 153, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}
+              title="Open Honey Singh Track Selector"
+            >
+              <span>🎵</span> Songs
+            </button>
+          </div>
         </div>
       )}
 
@@ -3910,7 +3981,8 @@ function renderYoYoDjDanceFloor(ctx, world, player, remotePlayers) {
     ctx.shadowBlur = 0;
   });
 
-  // Grand Illuminated Stage Banner: YO YO HONEY SINGH • CASA TUPKA
+  // Grand Illuminated Stage Banner: YO YO HONEY SINGH • [ACTIVE TRACK]
+  const currentHoneyTrack = soundEngine.getCurrentHoneySinghTrack?.() || { title: 'Casa Tupka' };
   ctx.save();
   ctx.shadowBlur = 14;
   ctx.shadowColor = '#ec4899';
@@ -3918,14 +3990,14 @@ function renderYoYoDjDanceFloor(ctx, world, player, remotePlayers) {
   ctx.strokeStyle = '#ec4899';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.roundRect(stageX + 18, stageY - 24, stageW - 36, 18, 5);
+  ctx.roundRect(stageX + 14, stageY - 24, stageW - 28, 18, 5);
   ctx.fill();
   ctx.stroke();
 
   ctx.fillStyle = '#fef08a';
-  ctx.font = 'bold 10px "Cinzel", serif';
+  ctx.font = 'bold 9.5px "Cinzel", serif';
   ctx.textAlign = 'center';
-  ctx.fillText('🔥 YO YO HONEY SINGH • CASA TUPKA 🔥', 740, stageY - 11);
+  ctx.fillText(`🔥 YO YO HONEY SINGH • ${currentHoneyTrack.title.toUpperCase()} 🔥`, 740, stageY - 11);
   ctx.restore();
 
   // 5. Giant Subwoofer Speaker Stacks (Left & Right)
@@ -4221,7 +4293,8 @@ function renderYoYoDjDanceFloor(ctx, world, player, remotePlayers) {
     ctx.fillStyle = '#f472b6';
     ctx.font = 'bold 11px "Outfit", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('🎧 [ Step Inside to Hear Casa Tupka & Dance! ] 🕺🎶', 740, floorY + floorH + 20);
+    const trackName = soundEngine.getCurrentHoneySinghTrack?.()?.title || 'Casa Tupka';
+    ctx.fillText(`🎧 [ Step Inside to Hear ${trackName} & Dance! ] 🕺🎶`, 740, floorY + floorH + 20);
     ctx.restore();
   }
 

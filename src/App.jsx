@@ -9,6 +9,7 @@ import DiwaliGuideModal from './components/DiwaliGuideModal';
 import BalloonShootingModal from './components/BalloonShootingModal';
 import ChaiStallModal from './components/ChaiStallModal';
 import WeaponArmoryModal from './components/WeaponArmoryModal';
+import DjJukeboxModal from './components/DjJukeboxModal';
 import InventoryHotbar from './components/InventoryHotbar';
 import MultiplayerBar from './components/MultiplayerBar';
 import ChatOverlay from './components/ChatOverlay';
@@ -35,7 +36,10 @@ function getCurrentZoneName(x, y) {
   if (x > 1400 && y >= 800) return '👹 Ravan Dahan Ground (रावण दहन - 10M HP)';
   if (x > 1150 && y >= 800) return '🏹 Shastra Armory (शस्त्रागार)';
   if (x > 1250 && y >= 650) return 'Deepotsav East Courtyard';
-  if (x >= 630 && x <= 850 && y >= 250 && y <= 480) return '🎧 Yo Yo DJ Dance Floor (Casa Tupka)';
+  if (x >= 630 && x <= 850 && y >= 250 && y <= 480) {
+    const title = soundEngine.getCurrentHoneySinghTrack?.()?.title || 'Casa Tupka';
+    return `🎧 Yo Yo DJ Dance Floor (${title})`;
+  }
   if (x < 630 && y < 650) return '☕ Sharma Ji Chai Tapri';
   if (x < 750 && y >= 650) return 'Lakshmi-Ganesh Mandir';
   if (y > 1050) return 'Rangoli Utsav Pavilion';
@@ -89,6 +93,7 @@ export default function App() {
   const [isBalloonGameOpen, setIsBalloonGameOpen] = useState(false);
   const [isChaiTapriOpen, setIsChaiTapriOpen] = useState(false);
   const [isArmoryOpen, setIsArmoryOpen] = useState(false);
+  const [isDjModalOpen, setIsDjModalOpen] = useState(false);
 
   // Ravan Boss State (10,000,000 HP)
   const [ravanHp, setRavanHp] = useState(() => {
@@ -497,6 +502,7 @@ export default function App() {
           setChaiDrank(true);
         }}
         onOpenArmory={() => setIsArmoryOpen(true)}
+        onOpenDjJukebox={() => setIsDjModalOpen(true)}
         ravanHp={ravanHp}
         setRavanHp={setRavanHp}
         onRavanShot={() => {
@@ -532,6 +538,7 @@ export default function App() {
           setChaiDrank(true);
         }}
         onOpenArmory={() => setIsArmoryOpen(true)}
+        onOpenDjJukebox={() => setIsDjModalOpen(true)}
         onTriggerDance={handleTriggerDance}
         isDancing={isDancing}
       />
@@ -683,6 +690,16 @@ export default function App() {
           setChaiDrank(true);
         }}
         multiplayerManager={multiplayerManager}
+        player={player}
+      />
+
+      <DjJukeboxModal
+        isOpen={isDjModalOpen}
+        onClose={() => setIsDjModalOpen(false)}
+        onGoToDanceFloor={() => {
+          setIsDjModalOpen(false);
+          handleNavigateTo(MELA_ZONES.DJ_FLOOR.x, MELA_ZONES.DJ_FLOOR.y);
+        }}
         player={player}
       />
 

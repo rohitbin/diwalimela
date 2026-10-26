@@ -1129,8 +1129,15 @@ class SoundEngine {
   }
 
   // =============================================================
-  // YO YO HONEY SINGH - CASA TUPKA (PROCEDURAL DJ MUSIC ENGINE)
-  // Spatial Audio: Auditory range 150px, full blast on dance floor!
+  // YO YO HONEY SINGH - MULTI-TRACK DJ MUSIC ENGINE
+  // Procedural Web Audio API Synthesizer for 6 Iconic Hits:
+  // 1. Casa Tupka (105 BPM Dembow Anthem)
+  // 2. Blue Eyes (128 BPM Electro Club Banger)
+  // 3. Brown Rang (95 BPM Immortal Desi Hip-Hop)
+  // 4. Dope Shope (98 BPM Desi Club Bounce)
+  // 5. Love Dose (102 BPM Melodic R&B Romance)
+  // 6. Angreji Beat (126 BPM High-Voltage Bhangra Electro)
+  // Spatial Audio: Silent outside (>155px), full blast on dance floor!
   // =============================================================
   initCasaTupkaEngine() {
     if (this.casaTupkaInitialized) return;
@@ -1141,11 +1148,53 @@ class SoundEngine {
     this.casaTupkaGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
     this.casaTupkaGain.connect(this.ctx.destination);
 
+    this.currentHoneySinghTrackId = 'casatupka';
     this.casaTupkaStep = 0;
     this.casaTupkaRunning = false;
     this.casaTupkaInterval = null;
     this.casaTupkaInitialized = true;
     this.casaTupkaTargetVol = 0.0;
+  }
+
+  getHoneySinghTracks() {
+    return HONEY_SINGH_TRACKS;
+  }
+
+  getCurrentHoneySinghTrack() {
+    const trackId = this.currentHoneySinghTrackId || 'casatupka';
+    return HONEY_SINGH_TRACKS.find((t) => t.id === trackId) || HONEY_SINGH_TRACKS[0];
+  }
+
+  setHoneySinghTrack(trackId) {
+    const found = HONEY_SINGH_TRACKS.find((t) => t.id === trackId);
+    if (!found) return;
+
+    this.currentHoneySinghTrackId = trackId;
+    this.casaTupkaStep = 0;
+
+    // If currently playing in dance area, smoothly reboot loop to new BPM & beat
+    if (this.casaTupkaRunning) {
+      if (this.casaTupkaInterval) {
+        clearInterval(this.casaTupkaInterval);
+        this.casaTupkaInterval = null;
+      }
+      this.casaTupkaRunning = false;
+      this.startCasaTupkaLoop();
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('honeySinghTrackChanged', { detail: found })
+      );
+    }
+    return found;
+  }
+
+  nextHoneySinghTrack() {
+    const curr = this.getCurrentHoneySinghTrack();
+    const idx = HONEY_SINGH_TRACKS.findIndex((t) => t.id === curr.id);
+    const nextIdx = (idx + 1) % HONEY_SINGH_TRACKS.length;
+    return this.setHoneySinghTrack(HONEY_SINGH_TRACKS[nextIdx].id);
   }
 
   updateCasaTupkaSpatial(targetVolume = 0.0) {
@@ -1157,7 +1206,7 @@ class SoundEngine {
     this.casaTupkaTargetVol = effectiveVol;
 
     const t = this.ctx.currentTime;
-    // Smooth spatial fade in / fade out
+    // Smooth spatial ramping
     this.casaTupkaGain.gain.cancelScheduledValues(t);
     this.casaTupkaGain.gain.linearRampToValueAtTime(effectiveVol * 0.32, t + 0.08);
 
@@ -1167,7 +1216,6 @@ class SoundEngine {
       }
     } else {
       if (this.casaTupkaRunning && effectiveVol <= 0.001) {
-        // Soft stop after delay to prevent pop
         if (this.casaTupkaStopTimeout) clearTimeout(this.casaTupkaStopTimeout);
         this.casaTupkaStopTimeout = setTimeout(() => {
           if (this.casaTupkaTargetVol <= 0.001 && this.casaTupkaRunning) {
@@ -1183,35 +1231,9 @@ class SoundEngine {
     this.casaTupkaRunning = true;
     this.casaTupkaStep = 0;
 
-    // 105 BPM -> 16th note = 142.85ms
-    const stepDurationMs = 142.85;
-
-    // Melodic notes for Casa Tupka Lead (D minor / G minor party anthem)
-    // "Ca-sa ca-sa ca-sa ca-sa ca-sa tup-ka te-qui-la"
-    // "Ta-ra rum bam bam bam bam"
-    const leadNotes = [
-      // Bar 1 & 2: "Casa casa casa casa casa tupka tequila"
-      // 0     1     2     3     4     5     6     7     8     9    10    11    12    13    14    15
-      293.66, 0, 293.66, 0, 293.66, 0, 293.66, 0, 293.66, 0, 261.63, 0, 233.08, 0, 220.0, 196.0,
-      196.0,  0, 196.0,  0, 220.0,  0, 233.08, 0, 261.63, 0, 293.66, 0, 261.63, 0, 220.0, 0,
-
-      // Bar 3 & 4: "Tara rum bam bam bam bam" + Yo Yo Hook!
-      // 32    33    34    35    36    37    38    39    40    41    42    43    44    45    46    47
-      349.23, 0, 392.0,  0, 349.23, 0, 293.66, 0, 261.63, 0, 293.66, 293.66, 0, 0, 392.0, 0,
-      440.0,  0, 392.0,  0, 349.23, 0, 329.63, 0, 293.66, 0, 261.63, 0, 293.66, 0, 0, 0
-    ];
-
-    // Sub-bassline (deep 808 synth bass)
-    const bassNotes = [
-      // Bar 1: G1 (49Hz) -> Bb1 (58.27Hz)
-      49.0, 0, 49.0, 0, 49.0, 0, 58.27, 0, 49.0, 0, 49.0, 0, 58.27, 0, 49.0, 0,
-      // Bar 2: Eb1 (38.89Hz) -> F1 (43.65Hz)
-      38.89, 0, 38.89, 0, 43.65, 0, 43.65, 0, 38.89, 0, 38.89, 0, 43.65, 0, 36.71, 0,
-      // Bar 3: G1 -> Bb1
-      49.0, 0, 49.0, 0, 49.0, 0, 58.27, 0, 49.0, 0, 49.0, 0, 58.27, 0, 49.0, 0,
-      // Bar 4: Eb1 -> D1
-      38.89, 0, 38.89, 0, 43.65, 0, 43.65, 0, 36.71, 0, 36.71, 0, 43.65, 0, 49.0, 0
-    ];
+    const track = this.getCurrentHoneySinghTrack();
+    // 16th note step duration in ms = (60000 / BPM) / 4
+    const stepDurationMs = (60000 / track.bpm) / 4;
 
     this.casaTupkaInterval = setInterval(() => {
       if (!this.casaTupkaRunning || !this.ctx || this.isMuted) return;
@@ -1219,31 +1241,94 @@ class SoundEngine {
       const t = this.ctx.currentTime;
       const step = this.casaTupkaStep % 64;
       const barStep = step % 16;
+      const currentTrack = this.getCurrentHoneySinghTrack();
 
-      // 1. Reggaeton Dembow Drums:
-      // Kick: steps 0, 8 (on the 1 and 3 beats of 4/4)
-      if (barStep === 0 || barStep === 8) {
-        this.synthesizeCasaTupkaKick(t);
-      }
+      // 1. Drums by track rhythm style
+      switch (currentTrack.rhythmStyle) {
+        case 'electro4x4': // Blue Eyes (128 BPM EDM)
+          if (barStep === 0 || barStep === 4 || barStep === 8 || barStep === 12) {
+            this.synthesizeCasaTupkaKick(t);
+          }
+          if (barStep === 4 || barStep === 12) {
+            this.synthesizeCasaTupkaSnare(t);
+          }
+          if (barStep % 2 === 0) {
+            this.synthesizeCasaTupkaHat(t, barStep % 4 === 2);
+          }
+          break;
 
-      // Snare / Rimshot: steps 6, 12 ("boom... cha-boom... cha" dembow rhythm!)
-      if (barStep === 6 || barStep === 12) {
-        this.synthesizeCasaTupkaSnare(t);
-      }
+        case 'hiphop95': // Brown Rang (95 BPM Hip-Hop)
+          if (barStep === 0 || barStep === 10) {
+            this.synthesizeCasaTupkaKick(t);
+          }
+          if (barStep === 4 || barStep === 12) {
+            this.synthesizeCasaTupkaSnare(t);
+          }
+          if (step % 2 === 0) {
+            this.synthesizeCasaTupkaHat(t, false);
+          }
+          break;
 
-      // Hi-Hats: crisp 16th notes
-      if (step % 2 === 0) {
-        this.synthesizeCasaTupkaHat(t, barStep === 4 || barStep === 14);
+        case 'club98': // Dope Shope (98 BPM Club bounce)
+          if (barStep === 0 || barStep === 8) {
+            this.synthesizeCasaTupkaKick(t);
+          }
+          if (barStep === 4 || barStep === 12) {
+            this.synthesizeCasaTupkaSnare(t);
+          }
+          if (step % 2 === 0) {
+            this.synthesizeCasaTupkaHat(t, barStep === 14);
+          }
+          break;
+
+        case 'rnb102': // Love Dose (102 BPM R&B)
+          if (barStep === 0 || barStep === 6 || barStep === 10) {
+            this.synthesizeCasaTupkaKick(t);
+          }
+          if (barStep === 4 || barStep === 12) {
+            this.synthesizeCasaTupkaSnare(t);
+          }
+          if (step % 2 === 0) {
+            this.synthesizeCasaTupkaHat(t, barStep === 6);
+          }
+          break;
+
+        case 'bhangra126': // Angreji Beat (126 BPM Bhangra electro)
+          if (barStep === 0 || barStep === 3 || barStep === 8 || barStep === 11) {
+            this.synthesizeCasaTupkaKick(t);
+          }
+          if (barStep === 4 || barStep === 12) {
+            this.synthesizeCasaTupkaSnare(t);
+          }
+          if (barStep === 6 || barStep === 14) {
+            this.synthesizeCasaTupkaHat(t, true); // Open hat accent
+          } else if (step % 2 === 0) {
+            this.synthesizeCasaTupkaHat(t, false);
+          }
+          break;
+
+        case 'dembow': // Casa Tupka (105 BPM Reggaeton)
+        default:
+          if (barStep === 0 || barStep === 8) {
+            this.synthesizeCasaTupkaKick(t);
+          }
+          if (barStep === 6 || barStep === 12) {
+            this.synthesizeCasaTupkaSnare(t);
+          }
+          if (step % 2 === 0) {
+            this.synthesizeCasaTupkaHat(t, barStep === 4 || barStep === 14);
+          }
+          break;
       }
 
       // 2. Punchy Sub-Bassline
-      const bassFreq = bassNotes[step];
+      const bassFreq = currentTrack.bassNotes[step];
       if (bassFreq > 0) {
         this.synthesizeCasaTupkaBass(t, bassFreq);
       }
 
-      // 3. Lead Hook (Casa Tupka Anthem melody)
-      const leadFreq = leadNotes[step];
+      // 3. Lead Hook Melody
+      const leadFreq = currentTrack.leadNotes[step];
       if (leadFreq > 0) {
         this.synthesizeCasaTupkaLead(t, leadFreq);
       }
@@ -1271,7 +1356,7 @@ class SoundEngine {
     this.casaTupkaStep = 0;
   }
 
-  // Punchy 808 Reggaeton Kick Drum
+  // Punchy 808 Reggaeton / EDM Kick Drum
   synthesizeCasaTupkaKick(t) {
     try {
       const osc = this.ctx.createOscillator();
@@ -1290,7 +1375,7 @@ class SoundEngine {
     } catch {}
   }
 
-  // Crisp Dembow Snare / Rimshot
+  // Crisp Dembow / Club Snare / Rimshot
   synthesizeCasaTupkaSnare(t) {
     try {
       // Noise component
@@ -1311,7 +1396,7 @@ class SoundEngine {
       noise.start(t);
       noise.stop(t + 0.12);
 
-      // Tonal rimshot body
+      // Tonal body
       const osc = this.ctx.createOscillator();
       const og = this.ctx.createGain();
       osc.type = 'triangle';
@@ -1374,7 +1459,7 @@ class SoundEngine {
     } catch {}
   }
 
-  // Brassy Club Lead Synth (Casa Tupka Hook)
+  // Brassy Club Lead Synth
   synthesizeCasaTupkaLead(t, freq) {
     try {
       const osc1 = this.ctx.createOscillator();
@@ -1457,4 +1542,201 @@ class SoundEngine {
   }
 }
 
+// =============================================================
+// YO YO HONEY SINGH HIT TRACKS CATALOGUE
+// =============================================================
+export const HONEY_SINGH_TRACKS = [
+  {
+    id: 'casatupka',
+    title: 'Casa Tupka',
+    hindiTitle: 'कासा तुपका',
+    year: '2024 / 2026',
+    bpm: 105,
+    style: 'Reggaeton Dembow',
+    emoji: '🔥',
+    tagline: 'Casa Casa Tupka Tequila • Latin Desi Party Anthem',
+    rhythmStyle: 'dembow',
+    lyrics: [
+      '🔥 YO YO: "Casa casa casa tupka tequila!" 🎧',
+      '🎶 "Party karni party pehle YO YO bulao! 🕺🔊"',
+      '💥 "Bada hot hai weather jab baje reggaeton! 🔥"',
+      '✨ "Tara rum bam bam bam bam! 💃"',
+      '🎤 "Yo Yo Honey Singh in the House! 🪔"'
+    ],
+    leadNotes: [
+      293.66, 0, 293.66, 0, 293.66, 0, 293.66, 0, 293.66, 0, 261.63, 0, 233.08, 0, 220.0, 196.0,
+      196.0,  0, 196.0,  0, 220.0,  0, 233.08, 0, 261.63, 0, 293.66, 0, 261.63, 0, 220.0, 0,
+      349.23, 0, 392.0,  0, 349.23, 0, 293.66, 0, 261.63, 0, 293.66, 293.66, 0, 0, 392.0, 0,
+      440.0,  0, 392.0,  0, 349.23, 0, 329.63, 0, 293.66, 0, 261.63, 0, 293.66, 0, 0, 0
+    ],
+    bassNotes: [
+      49.0, 0, 49.0, 0, 49.0, 0, 58.27, 0, 49.0, 0, 49.0, 0, 58.27, 0, 49.0, 0,
+      38.89, 0, 38.89, 0, 43.65, 0, 43.65, 0, 38.89, 0, 38.89, 0, 43.65, 0, 36.71, 0,
+      49.0, 0, 49.0, 0, 49.0, 0, 58.27, 0, 49.0, 0, 49.0, 0, 58.27, 0, 49.0, 0,
+      38.89, 0, 38.89, 0, 43.65, 0, 43.65, 0, 36.71, 0, 36.71, 0, 43.65, 0, 49.0, 0
+    ]
+  },
+  {
+    id: 'blueeyes',
+    title: 'Blue Eyes',
+    hindiTitle: 'ब्लू आईज',
+    year: '2013 / Classic',
+    bpm: 128,
+    style: 'Electro Dance EDM',
+    emoji: '💙',
+    tagline: 'Blue eyes hypnotise teri kardi ai mennu! 💣',
+    rhythmStyle: 'electro4x4',
+    lyrics: [
+      '💙 YO YO: "Blue eyes hypnotise teri kardi ai mennu!" 🕶️',
+      '🔥 "I swear chhoti dress mein bomb lagdi mainu!" 💣',
+      '✨ "Bomb lagdi mainu, bomb lagdi mainu!" 🎶',
+      '🕺 "Ghar deyan nu keh de tu ki aaj nahio aana!" 🔊',
+      '🎤 "Yo Yo Honey Singh! Blue Eyes Anthem!" 🎧'
+    ],
+    leadNotes: [
+      // "Blue eyes hypnotise teri kardi ai mennu"
+      369.99, 0, 440.0, 0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0, 293.66, 0, 329.63, 0,
+      369.99, 369.99, 0, 440.0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0, 293.66, 0, 0, 0,
+      // "I swear chhoti dress mein bomb lagdi mainu"
+      587.33, 0, 554.37, 0, 493.88, 0, 440.0, 0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0,
+      369.99, 0, 440.0, 0, 493.88, 0, 587.33, 0, 554.37, 0, 493.88, 0, 440.0, 0, 369.99, 0
+    ],
+    bassNotes: [
+      73.42, 0, 73.42, 0, 73.42, 0, 73.42, 0, 61.74, 0, 61.74, 0, 61.74, 0, 61.74, 0,
+      49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0, 55.0, 0, 55.0, 0, 55.0, 0, 55.0, 0,
+      73.42, 0, 73.42, 0, 73.42, 0, 73.42, 0, 61.74, 0, 61.74, 0, 61.74, 0, 61.74, 0,
+      49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0, 55.0, 0, 55.0, 0, 55.0, 0, 55.0, 0
+    ]
+  },
+  {
+    id: 'brownrang',
+    title: 'Brown Rang',
+    hindiTitle: 'ब्राउन रंग',
+    year: '2011 / Immortal',
+    bpm: 95,
+    style: 'Desi Hip-Hop / R&B',
+    emoji: '👑',
+    tagline: 'Kudiye ni tere brown rang ne munde patt te! 🏙️',
+    rhythmStyle: 'hiphop95',
+    lyrics: [
+      '👑 YO YO: "Kudiye ni tere brown rang ne!" 💃',
+      '🔥 "Munde patt te ni saare mere town de!" 🏙️',
+      '✨ "Koyi labhdi ae shaan, koyi labhdi ae gaddi!" 🚘',
+      '🕶️ "White skin pe itna na itraao, Brown Rang is King!" 👑',
+      '🎤 "Yo Yo Honey Singh! Brown Rang Classic!" 🪔'
+    ],
+    leadNotes: [
+      // "Kudiye ni tere brown rang ne"
+      329.63, 0, 392.0, 0, 440.0, 0, 493.88, 493.88, 0, 440.0, 0, 392.0, 0, 329.63, 0, 0,
+      392.0, 0, 440.0, 0, 493.88, 0, 587.33, 0, 493.88, 0, 440.0, 0, 392.0, 0, 329.63, 0,
+      // "Munde patt te ni saare mere town de"
+      329.63, 329.63, 0, 392.0, 440.0, 440.0, 0, 392.0, 0, 329.63, 0, 293.66, 0, 329.63, 0, 0,
+      329.63, 0, 392.0, 0, 440.0, 0, 493.88, 0, 440.0, 0, 392.0, 0, 329.63, 329.63, 0, 0
+    ],
+    bassNotes: [
+      41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0, 32.70, 0, 32.70, 0, 32.70, 0, 32.70, 0,
+      36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0, 30.87, 0, 30.87, 0, 30.87, 0, 30.87, 0,
+      41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0, 32.70, 0, 32.70, 0, 32.70, 0, 32.70, 0,
+      36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0, 41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0
+    ]
+  },
+  {
+    id: 'dopeshope',
+    title: 'Dope Shope',
+    hindiTitle: 'डोप शोप',
+    year: '2011 / Club Banger',
+    bpm: 98,
+    style: 'Desi Club Bounce',
+    emoji: '🕶️',
+    tagline: 'Munda dharhi chadhai phirda, kudi dope shope! 🔊',
+    rhythmStyle: 'club98',
+    lyrics: [
+      '💥 YO YO: "Munda dharhi chadhai phirda!" 🕶️',
+      '🔊 "Kudi dope shope maareya karo!" 💃',
+      '🔥 "22 saal di hoyi aa kudi, lagdi model waang!" 🌟',
+      '🏎️ "Hummer vich baithe munde, Yo Yo sound system!" 🔊',
+      '🎤 "Yo Yo Honey Singh! Dope Shope Banger!" 🎧'
+    ],
+    leadNotes: [
+      // "Munda dharhi chadhai phirda"
+      369.99, 369.99, 0, 440.0, 0, 493.88, 0, 554.37, 554.37, 0, 493.88, 0, 440.0, 0, 369.99, 0,
+      369.99, 0, 440.0, 0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0, 369.99, 0, 0, 0,
+      // "Kudi dope shope maareya karo"
+      554.37, 554.37, 0, 493.88, 0, 440.0, 0, 493.88, 0, 554.37, 0, 440.0, 0, 369.99, 0, 0,
+      440.0, 0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0, 277.18, 0, 369.99, 0, 0, 0
+    ],
+    bassNotes: [
+      46.25, 0, 46.25, 0, 46.25, 0, 46.25, 0, 36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0,
+      41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0, 34.65, 0, 34.65, 0, 34.65, 0, 34.65, 0,
+      46.25, 0, 46.25, 0, 46.25, 0, 46.25, 0, 36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0,
+      41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0, 46.25, 0, 46.25, 0, 46.25, 0, 46.25, 0
+    ]
+  },
+  {
+    id: 'lovedose',
+    title: 'Love Dose',
+    hindiTitle: 'लव डोज़',
+    year: '2014 / Desi Kalakaar',
+    bpm: 102,
+    style: 'Melodic R&B Romance',
+    emoji: '❤️',
+    tagline: 'Lagdi mainu jivein ambran di rani soniye! 🌹',
+    rhythmStyle: 'rnb102',
+    lyrics: [
+      '❤️ YO YO: "Lagdi mainu jivein ambran di rani!" 👸',
+      '✨ "Ek tu hi meri baby, ek tu hi zindgani!" 🌹',
+      '🔥 "Mujhe de de tu ik love dose!" 💊❤️',
+      '🕺 "Lagti hai cute jab kardi tu blush!" 🥰',
+      '🎤 "Yo Yo Honey Singh! Love Dose Romance!" 🎶'
+    ],
+    leadNotes: [
+      // "Lagdi mainu jivein ambran di rani"
+      440.0, 0, 554.37, 0, 659.25, 659.25, 0, 587.33, 0, 554.37, 0, 493.88, 0, 440.0, 0, 0,
+      369.99, 0, 440.0, 0, 493.88, 0, 554.37, 0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0,
+      // "Meethi meethi gallan kare soniye diwaani"
+      440.0, 440.0, 0, 554.37, 0, 659.25, 0, 739.99, 0, 659.25, 0, 554.37, 0, 493.88, 0, 0,
+      440.0, 0, 493.88, 0, 554.37, 0, 493.88, 0, 440.0, 0, 369.99, 0, 440.0, 0, 0, 0
+    ],
+    bassNotes: [
+      55.0, 0, 55.0, 0, 55.0, 0, 55.0, 0, 46.25, 0, 46.25, 0, 46.25, 0, 46.25, 0,
+      36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0, 41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0,
+      55.0, 0, 55.0, 0, 55.0, 0, 55.0, 0, 46.25, 0, 46.25, 0, 46.25, 0, 46.25, 0,
+      36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0, 55.0, 0, 55.0, 0, 55.0, 0, 55.0, 0
+    ]
+  },
+  {
+    id: 'angrejibeat',
+    title: 'Angreji Beat',
+    hindiTitle: 'अंग्रेजी बीट',
+    year: '2012 / Cocktail',
+    bpm: 126,
+    style: 'Punjabi Bhangra Electro',
+    emoji: '⚡',
+    tagline: 'Angreji beat te nachdi patlo • Khadke Glassi! 🥂',
+    rhythmStyle: 'bhangra126',
+    lyrics: [
+      '🥁 YO YO: "Khadke glassi tere naa te!" 🥂',
+      '💃 "Angreji beat te nachdi patlo!" ⚡',
+      '🔥 "Pura mela nachega Yo Yo di beat te!" 🪔',
+      '✨ "Nach nach kudiye tu floor phod de!" 💥',
+      '🎤 "Yo Yo Honey Singh! Angreji Beat Power!" 🎧'
+    ],
+    leadNotes: [
+      // "Khadke glassi tere naa te"
+      392.0, 0, 493.88, 0, 587.33, 587.33, 0, 523.25, 0, 493.88, 0, 440.0, 0, 392.0, 0, 0,
+      392.0, 392.0, 0, 493.88, 0, 587.33, 0, 659.25, 0, 587.33, 0, 493.88, 0, 392.0, 0, 0,
+      // "Angreji beat te nachdi patlo"
+      587.33, 587.33, 0, 659.25, 0, 587.33, 0, 493.88, 0, 440.0, 0, 493.88, 0, 392.0, 0, 0,
+      493.88, 493.88, 0, 440.0, 0, 392.0, 0, 329.63, 0, 392.0, 392.0, 0, 0, 0, 0, 0
+    ],
+    bassNotes: [
+      49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0, 41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0,
+      32.70, 0, 32.70, 0, 32.70, 0, 32.70, 0, 36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0,
+      49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0, 41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0,
+      32.70, 0, 32.70, 0, 32.70, 0, 32.70, 0, 49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0
+    ]
+  }
+];
+
 export const soundEngine = new SoundEngine();
+

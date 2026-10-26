@@ -697,9 +697,9 @@ export default function MelaCanvas({
     world.projectiles.push({
       id: projId,
       x: p.x,
-      y: p.y - 14,
+      y: p.y - 18,
       startX: p.x,
-      startY: p.y - 14,
+      startY: p.y - 18,
       targetX,
       targetY,
       speed: computedSpeed,
@@ -720,7 +720,7 @@ export default function MelaCanvas({
         shooterName: p.name || 'Hero',
         damage: projDamage,
         startX: p.x,
-        startY: p.y - 14,
+        startY: p.y - 18,
         targetX,
         targetY,
         speed: computedSpeed,
@@ -1346,8 +1346,8 @@ export default function MelaCanvas({
       // Handheld Phuljhadi & Rainbow Color Torch spark effect (Local Player)
       if ((selectedCracker?.id === 'phuljhadi' || selectedCracker?.id === 'colorphuljhadi') && !isRidingWheel) {
         const isColorTorch = selectedCracker?.id === 'colorphuljhadi';
-        const sparkX = p.x + (p.facing === 'left' ? -18 : 18);
-        const sparkY = p.y - 14;
+        const sparkX = p.x + (p.facing === 'left' ? -25 : 25);
+        const sparkY = p.y - 20;
         const count = isColorTorch ? 6 : 4;
 
         for (let i = 0; i < count; i++) {
@@ -1393,8 +1393,8 @@ export default function MelaCanvas({
           const holdingId = remPlayer.holdingCracker;
           if (holdingId === 'phuljhadi' || holdingId === 'colorphuljhadi') {
             const isColorTorch = holdingId === 'colorphuljhadi';
-            const sparkX = remPlayer.x + (remPlayer.facing === 'left' ? -18 : 18);
-            const sparkY = remPlayer.y - 14;
+            const sparkX = remPlayer.x + (remPlayer.facing === 'left' ? -25 : 25);
+            const sparkY = remPlayer.y - 20;
             const count = isColorTorch ? 4 : 3;
 
             for (let i = 0; i < count; i++) {
@@ -3024,6 +3024,10 @@ function renderCharacter(
   ctx.save();
   ctx.translate(char.x, char.y);
 
+  // Scaled character model for enhanced visibility and festive detail
+  const CHAR_SCALE = 1.4;
+  ctx.scale(CHAR_SCALE, CHAR_SCALE);
+
   // Dance rotation
   if (isDancing) {
     const danceAngle = Math.sin(performance.now() * 0.015) * 0.3;
@@ -3363,47 +3367,49 @@ function renderCharacter(
       ctx.fillText(holding.icon, 15, -4);
     }
 
-    // Overhead equipped item badge
+    // Overhead equipped item badge (positioned cleanly above player name)
     const badgeText = `${holding.icon || '✨'} ${holding.name || 'Item'}`;
-    ctx.font = 'bold 9px "Outfit", sans-serif';
+    ctx.font = 'bold 8.5px "Outfit", sans-serif';
     const btw = ctx.measureText(badgeText).width;
     ctx.fillStyle = 'rgba(23, 16, 36, 0.88)';
     ctx.strokeStyle = holding.isWeapon ? '#f59e0b' : '#38bdf8';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.roundRect(-btw / 2 - 5, -48, btw + 10, 14, 4);
+    ctx.roundRect(-btw / 2 - 5, -63, btw + 10, 14, 4);
     ctx.fill();
     ctx.stroke();
     ctx.fillStyle = '#fef08a';
     ctx.textAlign = 'center';
-    ctx.fillText(badgeText, 0, -37);
+    ctx.fillText(badgeText, 0, -52);
   }
 
-  ctx.font = 'bold 11px "Outfit", sans-serif';
+  ctx.font = 'bold 10px "Outfit", sans-serif';
   ctx.textAlign = 'center';
+
+  const nameY = -35;
 
   if (isLocal) {
     ctx.fillStyle = isDancing ? '#f43f5e' : '#fbbf24';
-    ctx.fillText(`${char.name || 'You'} ${isDancing ? '💃 (Dancing!)' : '(You)'}`, 0, -32);
+    ctx.fillText(`${char.name || 'You'} ${isDancing ? '💃 (Dancing!)' : '(You)'}`, 0, nameY);
   } else if (isRemote) {
     ctx.fillStyle = '#38bdf8';
-    ctx.fillText(`🟢 ${char.name || 'Player'} (Online)`, 0, -32);
+    ctx.fillText(`🟢 ${char.name || 'Player'} (Online)`, 0, nameY);
   } else {
     ctx.fillStyle = '#e2e8f0';
-    ctx.fillText(char.name, 0, -32);
-    ctx.font = '9px "Outfit", sans-serif';
+    ctx.fillText(char.name, 0, nameY);
+    ctx.font = '8px "Outfit", sans-serif';
     ctx.fillStyle = '#94a3b8';
-    ctx.fillText(char.role || 'Visitor', 0, -22);
+    ctx.fillText(char.role || 'Visitor', 0, nameY + 9);
   }
 
   if (char.bubble) {
-    ctx.font = '11px "Outfit", sans-serif';
+    ctx.font = '10px "Outfit", sans-serif';
     const textWidth = ctx.measureText(char.bubble).width;
     const pad = 8;
     const bw = textWidth + pad * 2;
     const bh = 22;
     const bx = -bw / 2;
-    const by = -60;
+    const by = holding ? -92 : -68;
 
     ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
     ctx.strokeStyle = '#f59e0b';

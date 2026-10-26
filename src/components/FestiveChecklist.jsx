@@ -20,7 +20,7 @@ export default function FestiveChecklist({
   const tasks = [
     {
       id: 'ravan',
-      title: 'Shoot 10-Headed Ravan Effigy (-1 HP)',
+      title: 'Shoot 10-Headed Ravan Effigy (-100 HP)',
       done: ravanShotCount > 0,
       target: MELA_ZONES.RAVAN_GATE || MELA_ZONES.RAVAN
     },

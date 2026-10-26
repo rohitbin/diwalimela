@@ -104,7 +104,7 @@ export default function App() {
   useEffect(() => {
     if (!multiplayerManager) return;
     const unsub = multiplayerManager.onRavanHit((data) => {
-      const dmg = data.damage || 1;
+      const dmg = data.damage || 100;
       setRavanHp((prev) => {
         const next = Math.max(0, prev - dmg);
         try {

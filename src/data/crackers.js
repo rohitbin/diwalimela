@@ -165,8 +165,8 @@ export const CRACKERS = [
     secondaryColor: '#ef4444',
     isWeapon: true,
     weaponType: 'bow',
-    damage: 1,
-    description: "Lord Rama's holy golden bow. Fires fiery arrows with divine accuracy to reduce Ravan's HP by 1 with every shot!",
+    damage: 100,
+    description: "Lord Rama's holy golden bow. Fires fiery arrows with divine accuracy to reduce Ravan's HP by 100 with every shot!",
     instructions: 'Go near Ravan and tap Shoot or Spacebar to fire fiery arrows!',
     tag: 'Ravan Dahan'
   },
@@ -181,8 +181,8 @@ export const CRACKERS = [
     secondaryColor: '#a855f7',
     isWeapon: true,
     weaponType: 'gun',
-    damage: 1,
-    description: "High-speed festive cracker gun! Rapidly shoots explosive spark bullets to reduce Ravan's HP by 1 per hit!",
+    damage: 100,
+    description: "High-speed festive cracker gun! Rapidly shoots explosive spark bullets to reduce Ravan's HP by 100 per hit!",
     instructions: 'Go near Ravan and hold Shoot to rapidly blast sparks at Ravan!',
     tag: 'Rapid Fire'
   },

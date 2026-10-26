@@ -332,6 +332,7 @@ export default function MelaCanvas({
         speed: data.speed || 28,
         speedMultiplier: data.speedMultiplier || 1.0,
         type: data.weaponId,
+        damage: data.damage || 100,
         shooterName: data.shooterName || 'Warrior',
         color: data.color || (data.weaponId === 'gun' ? '#38bdf8' : '#fbbf24'),
         trail: [],
@@ -368,11 +369,12 @@ export default function MelaCanvas({
         );
       }
 
-      // Floating -1 damage number
+      // Floating damage number
+      const damageVal = data.damage || 100;
       worldRef.current.floatingTexts.push({
         x: rx,
         y: ry - 20,
-        text: `-1 HP ✨ ${data.shooterName || 'Hero'}`,
+        text: `-${damageVal} HP ✨ ${data.shooterName || 'Hero'}`,
         color: data.weapon === 'gun' ? '#38bdf8' : '#fef08a',
         alpha: 1.0,
         vy: -1.7,
@@ -669,7 +671,7 @@ export default function MelaCanvas({
 
     const p = playerRef.current;
     const hasWeapon = selectedCracker?.isWeapon || selectedCracker?.id === 'bow' || selectedCracker?.id === 'gun';
-    const weapon = hasWeapon ? selectedCracker : { id: 'bow', name: 'Ram Dhanush', isWeapon: true };
+    const weapon = hasWeapon ? selectedCracker : (CRACKER_MAP['bow'] || { id: 'bow', name: 'Ram Dhanush', isWeapon: true, damage: 100 });
 
     // Play shot audio with dynamic pitch scaling according to clicking speed
     if (weapon.id === 'gun') {
@@ -690,6 +692,7 @@ export default function MelaCanvas({
 
     const projId = `proj_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const projColor = weapon.id === 'gun' ? '#38bdf8' : '#fbbf24';
+    const projDamage = weapon.damage || 100;
 
     world.projectiles.push({
       id: projId,
@@ -702,6 +705,7 @@ export default function MelaCanvas({
       speed: computedSpeed,
       speedMultiplier: finalMultiplier,
       type: weapon.id,
+      damage: projDamage,
       shooterName: p.name || 'Hero',
       color: projColor,
       trail: [],
@@ -714,6 +718,7 @@ export default function MelaCanvas({
         weaponId: weapon.id,
         shooterId: p.id,
         shooterName: p.name || 'Hero',
+        damage: projDamage,
         startX: p.x,
         startY: p.y - 14,
         targetX,
@@ -1448,10 +1453,12 @@ export default function MelaCanvas({
           }
           world.ravanHitFlash = 9;
 
-          // 1 shot reduces Ravan's HP by exactly 1
+          const dmg = proj.damage || 100;
+
+          // 1 shot reduces Ravan's HP by 100
           if (proj.isLocal && setRavanHp) {
             setRavanHp((prevHp) => {
-              const nextHp = Math.max(0, prevHp - 1);
+              const nextHp = Math.max(0, prevHp - dmg);
               try {
                 localStorage.setItem('diwali_ravan_hp', nextHp.toString());
               } catch (_) {}
@@ -1459,11 +1466,11 @@ export default function MelaCanvas({
             });
           }
 
-          // Floating -1 damage number rising above Ravan showing who hit
+          // Floating damage number rising above Ravan showing who hit
           world.floatingTexts.push({
             x: proj.targetX + (Math.random() - 0.5) * 24,
             y: proj.targetY - 20,
-            text: `-1 HP ✨ ${proj.shooterName || 'Hero'}`,
+            text: `-${dmg} HP ✨ ${proj.shooterName || 'Hero'}`,
             color: proj.type === 'gun' ? '#38bdf8' : '#fef08a',
             alpha: 1.0,
             vy: -1.7,
@@ -1496,7 +1503,7 @@ export default function MelaCanvas({
           // Broadcast hit event to live peers if local shooter
           if (proj.isLocal && multiplayerManager) {
             multiplayerManager.broadcastRavanHit({
-              damage: 1,
+              damage: dmg,
               shooterName: p.name || 'Hero',
               weapon: proj.type
             });
@@ -3858,7 +3865,7 @@ function renderRavanEffigy(ctx, world, player, ravanHp = 10000000) {
   // Subtitle / Raid hint
   ctx.font = 'bold 10px "Outfit", sans-serif';
   ctx.fillStyle = '#fed7aa';
-  ctx.fillText('🏹 1 Shot = -1 HP • Shoot with Ram Dhanush or Gun 🔫', 0, barY + 65);
+  ctx.fillText('🏹 1 Shot = -100 HP • Shoot with Ram Dhanush or Gun 🔫', 0, barY + 65);
 
   ctx.restore();
 

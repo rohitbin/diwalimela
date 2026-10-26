@@ -98,7 +98,7 @@ export default function WeaponArmoryModal({
                   दिव्य शस्त्रागार (Diwali Weapon Armory)
                 </h2>
                 <p style={{ margin: '3px 0 0', color: '#fed7aa', fontSize: 12 }}>
-                  Equip weapons to shoot Ravan effigy in Ravan Dahan! (1 shot = -1 HP)
+                  Equip weapons to shoot Ravan effigy in Ravan Dahan! (1 shot = -100 HP)
                 </p>
               </div>
             </div>
@@ -214,7 +214,7 @@ export default function WeaponArmoryModal({
                     </p>
                     <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{ fontSize: 11, color: '#38bdf8', fontWeight: 700 }}>
-                        🎯 Damage: -1 HP / shot
+                        🎯 Damage: -{w.damage || 100} HP / shot
                       </span>
                       <span style={{ fontSize: 11, color: '#4ade80' }}>
                         ♾️ Unlimited festive ammo

@@ -665,6 +665,379 @@ class SoundEngine {
       });
     } catch {}
   }
+
+  // 21. Kala Naag Snake Cracker - Sizzling Chemical Ash Hiss & Smoke Sputter
+  playHissingSmoke() {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+      const duration = 0.35;
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.createNoiseBuffer(duration);
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(2200 + Math.random() * 800, t);
+      filter.frequency.linearRampToValueAtTime(1400 + Math.random() * 400, t + duration);
+      filter.Q.setValueAtTime(6, t);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.12, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      noise.start(t);
+      noise.stop(t + duration);
+
+      // Low ember sizzle hum
+      const osc = this.ctx.createOscillator();
+      const oscGain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(180, t);
+      oscGain.gain.setValueAtTime(0.025, t);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      osc.connect(oscGain);
+      oscGain.connect(this.ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.22);
+    } catch {}
+  }
+
+  // 22. Mayur Pankh Peacock Fountain - Multi-Tonal Harmonic Royal Fountain Roar
+  playPeacockFountain() {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+      const duration = 0.5;
+
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.createNoiseBuffer(duration);
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1800, t);
+      filter.frequency.exponentialRampToValueAtTime(4500, t + duration);
+      filter.Q.setValueAtTime(5, t);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.2, t);
+      gain.gain.linearRampToValueAtTime(0.01, t + duration);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      noise.start(t);
+      noise.stop(t + duration);
+
+      // Peacock jewel chime chord
+      const chords = [1200, 1600, 2400];
+      chords.forEach((freq, idx) => {
+        const osc = this.ctx.createOscillator();
+        const og = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq + Math.random() * 50, t);
+        og.gain.setValueAtTime(0.03 / (idx + 1), t);
+        og.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+        osc.connect(og);
+        og.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.28);
+      });
+    } catch {}
+  }
+
+  // 23. Triranga UFO Chakri - Levitating High-Frequency Doppler Whir
+  playUFOWhir() {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+      const osc1 = this.ctx.createOscillator();
+      const osc2 = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc1.type = 'sawtooth';
+      osc2.type = 'triangle';
+
+      const baseFreq = 950 + Math.random() * 200;
+      osc1.frequency.setValueAtTime(baseFreq, t);
+      osc1.frequency.linearRampToValueAtTime(baseFreq * 1.8, t + 0.12);
+      osc1.frequency.linearRampToValueAtTime(baseFreq * 0.85, t + 0.28);
+
+      osc2.frequency.setValueAtTime(baseFreq * 0.5, t);
+      osc2.frequency.linearRampToValueAtTime(baseFreq * 0.9, t + 0.15);
+
+      gain.gain.setValueAtTime(0.14, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(2800, t);
+      filter.Q.setValueAtTime(3, t);
+
+      osc1.connect(filter);
+      osc2.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc1.start(t);
+      osc2.start(t);
+      osc1.stop(t + 0.32);
+      osc2.stop(t + 0.32);
+    } catch {}
+  }
+
+  // 24. Dhamaka Bullet Bomb - Twin-Phase High-Voltage Concussion Blast
+  playBulletBomb() {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+
+      // Phase 1: High metallic snap crack
+      const snapNoise = this.ctx.createBufferSource();
+      snapNoise.buffer = this.createNoiseBuffer(0.1);
+      const snapFilter = this.ctx.createBiquadFilter();
+      snapFilter.type = 'highpass';
+      snapFilter.frequency.setValueAtTime(2400, t);
+      const snapGain = this.ctx.createGain();
+      snapGain.gain.setValueAtTime(0.5, t);
+      snapGain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+
+      snapNoise.connect(snapFilter);
+      snapFilter.connect(snapGain);
+      snapGain.connect(this.ctx.destination);
+      snapNoise.start(t);
+      snapNoise.stop(t + 0.09);
+
+      // Phase 2: Electric sub-bass punch (40ms delayed)
+      const sub = this.ctx.createOscillator();
+      const subGain = this.ctx.createGain();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(190, t + 0.03);
+      sub.frequency.exponentialRampToValueAtTime(35, t + 0.45);
+      subGain.gain.setValueAtTime(0.65, t + 0.03);
+      subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+
+      sub.connect(subGain);
+      subGain.connect(this.ctx.destination);
+      sub.start(t + 0.03);
+      sub.stop(t + 0.52);
+
+      // Distorted electric sizzle
+      const sizzle = this.ctx.createBufferSource();
+      sizzle.buffer = this.createNoiseBuffer(0.4);
+      const sFilter = this.ctx.createBiquadFilter();
+      sFilter.type = 'bandpass';
+      sFilter.frequency.setValueAtTime(1100, t + 0.02);
+      const sGain = this.ctx.createGain();
+      sGain.gain.setValueAtTime(0.4, t + 0.02);
+      sGain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+      sizzle.connect(sFilter);
+      sFilter.connect(sGain);
+      sGain.connect(this.ctx.destination);
+      sizzle.start(t + 0.02);
+      sizzle.stop(t + 0.42);
+    } catch {}
+  }
+
+  // 25. Mahabali Atom Bomb - Giant Earth-Shaking Sub-Bass Concussion Detonation
+  playAtomBomb() {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+
+      // Ultra-deep 50Hz sub-bass shockwave
+      const sub = this.ctx.createOscillator();
+      const subGain = this.ctx.createGain();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(95, t);
+      sub.frequency.exponentialRampToValueAtTime(18, t + 1.1);
+
+      subGain.gain.setValueAtTime(0.95, t);
+      subGain.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
+
+      sub.connect(subGain);
+      subGain.connect(this.ctx.destination);
+      sub.start(t);
+      sub.stop(t + 1.15);
+
+      // Massive explosive crackle roar
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.createNoiseBuffer(1.1);
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1800, t);
+      filter.frequency.linearRampToValueAtTime(150, t + 1.1);
+
+      const nGain = this.ctx.createGain();
+      nGain.gain.setValueAtTime(0.75, t);
+      nGain.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
+
+      noise.connect(filter);
+      filter.connect(nGain);
+      nGain.connect(this.ctx.destination);
+
+      noise.start(t);
+      noise.stop(t + 1.15);
+    } catch {}
+  }
+
+  // 26. Mirchi Pop-Pop Snappers - Rapid Crispy Friction Clicks & Pops
+  playPopPopSnaps() {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+      // 2-3 quick micro pops
+      const count = 2 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < count; i++) {
+        const offset = i * (0.025 + Math.random() * 0.035);
+        const pt = t + offset;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(450 + Math.random() * 300, pt);
+        osc.frequency.exponentialRampToValueAtTime(80, pt + 0.04);
+        gain.gain.setValueAtTime(0.25, pt);
+        gain.gain.exponentialRampToValueAtTime(0.001, pt + 0.04);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(pt);
+        osc.stop(pt + 0.05);
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = this.createNoiseBuffer(0.04);
+        const ng = this.ctx.createGain();
+        ng.gain.setValueAtTime(0.2, pt);
+        ng.gain.exponentialRampToValueAtTime(0.001, pt + 0.04);
+        noise.connect(ng);
+        ng.connect(this.ctx.destination);
+        noise.start(pt);
+        noise.stop(pt + 0.05);
+      }
+    } catch {}
+  }
+
+  // 27. Seeti Whistling Rocket - High Piercing Screech Whistle & Crackle Bloom
+  playWhistlingRocketLaunch() {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+      const duration = 1.1;
+
+      // Piercing acoustic whistle glide
+      const whistle = this.ctx.createOscillator();
+      const wGain = this.ctx.createGain();
+      whistle.type = 'sine';
+      whistle.frequency.setValueAtTime(950, t);
+      whistle.frequency.exponentialRampToValueAtTime(3600, t + duration);
+
+      wGain.gain.setValueAtTime(0.18, t);
+      wGain.gain.linearRampToValueAtTime(0.28, t + duration * 0.8);
+      wGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+      whistle.connect(wGain);
+      wGain.connect(this.ctx.destination);
+      whistle.start(t);
+      whistle.stop(t + duration);
+
+      // Rocket flame jet rush
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.createNoiseBuffer(duration);
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(600, t);
+      filter.frequency.exponentialRampToValueAtTime(2800, t + duration);
+      const nGain = this.ctx.createGain();
+      nGain.gain.setValueAtTime(0.15, t);
+      nGain.gain.exponentialRampToValueAtTime(0.01, t + duration);
+
+      noise.connect(filter);
+      filter.connect(nGain);
+      nGain.connect(this.ctx.destination);
+      noise.start(t);
+      noise.stop(t + duration);
+    } catch {}
+  }
+
+  // 28. Swarna Varsha 12-Shot Cake - Aerial Mortar Thump & Cascading Weeping Willow Chimes
+  playGoldenWillow() {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+
+      // Heavy mortar aerial boom
+      const boom = this.ctx.createOscillator();
+      const boomGain = this.ctx.createGain();
+      boom.type = 'sine';
+      boom.frequency.setValueAtTime(130, t);
+      boom.frequency.exponentialRampToValueAtTime(25, t + 0.6);
+      boomGain.gain.setValueAtTime(0.55, t);
+      boomGain.gain.exponentialRampToValueAtTime(0.001, t + 0.65);
+      boom.connect(boomGain);
+      boomGain.connect(this.ctx.destination);
+      boom.start(t);
+      boom.stop(t + 0.7);
+
+      // Shimmering golden kamuro willow chimes (staggered sparkling bells)
+      const willowNotes = [1760, 2093, 2637, 3136];
+      willowNotes.forEach((freq, idx) => {
+        const delay = 0.08 + idx * 0.07;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, t + delay);
+        g.gain.setValueAtTime(0.05 / (idx + 1), t + delay);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + delay + 0.45);
+        osc.connect(g);
+        g.connect(this.ctx.destination);
+        osc.start(t + delay);
+        osc.stop(t + delay + 0.5);
+      });
+    } catch {}
+  }
+
+  // 29. Rang-Birangi Rainbow Mashaal - Roaring Multi-Color Jet Flame & Shimmer
+  playColorTorch() {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+      const duration = 0.3;
+
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.createNoiseBuffer(duration);
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(3200 + Math.random() * 1200, t);
+      filter.Q.setValueAtTime(7, t);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.1, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+      noise.start(t);
+      noise.stop(t + duration);
+
+      // Magical high harmonic sparkle chime
+      const osc = this.ctx.createOscillator();
+      const og = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(2200 + Math.random() * 800, t);
+      og.gain.setValueAtTime(0.035, t);
+      og.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      osc.connect(og);
+      og.connect(this.ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.14);
+    } catch {}
+  }
 }
 
 export const soundEngine = new SoundEngine();

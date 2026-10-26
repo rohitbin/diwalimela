@@ -77,13 +77,27 @@ export default function BalloonShootingModal({
     const remainingShots = shotsLeft - 1;
     setShotsLeft(remainingShots);
 
-    // If popped golden balloon, win bonus rocket/anar!
+    // If popped golden balloon, win bonus rare cracker!
     if (balloon.isGolden) {
-      const rareBonus = Math.random() > 0.5 ? 'rocket' : 'anar';
-      setInventory((prev) =>
-        prev.map((i) => (i.id === rareBonus ? { ...i, count: i.count + 1 } : i))
-      );
-      setWonItem(rareBonus === 'rocket' ? '🚀 Bonus Sky Rocket Won!' : '🪴 Bonus Shahi Anar Won!');
+      const rareBonusPool = [
+        { id: 'swarnavarsha', name: '🌠 Bonus Swarna Varsha 12-Shot Won!' },
+        { id: 'mayurpankh', name: '🦚 Bonus Mayur Royal Fountain Won!' },
+        { id: 'tri_chakri', name: '🛸 Bonus Triranga UFO Chakri Won!' },
+        { id: 'atombomb', name: '🛑 Bonus Mahabali Atom Bomb Won!' },
+        { id: 'seetirocket', name: '🎺 Bonus Seeti Whistling Rocket Won!' },
+        { id: 'bulletbomb', name: '⚡ Bonus Dhamaka Bullet Bomb Won!' },
+        { id: 'colorphuljhadi', name: '🪄 Bonus Rainbow Mashaal Torch Won!' },
+        { id: 'rocket', name: '🚀 Bonus Sky Rocket Won!' }
+      ];
+      const picked = rareBonusPool[Math.floor(Math.random() * rareBonusPool.length)];
+      setInventory((prev) => {
+        const existing = prev.find((i) => i.id === picked.id);
+        if (existing) {
+          return prev.map((i) => (i.id === picked.id ? { ...i, count: i.count + 1 } : i));
+        }
+        return [...prev, { id: picked.id, count: 1 }];
+      });
+      setWonItem(picked.name);
     }
 
     if (remainingShots <= 0) {

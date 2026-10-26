@@ -82,6 +82,34 @@ export default function CrackerShopModal({
       case 'gun':
         soundEngine.playGunShot();
         break;
+      case 'saapgoli':
+        soundEngine.playHissingSmoke();
+        break;
+      case 'mayurpankh':
+        soundEngine.playPeacockFountain();
+        break;
+      case 'tri_chakri':
+        soundEngine.playUFOWhir();
+        break;
+      case 'bulletbomb':
+        soundEngine.playBulletBomb();
+        break;
+      case 'atombomb':
+        soundEngine.playAtomBomb();
+        break;
+      case 'poppops':
+        soundEngine.playPopPopSnaps();
+        break;
+      case 'seetirocket':
+        soundEngine.playWhistlingRocketLaunch();
+        setTimeout(() => soundEngine.playFireworkBang(1.3, 1.2), 900);
+        break;
+      case 'swarnavarsha':
+        soundEngine.playGoldenWillow();
+        break;
+      case 'colorphuljhadi':
+        soundEngine.playColorTorch();
+        break;
       default:
         break;
     }

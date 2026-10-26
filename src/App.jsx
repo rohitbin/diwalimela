@@ -355,9 +355,16 @@ export default function App() {
   // Keyboard number shortcuts to select crackers (Keys 1-8)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      const keyNum = parseInt(e.key, 10);
-      if (keyNum >= 1 && keyNum <= CRACKERS.length) {
-        const cracker = CRACKERS[keyNum - 1];
+      const key = e.key;
+      let targetCrackerIdx = -1;
+      if (key >= '1' && key <= '9') {
+        targetCrackerIdx = parseInt(key, 10) - 1;
+      } else if (key === '0') {
+        targetCrackerIdx = 9;
+      }
+
+      if (targetCrackerIdx >= 0 && targetCrackerIdx < CRACKERS.length) {
+        const cracker = CRACKERS[targetCrackerIdx];
         const invItem = inventory.find((i) => i.id === cracker.id);
         if (invItem && invItem.count > 0) {
           setSelectedCracker((prev) => (prev?.id === cracker.id ? null : cracker));

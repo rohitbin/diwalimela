@@ -1338,55 +1338,79 @@ export default function MelaCanvas({
 
       world.particles = world.particles.filter((pt) => pt.update());
 
-      // Handheld Phuljhadi spark effect (Local Player)
-      if (selectedCracker?.id === 'phuljhadi' && !isRidingWheel) {
+      // Handheld Phuljhadi & Rainbow Color Torch spark effect (Local Player)
+      if ((selectedCracker?.id === 'phuljhadi' || selectedCracker?.id === 'colorphuljhadi') && !isRidingWheel) {
+        const isColorTorch = selectedCracker?.id === 'colorphuljhadi';
         const sparkX = p.x + (p.facing === 'left' ? -18 : 18);
         const sparkY = p.y - 14;
-        for (let i = 0; i < 4; i++) {
+        const count = isColorTorch ? 6 : 4;
+
+        for (let i = 0; i < count; i++) {
           const angle = Math.random() * Math.PI * 2;
-          const spd = 1.0 + Math.random() * 3.0;
+          const spd = 1.0 + Math.random() * 3.2;
+          let color;
+          if (isColorTorch) {
+            const torchColors = ['#ec4899', '#06b6d4', '#facc15', '#10b981', '#a855f7', '#ffffff'];
+            color = torchColors[Math.floor(Math.random() * torchColors.length)];
+          } else {
+            color = Math.random() > 0.4 ? '#fde047' : '#fbbf24';
+          }
+
           world.particles.push(
             new Particle(
               sparkX,
               sparkY,
               Math.cos(angle) * spd,
-              Math.sin(angle) * spd,
-              Math.random() > 0.4 ? '#fde047' : '#fbbf24',
-              14 + Math.floor(Math.random() * 14),
-              1.5,
+              Math.sin(angle) * spd - (isColorTorch ? 0.3 : 0),
+              color,
+              14 + Math.floor(Math.random() * 16),
+              isColorTorch ? 1.8 : 1.5,
               0.04,
               0.96,
-              'spark'
+              isColorTorch && Math.random() > 0.4 ? 'star' : 'spark'
             )
           );
         }
+
         if (Math.random() > 0.3) {
-          soundEngine.playPhuljhadiSparkle();
+          if (isColorTorch) {
+            soundEngine.playColorTorch();
+          } else {
+            soundEngine.playPhuljhadiSparkle();
+          }
         }
       }
 
-      // Handheld Phuljhadi spark effect (Remote Live Online Players)
+      // Handheld Phuljhadi & Color Torch spark effect (Remote Live Online Players)
       const peers = remotePlayersRef.current;
       if (peers && peers.size > 0) {
         peers.forEach((remPlayer) => {
-          if (remPlayer.holdingCracker === 'phuljhadi') {
+          const holdingId = remPlayer.holdingCracker;
+          if (holdingId === 'phuljhadi' || holdingId === 'colorphuljhadi') {
+            const isColorTorch = holdingId === 'colorphuljhadi';
             const sparkX = remPlayer.x + (remPlayer.facing === 'left' ? -18 : 18);
             const sparkY = remPlayer.y - 14;
-            for (let i = 0; i < 3; i++) {
+            const count = isColorTorch ? 4 : 3;
+
+            for (let i = 0; i < count; i++) {
               const angle = Math.random() * Math.PI * 2;
               const spd = 1.0 + Math.random() * 3.0;
+              const color = isColorTorch
+                ? ['#ec4899', '#06b6d4', '#facc15', '#10b981'][Math.floor(Math.random() * 4)]
+                : (Math.random() > 0.4 ? '#fde047' : '#fbbf24');
+
               world.particles.push(
                 new Particle(
                   sparkX,
                   sparkY,
                   Math.cos(angle) * spd,
                   Math.sin(angle) * spd,
-                  Math.random() > 0.4 ? '#fde047' : '#fbbf24',
+                  color,
                   14 + Math.floor(Math.random() * 14),
                   1.5,
                   0.04,
                   0.96,
-                  'spark'
+                  isColorTorch && Math.random() > 0.5 ? 'star' : 'spark'
                 )
               );
             }
@@ -3181,7 +3205,151 @@ function renderCharacter(
       ctx.fill();
       ctx.restore();
     }
-    // 6. Generic icon
+    // 6. Rainbow Mashaal (Magic Sparkler Torch)
+    else if (holding.id === 'colorphuljhadi') {
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(8, -4);
+      ctx.lineTo(19, -17);
+      ctx.stroke();
+
+      ctx.fillStyle = '#ec4899';
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = '#06b6d4';
+      ctx.beginPath();
+      ctx.arc(19, -17, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.arc(19, -17, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    // 7. Bullet Bomb
+    else if (holding.id === 'bulletbomb') {
+      ctx.save();
+      ctx.translate(14, -4);
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = '#38bdf8';
+      ctx.fillStyle = '#3f6212';
+      ctx.beginPath();
+      ctx.roundRect(-4, -6, 8, 12, 2);
+      ctx.fill();
+      ctx.fillStyle = '#ca8a04';
+      ctx.fillRect(-4, -1, 8, 3);
+      ctx.fillStyle = '#84cc16';
+      ctx.beginPath();
+      ctx.moveTo(0, -10);
+      ctx.lineTo(4, -6);
+      ctx.lineTo(-4, -6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    // 8. Mahabali Atom Bomb
+    else if (holding.id === 'atombomb') {
+      ctx.save();
+      ctx.translate(14, -4);
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = '#dc2626';
+      ctx.fillStyle = '#dc2626';
+      ctx.beginPath();
+      ctx.roundRect(-6, -6, 12, 12, 2);
+      ctx.fill();
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 1.6;
+      ctx.strokeRect(-6, -6, 12, 12);
+      ctx.restore();
+    }
+    // 9. Kala Naag Snake Tablet
+    else if (holding.id === 'saapgoli') {
+      ctx.save();
+      ctx.translate(13, -3);
+      ctx.fillStyle = '#1f2937';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 6, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    }
+    // 10. Mayur Pankh Peacock Fountain
+    else if (holding.id === 'mayurpankh') {
+      ctx.save();
+      ctx.translate(13, -4);
+      ctx.fillStyle = '#065f46';
+      ctx.beginPath();
+      ctx.moveTo(0, -9);
+      ctx.lineTo(6, 4);
+      ctx.lineTo(-6, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#06b6d4';
+      ctx.beginPath();
+      ctx.arc(0, 0, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    // 11. Triranga UFO Chakri
+    else if (holding.id === 'tri_chakri') {
+      ctx.save();
+      ctx.translate(13, -4);
+      ctx.fillStyle = '#f97316';
+      ctx.beginPath();
+      ctx.arc(0, 0, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+    }
+    // 12. Seeti Whistling Rocket
+    else if (holding.id === 'seetirocket') {
+      ctx.save();
+      ctx.translate(13, -5);
+      ctx.rotate(-0.35);
+      ctx.fillStyle = '#78350f';
+      ctx.fillRect(-1, 0, 2, 16);
+      ctx.fillStyle = '#ec4899';
+      ctx.fillRect(-3, -10, 6, 10);
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.moveTo(-3, -10);
+      ctx.lineTo(0, -15);
+      ctx.lineTo(3, -10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    // 13. Swarna Varsha Cake
+    else if (holding.id === 'swarnavarsha') {
+      ctx.save();
+      ctx.translate(14, -3);
+      ctx.fillStyle = '#b45309';
+      ctx.beginPath();
+      ctx.roundRect(-7, -5, 14, 10, 2);
+      ctx.fill();
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-7, -5, 14, 10);
+      ctx.restore();
+    }
+    // 14. Pop-Pop Snappers
+    else if (holding.id === 'poppops') {
+      ctx.save();
+      ctx.translate(13, -3);
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.moveTo(0, 3);
+      ctx.lineTo(-3, -3);
+      ctx.lineTo(3, -3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    // Generic icon
     else if (holding.icon) {
       ctx.font = '14px serif';
       ctx.textAlign = 'center';
@@ -4071,7 +4239,7 @@ function renderOffScreenBombBeacons(ctx, world, canvasW, canvasH, player) {
   const zoom = world.cameraZoom || 1.0;
 
   world.activeCrackers.forEach((c) => {
-    if (c.state === 'DONE') return;
+    if (c.state !== 'FUSE') return;
 
     // Convert world (c.x, c.y) to screen coordinates
     const sx = (c.x - camX) * zoom + canvasW / 2;

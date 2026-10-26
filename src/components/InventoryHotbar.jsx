@@ -263,7 +263,7 @@ export default function InventoryHotbar({
                     fontWeight: 700
                   }}
                 >
-                  {idx + 1}
+                  {idx < 9 ? idx + 1 : (idx === 9 ? '0' : '')}
                 </span>
 
                 <span style={{ fontSize: 19 }}>{cracker.icon}</span>

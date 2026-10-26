@@ -1289,22 +1289,21 @@ export class ActiveCracker {
       ctx.stroke();
     }
 
-    // Festive name badge showing who ignited the cracker (only during FUSE countdown; removed while in use / bursting)
-    if (this.placedBy && this.state === 'FUSE') {
+    // Countdown timer pill while cracker fuse is ticking
+    if (this.state === 'FUSE') {
       const fuseSeconds = Math.max(0, this.fuseTime / 60).toFixed(1);
-      const icon = this.data.icon || '🎆';
-      const label = `${icon} ${this.placedBy}'s ${this.data.name || 'Cracker'} [⏳ ${fuseSeconds}s]`;
+      const label = `⏳ ${fuseSeconds}s`;
 
       // Vertical beacon light beam shooting upwards so it can be spotted easily
       ctx.save();
-      const grad = ctx.createLinearGradient(0, 0, 0, -140);
-      grad.addColorStop(0, 'rgba(251, 191, 36, 0.45)');
+      const grad = ctx.createLinearGradient(0, 0, 0, -120);
+      grad.addColorStop(0, 'rgba(251, 191, 36, 0.4)');
       grad.addColorStop(1, 'rgba(251, 191, 36, 0)');
       ctx.strokeStyle = grad;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.lineTo(0, -140);
+      ctx.lineTo(0, -120);
       ctx.stroke();
       ctx.restore();
 
@@ -1313,12 +1312,12 @@ export class ActiveCracker {
       const textW = ctx.measureText(label).width;
       const bw = textW + 16;
       const bh = 22;
-      const by = -42;
+      const by = -38;
 
       ctx.fillStyle = 'rgba(15, 10, 26, 0.92)';
       ctx.strokeStyle = '#f59e0b';
       ctx.lineWidth = 1.6;
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 10;
       ctx.shadowColor = '#f59e0b';
       ctx.beginPath();
       ctx.roundRect(-bw / 2, by, bw, bh, 6);

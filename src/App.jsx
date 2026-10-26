@@ -506,6 +506,8 @@ export default function App() {
         screenShake={screenShake}
         setScreenShake={setScreenShake}
         activeBuffs={activeBuffs}
+        setActiveBuffs={setActiveBuffs}
+        onChaiDrank={() => setChaiDrank(true)}
         onDiyaLit={() => setLitDiyasCount((c) => Math.min(16, c + 1))}
         onCrackerBurst={() => setBurstCount((b) => b + 1)}
         isDancing={isDancing}

@@ -25,6 +25,31 @@ export const MELA_ZONES = {
   WEAPON_STALL: { x: 1240, y: 880, name: 'Shastra Armory (शस्त्रागार)' }
 };
 
+// 10 Chairs and 3 Tables at Sharma Ji Chai Tapri
+export const CHAI_TABLES = [
+  { id: 'table_0', x: 280, y: 535, radius: 24, name: 'Table 1' },
+  { id: 'table_1', x: 380, y: 550, radius: 27, name: 'Table 2 (Center)' },
+  { id: 'table_2', x: 480, y: 535, radius: 24, name: 'Table 3' }
+];
+
+export const CHAI_CHAIRS = [
+  // Table 1 (Left - 3 chairs)
+  { id: 'chair_0', x: 246, y: 535, facing: 'right', tableIndex: 0 },
+  { id: 'chair_1', x: 280, y: 572, facing: 'up', tableIndex: 0 },
+  { id: 'chair_2', x: 314, y: 535, facing: 'left', tableIndex: 0 },
+
+  // Table 2 (Center - 4 chairs)
+  { id: 'chair_3', x: 340, y: 550, facing: 'right', tableIndex: 1 },
+  { id: 'chair_4', x: 380, y: 592, facing: 'up', tableIndex: 1 },
+  { id: 'chair_5', x: 420, y: 550, facing: 'left', tableIndex: 1 },
+  { id: 'chair_6', x: 380, y: 508, facing: 'down', tableIndex: 1 },
+
+  // Table 3 (Right - 3 chairs)
+  { id: 'chair_7', x: 446, y: 535, facing: 'right', tableIndex: 2 },
+  { id: 'chair_8', x: 480, y: 572, facing: 'up', tableIndex: 2 },
+  { id: 'chair_9', x: 514, y: 535, facing: 'left', tableIndex: 2 }
+];
+
 export default function MelaCanvas({
   player,
   setPlayer,
@@ -48,6 +73,8 @@ export default function MelaCanvas({
   screenShake,
   setScreenShake,
   activeBuffs,
+  setActiveBuffs,
+  onChaiDrank,
   onDiyaLit,
   onCrackerBurst,
   isDancing,
@@ -56,6 +83,7 @@ export default function MelaCanvas({
   const canvasRef = useRef(null);
   const wrapperRef = useRef(null);
   const [isRidingWheel, setIsRidingWheel] = useState(false);
+  const [sittingChair, setSittingChair] = useState(null);
   const [placementPreview, setPlacementPreview] = useState(null);
   const [clickSpeedMultiplier, setClickSpeedMultiplier] = useState(1.0);
   const [gateNotice, setGateNotice] = useState(null);
@@ -260,6 +288,24 @@ export default function MelaCanvas({
     floatingLanterns: [],
     // NPCs walking in world (Removed fake NPCs - only real live players)
     npcs: [],
+    // 10 Chairs and 3 Tables at Sharma Ji Chai Tapri
+    chaiChairs: CHAI_CHAIRS.map((c) => ({ ...c, occupiedBy: null, hasChai: false })),
+    chaiTables: CHAI_TABLES.map((t) => ({ ...t, hasChai: false })),
+    // Dedicated Chai Server (Chhotu) coming from Sharma Ji shop
+    chaiServer: {
+      x: 380,
+      y: 440,
+      startX: 380,
+      startY: 440,
+      targetX: 380,
+      targetY: 440,
+      targetChair: null,
+      phase: 'IDLE', // 'IDLE', 'COMING', 'SERVING', 'RETURNING'
+      walkFrame: 0,
+      serveTimer: 0,
+      bubble: null,
+      facing: 'down'
+    },
     nextAmbientFireworkTime: 140,
     lastFrameTime: performance.now()
   });
@@ -538,6 +584,24 @@ export default function MelaCanvas({
       worldRef.current.keys[e.key.toLowerCase()] = true;
       worldRef.current.keys[e.code] = true;
 
+      // If sitting on chair, any movement key or Space/E/Esc stands player up!
+      if (playerRef.current.isSitting) {
+        const k = e.key.toLowerCase();
+        if (
+          k === 'e' ||
+          e.code === 'Space' ||
+          k === 'w' ||
+          k === 'a' ||
+          k === 's' ||
+          k === 'd' ||
+          e.key.startsWith('Arrow') ||
+          k === 'escape'
+        ) {
+          standUpFromChair();
+          return;
+        }
+      }
+
       if (e.key.toLowerCase() === 'e' || e.code === 'Space' || e.key.toLowerCase() === 'f') {
         const dGate = Math.hypot(playerRef.current.x - MELA_ZONES.RAVAN_GATE.x, playerRef.current.y - MELA_ZONES.RAVAN_GATE.y);
         if (dGate < 65) {
@@ -752,10 +816,117 @@ export default function MelaCanvas({
     }
   };
 
+  const sitDownOnChair = (chair) => {
+    if (!chair) return;
+    const p = playerRef.current;
+
+    p.isSitting = true;
+    p.sittingChairId = chair.id;
+    p.x = chair.x;
+    p.y = chair.y;
+    p.isMoving = false;
+    p.targetX = undefined;
+    p.targetY = undefined;
+    p.targetChairToSit = undefined;
+    setSittingChair(chair);
+    setPlayer((prev) => ({
+      ...prev,
+      isSitting: true,
+      sittingChairId: chair.id,
+      x: chair.x,
+      y: chair.y,
+      isMoving: false
+    }));
+
+    const world = worldRef.current;
+    if (world.chaiChairs) {
+      world.chaiChairs.forEach((c) => {
+        if (c.id === chair.id) c.occupiedBy = p.id || 'local';
+      });
+    }
+
+    soundEngine.playDiyaLight?.();
+
+    // Trigger Chai Server Chhotu from shop counter to walk over!
+    const server = world.chaiServer;
+    if (server) {
+      server.phase = 'COMING';
+      server.targetChair = chair;
+      server.targetX = chair.x + (chair.facing === 'right' ? -22 : chair.facing === 'left' ? 22 : 0);
+      server.targetY = chair.y + (chair.facing === 'up' ? 20 : chair.facing === 'down' ? -20 : 0);
+      server.bubble = 'आ रहे हैं साहिब! गरमा-गरम चाय! ☕';
+      server.walkFrame = 0;
+    }
+
+    if (multiplayerManager) {
+      multiplayerManager.broadcastPlayerState({
+        ...p,
+        isSitting: true,
+        sittingChairId: chair.id,
+        x: chair.x,
+        y: chair.y
+      });
+    }
+  };
+
+  const standUpFromChair = () => {
+    const p = playerRef.current;
+    if (!p.isSitting) return;
+
+    const currentChairId = p.sittingChairId;
+    p.isSitting = false;
+    p.sittingChairId = null;
+    p.y += 18;
+    p.targetX = undefined;
+    p.targetY = undefined;
+    p.targetChairToSit = undefined;
+    setSittingChair(null);
+    setPlayer((prev) => ({
+      ...prev,
+      isSitting: false,
+      sittingChairId: null,
+      y: p.y
+    }));
+
+    const world = worldRef.current;
+    if (world.chaiChairs && currentChairId) {
+      world.chaiChairs.forEach((c) => {
+        if (c.id === currentChairId) c.occupiedBy = null;
+      });
+    }
+
+    if (multiplayerManager) {
+      multiplayerManager.broadcastPlayerState({
+        ...p,
+        isSitting: false,
+        sittingChairId: null,
+        y: p.y
+      });
+    }
+  };
+
   // Check proximity to shops / stalls / games
   const checkPlayerProximityInteractions = () => {
     const p = playerRef.current;
     const dist = (x1, y1, x2, y2) => Math.hypot(x1 - x2, y1 - y2);
+
+    // 0. If sitting, pressing interaction key stands up!
+    if (p.isSitting) {
+      standUpFromChair();
+      return true;
+    }
+
+    // 0b. Check if standing near any unoccupied Chai Chair at Sharma Ji's Tapri
+    const world = worldRef.current;
+    if (world.chaiChairs) {
+      const nearChair = world.chaiChairs.find(
+        (c) => !c.occupiedBy && dist(p.x, p.y, c.x, c.y) < 46
+      );
+      if (nearChair) {
+        sitDownOnChair(nearChair);
+        return true;
+      }
+    }
 
     // Giant Ferris Wheel
     if (dist(p.x, p.y, MELA_ZONES.FERRIS_WHEEL.x, MELA_ZONES.FERRIS_WHEEL.y) < 140) {
@@ -806,8 +977,8 @@ export default function MelaCanvas({
       }
     }
 
-    // Chai Tapri
-    if (dist(p.x, p.y, MELA_ZONES.CHAI_TAPRI.x, MELA_ZONES.CHAI_TAPRI.y) < 130) {
+    // Chai Tapri Shop Counter
+    if (dist(p.x, p.y, MELA_ZONES.CHAI_TAPRI.x, MELA_ZONES.CHAI_TAPRI.y) < 85) {
       onOpenChaiTapri();
       return true;
     }
@@ -824,7 +995,6 @@ export default function MelaCanvas({
     }
 
     // Check nearby unlit diyas
-    const world = worldRef.current;
     world.diyas.forEach((diya) => {
       if (!diya.isLit && dist(p.x, p.y, diya.x, diya.y) < 70) {
         diya.isLit = true;
@@ -871,6 +1041,32 @@ export default function MelaCanvas({
 
     const p = playerRef.current;
     const dist = (x1, y1, x2, y2) => Math.hypot(x1 - x2, y1 - y2);
+
+    // 0. If sitting and clicking anywhere: stand up!
+    if (p.isSitting) {
+      standUpFromChair();
+      return;
+    }
+
+    // 0a-2. Clicked on one of the 10 Chai Chairs at Sharma Ji's Tapri
+    if (world.chaiChairs) {
+      const clickedChair = world.chaiChairs.find(
+        (c) => dist(worldClickX, worldClickY, c.x, c.y) < 26
+      );
+      if (clickedChair) {
+        if (dist(p.x, p.y, clickedChair.x, clickedChair.y) < 65) {
+          sitDownOnChair(clickedChair);
+        } else {
+          // Walk to chair, then sit down
+          p.targetX = clickedChair.x;
+          p.targetY = clickedChair.y;
+          p.isMoving = true;
+          p.targetChairToSit = clickedChair;
+          setPlayer((prev) => ({ ...prev, targetX: clickedChair.x, targetY: clickedChair.y, isMoving: true }));
+        }
+        return;
+      }
+    }
 
     // 0a. Clicked Ravan Arena Gate (Enter or Exit the arena)
     const distToGate = dist(worldClickX, worldClickY, MELA_ZONES.RAVAN_GATE.x, MELA_ZONES.RAVAN_GATE.y);
@@ -1144,9 +1340,13 @@ export default function MelaCanvas({
         let isMoving = false;
 
         if (moveX !== 0 || moveY !== 0) {
+          if (p.isSitting) {
+            standUpFromChair();
+          }
           // Manual movement cancels click-navigation targets permanently
           p.targetX = undefined;
           p.targetY = undefined;
+          p.targetChairToSit = undefined;
 
           const len = Math.hypot(moveX, moveY);
           const jvActive = jv && jv.active;
@@ -1180,7 +1380,18 @@ export default function MelaCanvas({
             isMoving = false;
             p.targetX = undefined;
             p.targetY = undefined;
+
+            if (p.targetChairToSit) {
+              const chairToSit = p.targetChairToSit;
+              p.targetChairToSit = undefined;
+              sitDownOnChair(chairToSit);
+            }
           }
+        } else if (p.isSitting) {
+          // Keep seated player locked to chair position
+          newX = p.x;
+          newY = p.y;
+          isMoving = false;
         }
 
         // Ravan Effigy Scaffold solid collision (cannot walk through Ravan effigy base)
@@ -1551,6 +1762,103 @@ export default function MelaCanvas({
         return pet.life > 0;
       });
 
+      // Update Chai Tapri Server (Chhotu / चायवाला)
+      const server = world.chaiServer;
+      if (server) {
+        // If sitting player stands up while server is coming or serving:
+        if (!p.isSitting && (server.phase === 'COMING' || server.phase === 'SERVING')) {
+          server.phase = 'RETURNING';
+          server.targetX = 380;
+          server.targetY = 440;
+          server.bubble = 'फिर मिलेंगे बाबूजी! 🙏';
+        }
+
+        if (server.phase === 'COMING') {
+          const dx = server.targetX - server.x;
+          const dy = server.targetY - server.y;
+          const dist = Math.hypot(dx, dy);
+          server.walkFrame = (server.walkFrame || 0) + 0.16;
+          server.facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+
+          if (dist > 3.0) {
+            server.x += (dx / dist) * 2.5;
+            server.y += (dy / dist) * 2.5;
+          } else {
+            // Arrived at the chair!
+            server.x = server.targetX;
+            server.y = server.targetY;
+            server.phase = 'SERVING';
+            server.serveTimer = 190; // ~3.1 seconds
+            server.bubble = 'लीजिए साहिब, स्पेशल अदरक-इलायची कुल्हड़ चाय! ☕✨';
+
+            // Play pour and sip sounds!
+            soundEngine.playChaiPour?.();
+            setTimeout(() => {
+              soundEngine.playChaiSip?.();
+            }, 1200);
+
+            // Grant kulhad chai buff & notify
+            if (setActiveBuffs) {
+              setActiveBuffs((prev) => ({
+                ...prev,
+                kulhad_chai: { expiresAt: Date.now() + 60000, name: 'कुल्हड़ चाय (Kulhad Chai)' }
+              }));
+            }
+            if (onChaiDrank) {
+              onChaiDrank();
+            }
+
+            // Spawn lovely tea steam particles around the player's chair/table
+            for (let i = 0; i < 8; i++) {
+              world.particles.push(
+                new Particle(
+                  server.x + (Math.random() - 0.5) * 10,
+                  server.y - 15 + (Math.random() - 0.5) * 6,
+                  (Math.random() - 0.5) * 0.4,
+                  -0.7 - Math.random() * 0.6,
+                  'rgba(254, 243, 199, 0.8)',
+                  28 + Math.floor(Math.random() * 20),
+                  2.2,
+                  0.015,
+                  0.98,
+                  'smoke'
+                )
+              );
+            }
+          }
+        } else if (server.phase === 'SERVING') {
+          server.serveTimer--;
+          if (server.serveTimer === 95) {
+            server.bubble = 'कैसी बनी है चाय साहिब? दिवाली की राम-राम! 🪔';
+          }
+          if (server.serveTimer <= 0) {
+            server.phase = 'RETURNING';
+            server.targetX = 380;
+            server.targetY = 440;
+            server.bubble = 'दुकान पे फिर हाजिर! आनंद लीजिए! ☕';
+          }
+        } else if (server.phase === 'RETURNING') {
+          const dx = server.targetX - server.x;
+          const dy = server.targetY - server.y;
+          const dist = Math.hypot(dx, dy);
+          server.walkFrame = (server.walkFrame || 0) + 0.16;
+          server.facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+
+          if (dist > 3.0) {
+            server.x += (dx / dist) * 2.2;
+            server.y += (dy / dist) * 2.2;
+          } else {
+            // Reached shop counter!
+            server.x = 380;
+            server.y = 440;
+            server.phase = 'IDLE';
+            server.targetChair = null;
+            server.bubble = 'गरम मसाला चाय तैयार है! ☕';
+            server.facing = 'down';
+          }
+        }
+      }
+
       // ==========================================
       // RENDER CANVAS SCENE
       // ==========================================
@@ -1572,8 +1880,8 @@ export default function MelaCanvas({
       const livePeers = remotePlayersRef.current;
       renderGiantFerrisWheel(ctx, world.wheelAngle, isRidingWheel, p, livePeers);
 
-      // D. Carnival Game Stalls: Balloon Shooting, Chai Tapri
-      renderCarnivalAttractions(ctx, p);
+      // D. Carnival Game Stalls: Balloon Shooting, Sharma Ji Chai Tapri (10 chairs patio)
+      renderCarnivalAttractions(ctx, world, p);
 
       // E. Stalls: Cracker Shop, Temple
       renderMelaStalls(ctx, world, p);
@@ -1614,6 +1922,11 @@ export default function MelaCanvas({
       // L. Local Player Character (if not riding wheel)
       if (!isRidingWheel) {
         renderCharacter(ctx, p, false, true, selectedCracker, activeBuffs, isDancing);
+      }
+
+      // L2. Chai Tapri Server (Chhotu / चायवाला carrying kettle & kulhad tray)
+      if (world.chaiServer) {
+        renderChaiServer(ctx, world.chaiServer);
       }
 
       // M. Foreground Firecracker Particles (Sparks, Smoke, Embers)
@@ -2030,6 +2343,62 @@ export default function MelaCanvas({
           }}
         >
           <span>{gateNotice.text}</span>
+        </div>
+      )}
+
+      {/* Sitting on Chai Chair Floating Action Bar */}
+      {player.isSitting && (
+        <div
+          id="chai-sitting-banner"
+          style={{
+            position: 'fixed',
+            bottom: 'max(95px, calc(env(safe-area-inset-bottom) + 90px))',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'linear-gradient(135deg, rgba(67, 20, 7, 0.96) 0%, rgba(20, 10, 5, 0.98) 100%)',
+            border: '2px solid #f97316',
+            borderRadius: 28,
+            padding: '8px 20px',
+            color: '#fef08a',
+            fontSize: 13,
+            fontWeight: 800,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            boxShadow: '0 8px 30px rgba(0,0,0,0.85), 0 0 25px rgba(249, 115, 22, 0.6)',
+            zIndex: 65,
+            animation: 'fadeInUp 0.3s ease-out'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 20 }}>☕</span>
+            <span style={{ color: '#fed7aa', fontWeight: 600 }}>
+              Sharma Ji Tapri • Drinking Hot Chai
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              standUpFromChair();
+            }}
+            style={{
+              background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+              color: '#ffffff',
+              border: '1.5px solid #fed7aa',
+              borderRadius: 18,
+              padding: '6px 14px',
+              fontSize: 12,
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5
+            }}
+          >
+            <span>🚶</span> Stand Up
+          </button>
         </div>
       )}
 
@@ -2658,7 +3027,7 @@ function renderGiantFerrisWheel(ctx, angle, isRiding, player, remotePlayers = nu
 // -------------------------------------------------------------
 // CARNIVAL ATTRACTIONS: BALLOON SHOOTING, CHAI TAPRI
 // -------------------------------------------------------------
-function renderCarnivalAttractions(ctx, player) {
+function renderCarnivalAttractions(ctx, world, player) {
   const dist = (x1, y1, x2, y2) => Math.hypot(x1 - x2, y1 - y2);
 
   // 1. Balloon Shooting Stall (🎯)
@@ -2701,45 +3070,565 @@ function renderCarnivalAttractions(ctx, player) {
   }
   ctx.restore();
 
-  // 2. Sharma Ji Ki Chai Tapri (☕)
+  // 2. Upgraded Sharma Ji Ki Chai Tapri (☕) with Brick Patio, 3 Tables & 10 Chairs
+  renderSharmaJiChaiTapri(ctx, world, player);
+}
+
+// -------------------------------------------------------------
+// SHARMA JI CHAI TAPRI & 10 CHAIRS OUTDOOR PATIO
+// -------------------------------------------------------------
+function renderSharmaJiChaiTapri(ctx, world, player) {
+  const dist = (x1, y1, x2, y2) => Math.hypot(x1 - x2, y1 - y2);
+  const now = performance.now();
+
   ctx.save();
+
+  // 1. Terracotta Brick / Cobblestone Patio Courtyard
+  const patioX = 205;
+  const patioY = 485;
+  const patioW = 345;
+  const patioH = 145;
+
+  ctx.fillStyle = 'rgba(78, 29, 9, 0.55)';
+  ctx.beginPath();
+  ctx.roundRect(patioX, patioY, patioW, patioH, 16);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(217, 119, 6, 0.6)';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Decorative paving pavers
+  ctx.strokeStyle = 'rgba(251, 191, 36, 0.12)';
+  ctx.lineWidth = 1;
+  for (let px = patioX + 24; px < patioX + patioW; px += 28) {
+    ctx.beginPath();
+    ctx.moveTo(px, patioY);
+    ctx.lineTo(px, patioY + patioH);
+    ctx.stroke();
+  }
+  for (let py = patioY + 24; py < patioY + patioH; py += 28) {
+    ctx.beginPath();
+    ctx.moveTo(patioX, py);
+    ctx.lineTo(patioX + patioW, py);
+    ctx.stroke();
+  }
+
+  // Corner Wooden Poles for overhead festoon lighting
+  const poles = [
+    { x: patioX + 8, y: patioY + 8 },
+    { x: patioX + patioW - 8, y: patioY + 8 },
+    { x: patioX + 8, y: patioY + patioH - 8 },
+    { x: patioX + patioW - 8, y: patioY + patioH - 8 }
+  ];
+
+  poles.forEach((pole) => {
+    ctx.fillStyle = '#451a03';
+    ctx.fillRect(pole.x - 3, pole.y - 18, 6, 20);
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(pole.x, pole.y - 20, 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Festoon fairy lights hanging between poles
+  const festoonBulbs = [
+    { x: 260, y: 494 },
+    { x: 320, y: 496 },
+    { x: 380, y: 497 },
+    { x: 440, y: 496 },
+    { x: 500, y: 494 }
+  ];
+  ctx.strokeStyle = 'rgba(254, 240, 138, 0.35)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(patioX + 8, patioY - 10);
+  ctx.quadraticCurveTo(patioX + patioW / 2, patioY + 6, patioX + patioW - 8, patioY - 10);
+  ctx.stroke();
+
+  festoonBulbs.forEach((b, idx) => {
+    const glow = Math.sin(now * 0.003 + idx) * 0.2 + 0.8;
+    ctx.fillStyle = `rgba(254, 240, 138, ${glow})`;
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = '#f59e0b';
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+
+  // 2. Sharma Ji Chai Stall Building (Shop Counter at tx: 380, ty: 420)
   const tx = MELA_ZONES.CHAI_TAPRI.x;
   const ty = MELA_ZONES.CHAI_TAPRI.y;
-  const isNearChai = dist(player.x, player.y, tx, ty) < 130;
+  const isNearChai = dist(player.x, player.y, tx, ty) < 85 && !player.isSitting;
 
+  // Stall Main Structure
   ctx.fillStyle = '#291b10';
-  ctx.strokeStyle = isNearChai ? '#f97316' : '#78350f';
-  ctx.lineWidth = isNearChai ? 3 : 2;
+  ctx.strokeStyle = isNearChai ? '#fbbf24' : '#78350f';
+  ctx.lineWidth = isNearChai ? 3.5 : 2;
   ctx.beginPath();
-  ctx.roundRect(tx - 65, ty - 45, 130, 85, 12);
+  ctx.roundRect(tx - 90, ty - 50, 180, 92, 12);
   ctx.fill();
   ctx.stroke();
 
-  // Chai Awning
-  ctx.fillStyle = '#ea580c';
-  ctx.fillRect(tx - 65, ty - 45, 130, 20);
+  // Roof Awnings (Striped Festive Awning)
+  for (let s = 0; s < 10; s++) {
+    ctx.fillStyle = s % 2 === 0 ? '#ea580c' : '#fbbf24';
+    ctx.fillRect(tx - 90 + s * 18, ty - 50, 18, 24);
+  }
 
+  // Wooden Counter Board
+  ctx.fillStyle = '#451a03';
+  ctx.fillRect(tx - 85, ty + 12, 170, 26);
+  ctx.strokeStyle = '#ca8a04';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(tx - 85, ty + 12, 170, 26);
+
+  // Shop Signboard
   ctx.fillStyle = '#fef08a';
-  ctx.font = 'bold 12px "Cinzel", serif';
+  ctx.font = 'bold 13px "Cinzel", serif';
   ctx.textAlign = 'center';
-  ctx.fillText('☕ शर्मा जी चाय टपरी', tx, ty - 12);
-  ctx.font = '10px "Outfit", sans-serif';
-  ctx.fillStyle = '#fed7aa';
-  ctx.fillText('Kulhad Chai & Garam Samosa', tx, ty + 4);
+  ctx.fillText('☕ शर्मा जी चाय टपरी (ESTD 1984)', tx, ty - 14);
 
-  // Steaming kettle
+  ctx.font = '9.5px "Outfit", sans-serif';
+  ctx.fillStyle = '#fed7aa';
+  ctx.fillText('अदरक • इलायची • केसर स्पेशल मसाला चाय', tx, ty);
+
+  // Big Shining Brass Samovar / Kettle on Counter
   ctx.fillStyle = '#ca8a04';
   ctx.beginPath();
-  ctx.arc(tx, ty + 24, 10, 0, Math.PI * 2);
+  ctx.arc(tx - 40, ty + 18, 11, 0, Math.PI * 2);
   ctx.fill();
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillRect(tx - 44, ty + 4, 8, 4);
 
+  // Boiling steam rising from samovar
+  const steamPulse = Math.sin(now * 0.006) * 3;
+  ctx.strokeStyle = 'rgba(254, 243, 199, 0.65)';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(tx - 40, ty + 4);
+  ctx.quadraticCurveTo(tx - 43 + steamPulse, ty - 8, tx - 38 + steamPulse, ty - 16);
+  ctx.stroke();
+
+  // Stacks of Authentic Earthen Kulhad Cups (Clay brown #b45309)
+  for (let k = 0; k < 4; k++) {
+    ctx.fillStyle = '#b45309';
+    ctx.beginPath();
+    ctx.moveTo(tx - 12 + k * 8, ty + 24);
+    ctx.lineTo(tx - 6 + k * 8, ty + 24);
+    ctx.lineTo(tx - 7 + k * 8, ty + 32);
+    ctx.lineTo(tx - 11 + k * 8, ty + 32);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Glass jar with biscuits / rusks
+  ctx.fillStyle = 'rgba(224, 242, 254, 0.5)';
+  ctx.fillRect(tx + 30, ty + 14, 14, 20);
+  ctx.fillStyle = '#ca8a04';
+  ctx.fillRect(tx + 32, ty + 18, 10, 14);
+
+  // Wire caddy for tea glasses
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1.2;
+  ctx.strokeRect(tx + 52, ty + 18, 22, 14);
+
+  // Sharma Ji (Shopkeeper) behind counter
+  ctx.fillStyle = '#f8fafc'; // White kurta
+  ctx.beginPath();
+  ctx.roundRect(tx - 8, ty - 6, 16, 18, [3, 3, 0, 0]);
+  ctx.fill();
+  ctx.fillStyle = '#ea580c'; // Nehru jacket
+  ctx.fillRect(tx - 8, ty - 6, 4, 18);
+  ctx.fillRect(tx + 4, ty - 6, 4, 18);
+  ctx.fillStyle = '#fed7aa'; // Head
+  ctx.beginPath();
+  ctx.arc(tx, ty - 12, 7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#ffffff'; // White hair / mustache
+  ctx.beginPath();
+  ctx.arc(tx, ty - 15, 7.5, Math.PI, 0);
+  ctx.fill();
+  ctx.fillStyle = '#1e1b4b'; // Mustache
+  ctx.fillRect(tx - 4, ty - 10, 8, 2);
+
+  // Counter Takeaway Prompt
   if (isNearChai) {
     ctx.fillStyle = '#fbbf24';
     ctx.font = 'bold 11px "Outfit", sans-serif';
-    ctx.fillText('☕ [ Click / Press E ] Sip Masala Chai', tx, ty + 56);
+    ctx.fillText('☕ [ Click / Press E ] Grab Takeaway Chai (5 Coins)', tx, ty + 50);
+  }
+
+  // 3. The 3 Round Tables (CHAI_TABLES)
+  const tables = world.chaiTables || CHAI_TABLES;
+  tables.forEach((tbl) => {
+    // Soft shadow under table
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.beginPath();
+    ctx.ellipse(tbl.x, tbl.y + 4, tbl.radius + 3, tbl.radius * 0.45 + 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pedestal base
+    ctx.fillStyle = '#291b10';
+    ctx.fillRect(tbl.x - 4, tbl.y - 2, 8, 6);
+
+    // Varnished Round Wooden Top
+    const grad = ctx.createRadialGradient(tbl.x - 5, tbl.y - 5, 2, tbl.x, tbl.y, tbl.radius);
+    grad.addColorStop(0, '#a16207');
+    grad.addColorStop(0.7, '#78350f');
+    grad.addColorStop(1, '#451a03');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(tbl.x, tbl.y, tbl.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#ca8a04';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Concentric table ring
+    ctx.strokeStyle = 'rgba(254, 240, 138, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(tbl.x, tbl.y, tbl.radius * 0.65, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Centerpiece: Fresh marigold flowers
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.arc(tbl.x, tbl.y, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ea580c';
+    ctx.beginPath();
+    ctx.arc(tbl.x, tbl.y, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tabletop Steaming Kulhad Cups
+    const cupOffsets = [
+      { dx: -tbl.radius * 0.4, dy: -tbl.radius * 0.25 },
+      { dx: tbl.radius * 0.35, dy: tbl.radius * 0.25 }
+    ];
+
+    cupOffsets.forEach((cOff, cIdx) => {
+      const cx = tbl.x + cOff.dx;
+      const cy = tbl.y + cOff.dy;
+
+      // Clay cup
+      ctx.fillStyle = '#b45309';
+      ctx.beginPath();
+      ctx.moveTo(cx - 3, cy - 3);
+      ctx.lineTo(cx + 3, cy - 3);
+      ctx.lineTo(cx + 2, cy + 3);
+      ctx.lineTo(cx - 2, cy + 3);
+      ctx.closePath();
+      ctx.fill();
+
+      // Tea surface
+      ctx.fillStyle = '#7c2d12';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy - 3, 2.8, 1, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Gentle steam trail
+      const steamT = now * 0.005 + cIdx * 1.5;
+      ctx.strokeStyle = 'rgba(254, 243, 199, 0.65)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 4);
+      ctx.quadraticCurveTo(cx + Math.sin(steamT) * 3, cy - 8, cx + Math.sin(steamT + 1) * 2, cy - 14);
+      ctx.stroke();
+    });
+  });
+
+  // 4. The 10 Chairs (CHAI_CHAIRS)
+  const chairs = world.chaiChairs || CHAI_CHAIRS;
+  let nearUnoccupiedChair = null;
+
+  chairs.forEach((chair) => {
+    const isOccupied = !!chair.occupiedBy;
+    const isLocalSittingHere = player.isSitting && player.sittingChairId === chair.id;
+    const dToPlayer = dist(player.x, player.y, chair.x, chair.y);
+    const isNear = dToPlayer < 48 && !player.isSitting;
+
+    if (isNear && !isOccupied && !nearUnoccupiedChair) {
+      nearUnoccupiedChair = chair;
+    }
+
+    // Chair shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.beginPath();
+    ctx.ellipse(chair.x, chair.y + 4, 11, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Interactive Highlight Ring if close and unoccupied
+    if (isNear && !isOccupied) {
+      const pulse = Math.sin(now * 0.008) * 3;
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 2.5;
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(chair.x, chair.y, 16 + pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    // 4 Chair Legs
+    ctx.fillStyle = '#451a03';
+    ctx.fillRect(chair.x - 8, chair.y - 7, 2.5, 12);
+    ctx.fillRect(chair.x + 5.5, chair.y - 7, 2.5, 12);
+    ctx.fillRect(chair.x - 7, chair.y - 2, 2.5, 10);
+    ctx.fillRect(chair.x + 4.5, chair.y - 2, 2.5, 10);
+
+    // Woven Cane Seat Cushion
+    ctx.fillStyle = isLocalSittingHere ? '#b45309' : '#92400e';
+    ctx.beginPath();
+    ctx.roundRect(chair.x - 9, chair.y - 8, 18, 14, 4);
+    ctx.fill();
+
+    ctx.strokeStyle = '#ca8a04';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Curved Chair Backrest based on chair.facing
+    ctx.fillStyle = '#78350f';
+    ctx.strokeStyle = '#d97706';
+    ctx.lineWidth = 1.5;
+
+    if (chair.facing === 'up') {
+      // Backrest is on bottom (south side)
+      ctx.beginPath();
+      ctx.roundRect(chair.x - 9, chair.y + 2, 18, 5, 2);
+      ctx.fill();
+      ctx.stroke();
+    } else if (chair.facing === 'down') {
+      // Backrest is on top (north side)
+      ctx.beginPath();
+      ctx.roundRect(chair.x - 9, chair.y - 12, 18, 5, 2);
+      ctx.fill();
+      ctx.stroke();
+    } else if (chair.facing === 'left') {
+      // Backrest is on right (east side)
+      ctx.beginPath();
+      ctx.roundRect(chair.x + 5, chair.y - 9, 5, 16, 2);
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      // Backrest is on left (west side)
+      ctx.beginPath();
+      ctx.roundRect(chair.x - 10, chair.y - 9, 5, 16, 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+  });
+
+  // Prompt above nearest chair
+  if (nearUnoccupiedChair) {
+    ctx.save();
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#000000';
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 11px "Outfit", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🪑 [ Click / Press E ] Sit & Drink Chai', nearUnoccupiedChair.x, nearUnoccupiedChair.y - 22);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+// -------------------------------------------------------------
+// CHAI SERVER SPRITE: CHHOTU (छोटू - चायवाला)
+// Walks from Sharma Ji shop to user's chair carrying tea tray & kettle
+// -------------------------------------------------------------
+function renderChaiServer(ctx, server) {
+  if (!server) return;
+  const now = performance.now();
+
+  ctx.save();
+  ctx.translate(server.x, server.y);
+
+  const SCALE = 1.35;
+  ctx.scale(SCALE, SCALE);
+
+  // Soft ground shadow
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  ctx.beginPath();
+  ctx.ellipse(0, 13, 11, 4.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Animated leg walk cycle
+  const isMoving = server.phase === 'COMING' || server.phase === 'RETURNING';
+  const walkOffset = isMoving ? Math.sin(server.walkFrame || (now * 0.01)) * 4 : 0;
+
+  // White dhoti / trousers
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(-5, 3, 3.5, 10 + walkOffset);
+  ctx.fillRect(1.5, 3, 3.5, 10 - walkOffset);
+
+  // White Kurta
+  ctx.fillStyle = '#f1f5f9';
+  ctx.beginPath();
+  ctx.roundRect(-8, -11, 16, 16, [3, 3, 1, 1]);
+  ctx.fill();
+
+  // Royal Sapphire / Indigo Nehru Waistcoat (कोट)
+  ctx.fillStyle = '#1e3a8a';
+  ctx.fillRect(-8, -11, 4, 15);
+  ctx.fillRect(4, -11, 4, 15);
+  ctx.fillStyle = '#fbbf24'; // Gold buttons
+  ctx.fillRect(-0.5, -9, 1, 2);
+  ctx.fillRect(-0.5, -5, 1, 2);
+
+  // Red Gamcha (scarf around neck)
+  ctx.fillStyle = '#dc2626';
+  ctx.fillRect(-7, -13, 14, 4);
+  ctx.fillRect(3, -10, 3, 8); // draped end
+
+  // Server Head
+  ctx.fillStyle = '#fed7aa';
+  ctx.beginPath();
+  ctx.arc(0, -18, 7.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Hair & Tilak
+  ctx.fillStyle = '#0f172a';
+  ctx.beginPath();
+  ctx.arc(0, -21, 7.5, Math.PI, 0);
+  ctx.fill();
+  ctx.fillStyle = '#ea580c'; // Red tilak
+  ctx.fillRect(-0.5, -20, 1.5, 3);
+
+  // Friendly smile
+  ctx.strokeStyle = '#7c2d12';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(0, -16.5, 2.5, 0.1, Math.PI - 0.1);
+  ctx.stroke();
+
+  // Carrying Brass Tea Kettle & Serving Tray
+  const isServing = server.phase === 'SERVING';
+
+  // 1. Vintage Brass Kettle (केतली) in hand
+  ctx.save();
+  if (isServing) {
+    // Tilted pouring pose!
+    ctx.translate(-11, -5);
+    ctx.rotate(0.55);
+  } else {
+    ctx.translate(-10, -2);
+  }
+  // Kettle body
+  ctx.fillStyle = '#ca8a04';
+  ctx.beginPath();
+  ctx.arc(0, 0, 5, 0, Math.PI * 2);
+  ctx.fill();
+  // Kettle spout
+  ctx.fillStyle = '#eab308';
+  ctx.beginPath();
+  ctx.moveTo(3, -2);
+  ctx.lineTo(8, -6);
+  ctx.lineTo(7, -3);
+  ctx.closePath();
+  ctx.fill();
+  // Kettle handle
+  ctx.strokeStyle = '#78350f';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(0, -3, 4, Math.PI, 0);
+  ctx.stroke();
+
+  // If serving: pouring stream of hot tea!
+  if (isServing) {
+    ctx.strokeStyle = '#9a3412';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(8, -6);
+    ctx.lineTo(16, 5);
+    ctx.stroke();
+    // Splash droplets
+    ctx.fillStyle = '#ca8a04';
+    ctx.beginPath();
+    ctx.arc(17, 6, 1.2, 0, Math.PI * 2);
+    ctx.arc(15, 8, 1, 0, Math.PI * 2);
+    ctx.fill();
   }
   ctx.restore();
 
+  // 2. Stainless Steel / Brass Serving Tray with Steaming Kulhad
+  ctx.save();
+  ctx.translate(9, -4);
+  // Tray
+  ctx.fillStyle = '#94a3b8';
+  ctx.fillRect(-2, 3, 13, 2.5);
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 0.8;
+  ctx.strokeRect(-2, 3, 13, 2.5);
+
+  // Steaming Clay Kulhad on tray
+  ctx.fillStyle = '#b45309';
+  ctx.beginPath();
+  ctx.moveTo(2, -2);
+  ctx.lineTo(7, -2);
+  ctx.lineTo(6, 3);
+  ctx.lineTo(3, 3);
+  ctx.closePath();
+  ctx.fill();
+
+  // Hot tea in cup
+  ctx.fillStyle = '#7c2d12';
+  ctx.beginPath();
+  ctx.ellipse(4.5, -2, 2.2, 0.8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Tea steam curls
+  const steamT = now * 0.006;
+  ctx.strokeStyle = 'rgba(254, 243, 199, 0.75)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(4.5, -3);
+  ctx.quadraticCurveTo(4.5 + Math.sin(steamT) * 3, -7, 4.5 + Math.sin(steamT + 1) * 2, -12);
+  ctx.stroke();
+  ctx.restore();
+
+  // Overhead Name Badge
+  const nameY = -34;
+  ctx.font = 'bold 9.5px "Outfit", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillText('☕ छोटू (Chhotu • Chaiwala)', 0, nameY);
+
+  // Floating Speech Bubble with Dialogue
+  if (server.bubble) {
+    ctx.font = 'bold 9.5px "Outfit", sans-serif';
+    const textWidth = ctx.measureText(server.bubble).width;
+    const pad = 8;
+    const bw = textWidth + pad * 2;
+    const bh = 20;
+    const bx = -bw / 2;
+    const by = -64;
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+    ctx.strokeStyle = '#f97316';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, bw, bh, 6);
+    ctx.fill();
+    ctx.stroke();
+
+    // Speech bubble triangle tail
+    ctx.beginPath();
+    ctx.moveTo(-4, by + bh);
+    ctx.lineTo(0, by + bh + 4);
+    ctx.lineTo(4, by + bh);
+    ctx.fill();
+
+    ctx.fillStyle = '#431407';
+    ctx.fillText(server.bubble, 0, by + 14);
+  }
+
+  ctx.restore();
 }
 
 function renderEntranceArch(ctx) {
@@ -3079,11 +3968,17 @@ function renderCharacter(
     ctx.fillText('🎶', 10 + Math.cos(t) * 4, -54);
   }
 
-  const walkOffset = char.isMoving || isDancing ? Math.sin(char.walkFrame || (performance.now() * 0.01)) * 4 : 0;
+  const isSitting = char.isSitting;
+  const walkOffset = !isSitting && (char.isMoving || isDancing) ? Math.sin(char.walkFrame || (performance.now() * 0.01)) * 4 : 0;
 
   ctx.fillStyle = char.outfit?.bottom || char.bottomColor || '#f8fafc';
-  ctx.fillRect(-6, 2, 4, 11 + walkOffset);
-  ctx.fillRect(2, 2, 4, 11 - walkOffset);
+  if (isSitting) {
+    // Seated folded legs
+    ctx.fillRect(-7, 3, 14, 5);
+  } else {
+    ctx.fillRect(-6, 2, 4, 11 + walkOffset);
+    ctx.fillRect(2, 2, 4, 11 - walkOffset);
+  }
 
   ctx.fillStyle = char.outfit?.top || char.color || '#ea580c';
   ctx.beginPath();
@@ -3110,6 +4005,43 @@ function renderCharacter(
     ctx.beginPath();
     ctx.arc(0, -21, 8, Math.PI, 0);
     ctx.fill();
+  }
+
+  // If sitting: character is holding and sipping hot kulhad chai
+  if (isSitting) {
+    ctx.save();
+    // Hands holding cup in front
+    ctx.fillStyle = '#fed7aa';
+    ctx.beginPath();
+    ctx.arc(-4, -1, 3, 0, Math.PI * 2);
+    ctx.arc(4, -1, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Terracotta Kulhad cup
+    ctx.fillStyle = '#b45309';
+    ctx.beginPath();
+    ctx.moveTo(-4, -5);
+    ctx.lineTo(4, -5);
+    ctx.lineTo(3, 2);
+    ctx.lineTo(-3, 2);
+    ctx.closePath();
+    ctx.fill();
+
+    // Hot Chai surface
+    ctx.fillStyle = '#7c2d12';
+    ctx.beginPath();
+    ctx.ellipse(0, -5, 3.5, 1.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Rising steam curls
+    const st = performance.now() * 0.005;
+    ctx.strokeStyle = 'rgba(254, 243, 199, 0.75)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(Math.sin(st) * 2, -7);
+    ctx.quadraticCurveTo(Math.sin(st + 1) * 3, -11, Math.sin(st + 2) * 2, -16);
+    ctx.stroke();
+    ctx.restore();
   }
 
   // Equipped Weapon or Bomb / Cracker in Hand
@@ -3389,11 +4321,11 @@ function renderCharacter(
   const nameY = -35;
 
   if (isLocal) {
-    ctx.fillStyle = isDancing ? '#f43f5e' : '#fbbf24';
-    ctx.fillText(`${char.name || 'You'} ${isDancing ? '💃 (Dancing!)' : '(You)'}`, 0, nameY);
+    ctx.fillStyle = char.isSitting ? '#fed7aa' : (isDancing ? '#f43f5e' : '#fbbf24');
+    ctx.fillText(`${char.name || 'You'} ${char.isSitting ? '☕ (Sipping Chai)' : (isDancing ? '💃 (Dancing!)' : '(You)')}`, 0, nameY);
   } else if (isRemote) {
     ctx.fillStyle = '#38bdf8';
-    ctx.fillText(`🟢 ${char.name || 'Player'} (Online)`, 0, nameY);
+    ctx.fillText(`🟢 ${char.name || 'Player'} ${char.isSitting ? '☕ (Chai)' : '(Online)'}`, 0, nameY);
   } else {
     ctx.fillStyle = '#e2e8f0';
     ctx.fillText(char.name, 0, nameY);

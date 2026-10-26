@@ -1038,6 +1038,92 @@ class SoundEngine {
       osc.stop(t + 0.14);
     } catch {}
   }
+
+  // Steaming hot tea pouring sound with rising resonance
+  playChaiPour() {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      this.init();
+      const t = this.ctx.currentTime;
+      const duration = 1.1;
+
+      // Noise source for pouring liquid stream
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.createNoiseBuffer(duration);
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(650, t);
+      // Frequency rises as the cup fills up with hot tea!
+      filter.frequency.exponentialRampToValueAtTime(1650, t + duration);
+      filter.Q.setValueAtTime(4.5, t);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.01, t);
+      gain.gain.linearRampToValueAtTime(0.09, t + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+      noise.start(t);
+      noise.stop(t + duration);
+
+      // Ceramic / clay cup clink at the end
+      const osc = this.ctx.createOscillator();
+      const og = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(2400, t + duration * 0.85);
+      og.gain.setValueAtTime(0.04, t + duration * 0.85);
+      og.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      osc.connect(og);
+      og.connect(this.ctx.destination);
+      osc.start(t + duration * 0.85);
+      osc.stop(t + duration);
+    } catch {}
+  }
+
+  // Tea sip and contented ahh sound
+  playChaiSip() {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      this.init();
+      const t = this.ctx.currentTime;
+      const duration = 0.45;
+
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.createNoiseBuffer(duration);
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(2800, t);
+      filter.frequency.exponentialRampToValueAtTime(1400, t + duration);
+      filter.Q.setValueAtTime(6, t);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.05, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+      noise.start(t);
+      noise.stop(t + duration);
+
+      // Gentle warm chime of satisfaction
+      const osc = this.ctx.createOscillator();
+      const og = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(523.25, t + 0.15); // C5
+      osc.frequency.exponentialRampToValueAtTime(659.25, t + 0.35); // E5
+      og.gain.setValueAtTime(0.03, t + 0.15);
+      og.gain.exponentialRampToValueAtTime(0.001, t + 0.48);
+      osc.connect(og);
+      og.connect(this.ctx.destination);
+      osc.start(t + 0.15);
+      osc.stop(t + 0.5);
+    } catch {}
+  }
 }
 
 export const soundEngine = new SoundEngine();

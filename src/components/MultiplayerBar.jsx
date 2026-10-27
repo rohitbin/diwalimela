@@ -1,7 +1,6 @@
-// Modern Glassmorphic Top Navigation & HUD Bar
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { soundEngine } from '../audio/soundEngine';
-import { Users, Volume2, VolumeX, Music, Share2, HelpCircle, User, Sparkles, Check, MapPin, Download } from 'lucide-react';
+import { Users, Volume2, VolumeX, Music, Share2, HelpCircle, User, Sparkles, Check, MapPin, Download, SkipForward } from 'lucide-react';
 
 export default function MultiplayerBar({
   roomId,
@@ -16,12 +15,29 @@ export default function MultiplayerBar({
 }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isMusicOn, setIsMusicOn] = useState(false);
+  const [currentFestiveTrack, setCurrentFestiveTrack] = useState(() => soundEngine.getCurrentFestiveTrack?.() || { title: 'Aayee Hai Diwali', emoji: '🪔' });
   const [copied, setCopied] = useState(false);
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== 'undefined' ? window.innerWidth : 1200
   );
 
-  React.useEffect(() => {
+  useEffect(() => {
+    const handleTrackChange = (e) => {
+      if (e.detail) setCurrentFestiveTrack(e.detail);
+    };
+    const handleStateChange = (e) => {
+      if (e.detail?.isPlaying !== undefined) setIsMusicOn(e.detail.isPlaying);
+      if (e.detail?.track) setCurrentFestiveTrack(e.detail.track);
+    };
+    window.addEventListener('festiveTrackChanged', handleTrackChange);
+    window.addEventListener('festiveMusicStateChanged', handleStateChange);
+    return () => {
+      window.removeEventListener('festiveTrackChanged', handleTrackChange);
+      window.removeEventListener('festiveMusicStateChanged', handleStateChange);
+    };
+  }, []);
+
+  useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -38,6 +54,12 @@ export default function MultiplayerBar({
   const handleToggleMusic = () => {
     const playing = soundEngine.toggleFestiveMusic();
     setIsMusicOn(playing);
+  };
+
+  const handleNextFestiveTrack = (e) => {
+    e.stopPropagation();
+    const next = soundEngine.nextFestiveTrack?.();
+    if (next) setCurrentFestiveTrack(next);
   };
 
   const handleShareInvite = () => {
@@ -304,27 +326,62 @@ export default function MultiplayerBar({
           {!isMobile && <span>{copied ? 'Link Copied!' : 'Invite Friends'}</span>}
         </button>
 
-        {/* Music Button */}
-        <button
-          onClick={handleToggleMusic}
-          style={{
-            backgroundColor: isMusicOn ? 'rgba(245, 158, 11, 0.35)' : 'rgba(20, 14, 32, 0.92)',
-            backdropFilter: 'blur(12px)',
-            border: isMusicOn ? '1.5px solid #fbbf24' : '1px solid rgba(255, 255, 255, 0.15)',
-            borderRadius: '50%',
-            width: isMobile ? 32 : 36,
-            height: isMobile ? 32 : 36,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: isMusicOn ? '#fef08a' : '#cbd5e1',
-            cursor: 'pointer',
-            touchAction: 'manipulation'
-          }}
-          title={isMusicOn ? 'Mute Festive Drone' : 'Play Festive Drone Music'}
-        >
-          <Music size={isMobile ? 14 : 16} />
-        </button>
+        {/* Real Festive Music Button & Track Info */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <button
+            onClick={handleToggleMusic}
+            style={{
+              backgroundColor: isMusicOn ? 'rgba(245, 158, 11, 0.4)' : 'rgba(20, 14, 32, 0.92)',
+              backdropFilter: 'blur(12px)',
+              border: isMusicOn ? '1.5px solid #fbbf24' : '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: isMusicOn && !isMobile ? '20px' : '50%',
+              width: isMusicOn && !isMobile ? 'auto' : (isMobile ? 32 : 36),
+              height: isMobile ? 32 : 36,
+              padding: isMusicOn && !isMobile ? '0 12px 0 10px' : 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              color: isMusicOn ? '#fef08a' : '#cbd5e1',
+              cursor: 'pointer',
+              touchAction: 'manipulation',
+              boxShadow: isMusicOn ? '0 0 16px rgba(245, 158, 11, 0.45)' : 'none',
+              transition: 'all 0.2s'
+            }}
+            title={isMusicOn ? `Playing: "${currentFestiveTrack?.title}" • Tap to pause` : 'Play Real Festive Diwali Music 🪔'}
+          >
+            <Music size={isMobile ? 14 : 16} style={{ animation: isMusicOn ? 'pulse 1.2s ease-in-out infinite' : 'none' }} />
+            {isMusicOn && !isMobile && (
+              <span style={{ fontSize: 11, fontWeight: 800, color: '#fef08a', maxWidth: 110, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {currentFestiveTrack?.title || 'Diwali Music'}
+              </span>
+            )}
+          </button>
+
+          {isMusicOn && (
+            <button
+              onClick={handleNextFestiveTrack}
+              style={{
+                backgroundColor: 'rgba(245, 158, 11, 0.25)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(251, 191, 36, 0.5)',
+                borderRadius: '50%',
+                width: isMobile ? 26 : 28,
+                height: isMobile ? 26 : 28,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fef08a',
+                cursor: 'pointer',
+                touchAction: 'manipulation',
+                transition: 'all 0.15s'
+              }}
+              title="Next Festive Diwali Song"
+            >
+              <SkipForward size={isMobile ? 12 : 13} />
+            </button>
+          )}
+        </div>
 
         {/* SFX Mute/Unmute */}
         <button

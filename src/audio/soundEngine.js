@@ -8,6 +8,19 @@ class SoundEngine {
     this.musicNode = null;
     this.musicPlaying = false;
     this.ambientGain = null;
+
+    // Real Music: Festive Background Audio
+    this.festiveAudio = null;
+    this.currentFestiveTrackIdx = 0;
+    this.festiveVolume = 0.55;
+
+    // Real Music: Yo Yo Honey Singh DJ Stage / Dance Floor Audio
+    this.djAudio = null;
+    this.currentHoneySinghTrackId = 'blueeyes';
+    this.djTargetVol = 0.0;
+    this.djFadeTimeout = null;
+    this.casaTupkaInitialized = false;
+    this.casaTupkaRunning = false;
   }
 
   init() {
@@ -15,18 +28,51 @@ class SoundEngine {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AudioContext();
     }
-    if (this.ctx.state === 'suspended') {
+    if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
+    }
+    this.initAudioElements();
+  }
+
+  initAudioElements() {
+    if (typeof window === 'undefined') return;
+
+    if (!this.festiveAudio) {
+      this.festiveAudio = new Audio();
+      this.festiveAudio.loop = true;
+      this.festiveAudio.preload = 'auto';
+      const fTrack = this.getCurrentFestiveTrack();
+      if (fTrack?.audioUrl) {
+        this.festiveAudio.src = fTrack.audioUrl;
+      }
+      this.festiveAudio.volume = this.isMuted ? 0 : this.festiveVolume;
+    }
+
+    if (!this.djAudio) {
+      this.djAudio = new Audio();
+      this.djAudio.loop = true;
+      this.djAudio.preload = 'auto';
+      const dTrack = this.getCurrentHoneySinghTrack();
+      if (dTrack?.audioUrl) {
+        this.djAudio.src = dTrack.audioUrl;
+      }
+      this.djAudio.volume = 0;
     }
   }
 
   toggleMute() {
     this.isMuted = !this.isMuted;
-    if (this.ambientGain) {
-      this.ambientGain.gain.setValueAtTime(this.isMuted ? 0 : 0.12, this.ctx?.currentTime || 0);
+    if (this.festiveAudio) {
+      this.festiveAudio.volume = this.isMuted ? 0 : this.festiveVolume;
     }
-    if (this.casaTupkaGain) {
-      this.casaTupkaGain.gain.setValueAtTime(this.isMuted ? 0 : (this.casaTupkaTargetVol || 0) * 0.28, this.ctx?.currentTime || 0);
+    if (this.djAudio) {
+      this.djAudio.volume = this.isMuted ? 0 : (this.djTargetVol || 0);
+    }
+    if (this.ambientGain && this.ctx) {
+      this.ambientGain.gain.setValueAtTime(this.isMuted ? 0 : 0.08, this.ctx.currentTime);
+    }
+    if (this.casaTupkaGain && this.ctx) {
+      this.casaTupkaGain.gain.setValueAtTime(this.isMuted ? 0 : (this.casaTupkaTargetVol || 0) * 0.28, this.ctx.currentTime);
     }
     return this.isMuted;
   }
@@ -402,61 +448,94 @@ class SoundEngine {
     } catch {}
   }
 
-  // 12. Indian Festive Ambient Drone & Melodic Chords (Toggleable)
+  // 12. Real Festive Diwali Background Music & Playlist Controller
+  getFestiveTracks() {
+    return FESTIVE_DIWALI_TRACKS;
+  }
+
+  getCurrentFestiveTrack() {
+    return FESTIVE_DIWALI_TRACKS[this.currentFestiveTrackIdx % FESTIVE_DIWALI_TRACKS.length] || FESTIVE_DIWALI_TRACKS[0];
+  }
+
+  setFestiveTrack(idxOrId) {
+    this.init();
+    let idx = 0;
+    if (typeof idxOrId === 'number') {
+      idx = Math.max(0, Math.min(FESTIVE_DIWALI_TRACKS.length - 1, idxOrId));
+    } else {
+      const foundIdx = FESTIVE_DIWALI_TRACKS.findIndex((t) => t.id === idxOrId);
+      if (foundIdx !== -1) idx = foundIdx;
+    }
+    this.currentFestiveTrackIdx = idx;
+    const track = FESTIVE_DIWALI_TRACKS[idx];
+
+    if (this.festiveAudio) {
+      const wasPlaying = !this.festiveAudio.paused;
+      this.festiveAudio.src = track.audioUrl;
+      this.festiveAudio.currentTime = 0;
+      if (wasPlaying || this.musicPlaying) {
+        this.festiveAudio.volume = this.isMuted ? 0 : this.festiveVolume;
+        this.festiveAudio.play().catch(() => {});
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('festiveTrackChanged', { detail: track })
+      );
+    }
+    return track;
+  }
+
+  nextFestiveTrack() {
+    const nextIdx = (this.currentFestiveTrackIdx + 1) % FESTIVE_DIWALI_TRACKS.length;
+    return this.setFestiveTrack(nextIdx);
+  }
+
   toggleFestiveMusic() {
     this.init();
     if (this.musicPlaying) {
-      if (this.musicInterval) clearInterval(this.musicInterval);
-      if (this.ambientGain) {
+      if (this.festiveAudio) {
+        this.festiveAudio.pause();
+      }
+      if (this.ambientGain && this.ctx) {
         this.ambientGain.gain.setValueAtTime(0.001, this.ctx.currentTime);
       }
+      if (this.musicInterval) {
+        clearInterval(this.musicInterval);
+        this.musicInterval = null;
+      }
       this.musicPlaying = false;
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('festiveMusicStateChanged', { detail: { isPlaying: false } })
+        );
+      }
       return false;
     }
 
     this.musicPlaying = true;
-    this.ambientGain = this.ctx.createGain();
-    this.ambientGain.gain.setValueAtTime(this.isMuted ? 0 : 0.08, this.ctx.currentTime);
-    this.ambientGain.connect(this.ctx.destination);
+    if (this.festiveAudio) {
+      const track = this.getCurrentFestiveTrack();
+      if (!this.festiveAudio.src || !this.festiveAudio.src.includes(track.audioUrl)) {
+        this.festiveAudio.src = track.audioUrl;
+      }
+      this.festiveAudio.volume = this.isMuted ? 0 : this.festiveVolume;
+      const playPromise = this.festiveAudio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('[SoundEngine] Festive music autoplay waiting for user interaction:', err);
+        });
+      }
+    }
 
-    // Tanpura Drone frequencies (Sa, Pa, High Sa - C#, G#, C#)
-    const droneFreqs = [138.59, 207.65, 277.18];
-    droneFreqs.forEach((freq) => {
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(380, this.ctx.currentTime);
-
-      gain.gain.setValueAtTime(0.03, this.ctx.currentTime);
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(this.ambientGain);
-      osc.start();
-    });
-
-    // Gentle sitar-like rag notes generator
-    const ragaNotes = [277.18, 311.13, 349.23, 415.3, 466.16, 554.37, 622.25];
-    this.musicInterval = setInterval(() => {
-      if (!this.musicPlaying || this.isMuted || !this.ctx) return;
-      const note = ragaNotes[Math.floor(Math.random() * ragaNotes.length)];
-      const t = this.ctx.currentTime;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(note, t);
-
-      gain.gain.setValueAtTime(0.04, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
-
-      osc.connect(gain);
-      gain.connect(this.ambientGain);
-      osc.start(t);
-      osc.stop(t + 1.25);
-    }, 1800);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('festiveMusicStateChanged', {
+          detail: { isPlaying: true, track: this.getCurrentFestiveTrack() }
+        })
+      );
+    }
 
     return true;
   }
@@ -1142,16 +1221,6 @@ class SoundEngine {
   initCasaTupkaEngine() {
     if (this.casaTupkaInitialized) return;
     this.init();
-    if (!this.ctx) return;
-
-    this.casaTupkaGain = this.ctx.createGain();
-    this.casaTupkaGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
-    this.casaTupkaGain.connect(this.ctx.destination);
-
-    this.currentHoneySinghTrackId = 'casatupka';
-    this.casaTupkaStep = 0;
-    this.casaTupkaRunning = false;
-    this.casaTupkaInterval = null;
     this.casaTupkaInitialized = true;
     this.casaTupkaTargetVol = 0.0;
   }
@@ -1161,7 +1230,7 @@ class SoundEngine {
   }
 
   getCurrentHoneySinghTrack() {
-    const trackId = this.currentHoneySinghTrackId || 'casatupka';
+    const trackId = this.currentHoneySinghTrackId || 'blueeyes';
     return HONEY_SINGH_TRACKS.find((t) => t.id === trackId) || HONEY_SINGH_TRACKS[0];
   }
 
@@ -1170,16 +1239,16 @@ class SoundEngine {
     if (!found) return;
 
     this.currentHoneySinghTrackId = trackId;
-    this.casaTupkaStep = 0;
+    this.initAudioElements();
 
-    // If currently playing in dance area, smoothly reboot loop to new BPM & beat
-    if (this.casaTupkaRunning) {
-      if (this.casaTupkaInterval) {
-        clearInterval(this.casaTupkaInterval);
-        this.casaTupkaInterval = null;
+    if (this.djAudio) {
+      const wasPlaying = !this.djAudio.paused;
+      this.djAudio.src = found.audioUrl;
+      this.djAudio.currentTime = 0;
+      if (wasPlaying || this.djTargetVol > 0.01) {
+        this.djAudio.volume = this.isMuted ? 0 : Math.max(0.1, this.djTargetVol || 0.85);
+        this.djAudio.play().catch(() => {});
       }
-      this.casaTupkaRunning = false;
-      this.startCasaTupkaLoop();
     }
 
     if (typeof window !== 'undefined') {
@@ -1197,32 +1266,93 @@ class SoundEngine {
     return this.setHoneySinghTrack(HONEY_SINGH_TRACKS[nextIdx].id);
   }
 
+  playDjTrackManually() {
+    this.init();
+    this.initAudioElements();
+    if (!this.djAudio) return;
+
+    const track = this.getCurrentHoneySinghTrack();
+    if (!this.djAudio.src || !this.djAudio.src.includes(track.audioUrl)) {
+      this.djAudio.src = track.audioUrl;
+    }
+    this.djTargetVol = 0.85;
+    this.djAudio.volume = this.isMuted ? 0 : 0.85;
+    return this.djAudio.play().catch(() => {});
+  }
+
+  pauseDjTrackManually() {
+    if (this.djAudio) {
+      this.djAudio.pause();
+    }
+  }
+
+  isDjTrackPlaying() {
+    return this.djAudio ? !this.djAudio.paused : false;
+  }
+
+  getDjAudioCurrentTime() {
+    return this.djAudio ? this.djAudio.currentTime : 0;
+  }
+
+  getDjAudioDuration() {
+    return this.djAudio && !isNaN(this.djAudio.duration) ? this.djAudio.duration : 0;
+  }
+
+  seekDjAudio(timeSec) {
+    if (this.djAudio && !isNaN(timeSec)) {
+      this.djAudio.currentTime = Math.max(0, Math.min(this.djAudio.duration || 300, timeSec));
+    }
+  }
+
   updateCasaTupkaSpatial(targetVolume = 0.0) {
-    if (!this.ctx) this.init();
     if (!this.casaTupkaInitialized) this.initCasaTupkaEngine();
-    if (!this.casaTupkaGain) return;
+    this.initAudioElements();
 
     const effectiveVol = this.isMuted ? 0 : Math.max(0, Math.min(1.0, targetVolume));
-    this.casaTupkaTargetVol = effectiveVol;
+    this.djTargetVol = effectiveVol;
 
-    const t = this.ctx.currentTime;
-    // Smooth spatial ramping
-    this.casaTupkaGain.gain.cancelScheduledValues(t);
-    this.casaTupkaGain.gain.linearRampToValueAtTime(effectiveVol * 0.32, t + 0.08);
-
-    if (effectiveVol > 0.01) {
-      if (!this.casaTupkaRunning) {
-        this.startCasaTupkaLoop();
-      }
-    } else {
-      if (this.casaTupkaRunning && effectiveVol <= 0.001) {
-        if (this.casaTupkaStopTimeout) clearTimeout(this.casaTupkaStopTimeout);
-        this.casaTupkaStopTimeout = setTimeout(() => {
-          if (this.casaTupkaTargetVol <= 0.001 && this.casaTupkaRunning) {
-            this.stopCasaTupkaLoop();
+    if (this.djAudio) {
+      if (effectiveVol > 0.01) {
+        if (this.djFadeTimeout) {
+          clearTimeout(this.djFadeTimeout);
+          this.djFadeTimeout = null;
+        }
+        this.djAudio.volume = effectiveVol;
+        if (this.djAudio.paused) {
+          const track = this.getCurrentHoneySinghTrack();
+          if (!this.djAudio.src || !this.djAudio.src.includes(track.audioUrl)) {
+            this.djAudio.src = track.audioUrl;
           }
-        }, 1200);
+          this.djAudio.play().catch(() => {});
+        }
+
+        // Auto-duck festive background music when dancing on the DJ floor!
+        if (this.festiveAudio && this.musicPlaying && !this.isMuted) {
+          this.festiveAudio.volume = Math.max(0.04, this.festiveVolume * (1 - effectiveVol * 0.85));
+        }
+      } else {
+        // Smoothly fade out when walking away from DJ floor
+        if (!this.djAudio.paused && !this.djFadeTimeout) {
+          this.djFadeTimeout = setTimeout(() => {
+            if (this.djTargetVol <= 0.01 && this.djAudio && !this.djAudio.paused) {
+              this.djAudio.pause();
+            }
+            this.djFadeTimeout = null;
+          }, 1500);
+        }
+
+        // Restore festive background volume
+        if (this.festiveAudio && this.musicPlaying && !this.isMuted) {
+          this.festiveAudio.volume = this.festiveVolume;
+        }
       }
+    }
+
+    // Keep procedural fallback for legacy
+    if (this.casaTupkaGain && this.ctx) {
+      const t = this.ctx.currentTime;
+      this.casaTupkaGain.gain.cancelScheduledValues(t);
+      this.casaTupkaGain.gain.linearRampToValueAtTime(effectiveVol * 0.1, t + 0.08);
     }
   }
 
@@ -1543,18 +1673,267 @@ class SoundEngine {
 }
 
 // =============================================================
-// YO YO HONEY SINGH HIT TRACKS CATALOGUE
+// REAL FESTIVE DIWALI MUSIC CATALOGUE
+// =============================================================
+export const FESTIVE_DIWALI_TRACKS = [
+  {
+    id: 'aayee_hai_diwali',
+    title: 'Aayee Hai Diwali',
+    hindiTitle: 'आई है दिवाली',
+    artist: 'Traditional / Bollywood Hit',
+    tagline: 'Suno Ji Ghar Aaye • Grand Festive Celebration',
+    emoji: '🪔',
+    audioUrl: '/audio/aayee_hai_diwali.mp3'
+  },
+  {
+    id: 'aayi_diwali_deeponwali',
+    title: 'Aayi Diwali Deeponwali',
+    hindiTitle: 'आई दिवाली दीपोंवाली',
+    artist: 'Traditional Deepotsav Melodies',
+    tagline: 'Har Ghar Deep Jalaaye • Auspicious Lights',
+    emoji: '✨',
+    audioUrl: '/audio/aayi_diwali_deeponwali.mp3'
+  },
+  {
+    id: 'happy_diwali',
+    title: 'Happy Diwali Utsav',
+    hindiTitle: 'हैप्पी दिवाली उत्सव',
+    artist: 'Festive Celebration',
+    tagline: 'Mela Fireworks & Crackers Celebration Beat',
+    emoji: '🎆',
+    audioUrl: '/audio/happy_diwali.mp3'
+  }
+];
+
+// =============================================================
+// YO YO HONEY SINGH HIT TRACKS CATALOGUE (REAL MP3 AUDIO)
 // =============================================================
 export const HONEY_SINGH_TRACKS = [
   {
+    id: 'blueeyes',
+    title: 'Blue Eyes',
+    hindiTitle: 'ब्लू आईज',
+    year: '2013 / All-Time Hit',
+    bpm: 128,
+    style: 'Electro Dance EDM',
+    emoji: '💙',
+    tagline: 'Blue eyes hypnotise teri kardi ai mennu! 💣',
+    audioUrl: '/audio/blue_eyes.mp3',
+    rhythmStyle: 'electro4x4',
+    lyrics: [
+      '💙 YO YO: "Blue eyes hypnotise teri kardi ai mennu!" 🕶️',
+      '🔥 "I swear chhoti dress mein bomb lagdi mainu!" 💣',
+      '✨ "Bomb lagdi mainu, bomb lagdi mainu!" 🎶',
+      '🕺 "Ghar deyan nu keh de tu ki aaj nahio aana!" 🔊',
+      '🎤 "Yo Yo Honey Singh! Blue Eyes Anthem!" 🎧'
+    ],
+    leadNotes: [
+      369.99, 0, 440.0, 0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0, 293.66, 0, 329.63, 0,
+      369.99, 369.99, 0, 440.0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0, 293.66, 0, 0, 0,
+      587.33, 0, 554.37, 0, 493.88, 0, 440.0, 0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0,
+      369.99, 0, 440.0, 0, 493.88, 0, 587.33, 0, 554.37, 0, 493.88, 0, 440.0, 0, 369.99, 0
+    ],
+    bassNotes: [
+      73.42, 0, 73.42, 0, 73.42, 0, 73.42, 0, 61.74, 0, 61.74, 0, 61.74, 0, 61.74, 0,
+      49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0, 55.0, 0, 55.0, 0, 55.0, 0, 55.0, 0,
+      73.42, 0, 73.42, 0, 73.42, 0, 73.42, 0, 61.74, 0, 61.74, 0, 61.74, 0, 61.74, 0,
+      49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0, 55.0, 0, 55.0, 0, 55.0, 0, 55.0, 0
+    ]
+  },
+  {
+    id: 'brownrang',
+    title: 'Brown Rang',
+    hindiTitle: 'ब्राउन रंग',
+    year: '2011 / Immortal',
+    bpm: 95,
+    style: 'Desi Hip-Hop / R&B',
+    emoji: '👑',
+    tagline: 'Kudiye ni tere brown rang ne munde patt te! 🏙️',
+    audioUrl: '/audio/brown_rang.mp3',
+    rhythmStyle: 'hiphop95',
+    lyrics: [
+      '👑 YO YO: "Kudiye ni tere brown rang ne!" 💃',
+      '🔥 "Munde patt te ni saare mere town de!" 🏙️',
+      '✨ "Koyi labhdi ae shaan, koyi labhdi ae gaddi!" 🚘',
+      '🕶️ "White skin pe itna na itraao, Brown Rang is King!" 👑',
+      '🎤 "Yo Yo Honey Singh! Brown Rang Classic!" 🪔'
+    ],
+    leadNotes: [
+      329.63, 0, 392.0, 0, 440.0, 0, 493.88, 493.88, 0, 440.0, 0, 392.0, 0, 329.63, 0, 0,
+      392.0, 0, 440.0, 0, 493.88, 0, 587.33, 0, 493.88, 0, 440.0, 0, 392.0, 0, 329.63, 0,
+      329.63, 329.63, 0, 392.0, 440.0, 440.0, 0, 392.0, 0, 329.63, 0, 293.66, 0, 329.63, 0, 0,
+      329.63, 0, 392.0, 0, 440.0, 0, 493.88, 0, 440.0, 0, 392.0, 0, 329.63, 329.63, 0, 0
+    ],
+    bassNotes: [
+      41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0, 32.70, 0, 32.70, 0, 32.70, 0, 32.70, 0,
+      36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0, 30.87, 0, 30.87, 0, 30.87, 0, 30.87, 0,
+      41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0, 32.70, 0, 32.70, 0, 32.70, 0, 32.70, 0,
+      36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0, 41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0
+    ]
+  },
+  {
+    id: 'angrejibeat',
+    title: 'Angreji Beat',
+    hindiTitle: 'अंग्रेजी बीट',
+    year: '2012 / Cocktail',
+    bpm: 126,
+    style: 'Punjabi Bhangra Electro',
+    emoji: '⚡',
+    tagline: 'Angreji beat te nachdi patlo • Khadke Glassi! 🥂',
+    audioUrl: '/audio/angreji_beat.mp3',
+    rhythmStyle: 'bhangra126',
+    lyrics: [
+      '🥁 YO YO: "Khadke glassi tere naa te!" 🥂',
+      '💃 "Angreji beat te nachdi patlo!" ⚡',
+      '🔥 "Pura mela nachega Yo Yo di beat te!" 🪔',
+      '✨ "Nach nach kudiye tu floor phod de!" 💥',
+      '🎤 "Yo Yo Honey Singh! Angreji Beat Power!" 🎧'
+    ],
+    leadNotes: [
+      392.0, 0, 493.88, 0, 587.33, 587.33, 0, 523.25, 0, 493.88, 0, 440.0, 0, 392.0, 0, 0,
+      392.0, 392.0, 0, 493.88, 0, 587.33, 0, 659.25, 0, 587.33, 0, 493.88, 0, 392.0, 0, 0,
+      587.33, 587.33, 0, 659.25, 0, 587.33, 0, 493.88, 0, 440.0, 0, 493.88, 0, 392.0, 0, 0,
+      493.88, 493.88, 0, 440.0, 0, 392.0, 0, 329.63, 0, 392.0, 392.0, 0, 0, 0, 0, 0
+    ],
+    bassNotes: [
+      49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0, 41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0,
+      32.70, 0, 32.70, 0, 32.70, 0, 32.70, 0, 36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0,
+      49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0, 41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0,
+      32.70, 0, 32.70, 0, 32.70, 0, 32.70, 0, 49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0
+    ]
+  },
+  {
+    id: 'dopeshope',
+    title: 'Dope Shope',
+    hindiTitle: 'डोप शोप',
+    year: '2011 / Club Banger',
+    bpm: 98,
+    style: 'Desi Club Bounce',
+    emoji: '🕶️',
+    tagline: 'Munda dharhi chadhai phirda, kudi dope shope! 🔊',
+    audioUrl: '/audio/dope_shope.mp3',
+    rhythmStyle: 'club98',
+    lyrics: [
+      '💥 YO YO: "Munda dharhi chadhai phirda!" 🕶️',
+      '🔊 "Kudi dope shope maareya karo!" 💃',
+      '🔥 "22 saal di hoyi aa kudi, lagdi model waang!" 🌟',
+      '🏎️ "Hummer vich baithe munde, Yo Yo sound system!" 🔊',
+      '🎤 "Yo Yo Honey Singh! Dope Shope Banger!" 🎧'
+    ],
+    leadNotes: [
+      369.99, 369.99, 0, 440.0, 0, 493.88, 0, 554.37, 554.37, 0, 493.88, 0, 440.0, 0, 369.99, 0,
+      369.99, 0, 440.0, 0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0, 369.99, 0, 0, 0,
+      554.37, 554.37, 0, 493.88, 0, 440.0, 0, 493.88, 0, 554.37, 0, 440.0, 0, 369.99, 0, 0,
+      440.0, 0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0, 277.18, 0, 369.99, 0, 0, 0
+    ],
+    bassNotes: [
+      46.25, 0, 46.25, 0, 46.25, 0, 46.25, 0, 36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0,
+      41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0, 34.65, 0, 34.65, 0, 34.65, 0, 34.65, 0,
+      46.25, 0, 46.25, 0, 46.25, 0, 46.25, 0, 36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0,
+      41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0, 46.25, 0, 46.25, 0, 46.25, 0, 46.25, 0
+    ]
+  },
+  {
+    id: 'lovedose',
+    title: 'Love Dose',
+    hindiTitle: 'लव डोज़',
+    year: '2014 / Desi Kalakaar',
+    bpm: 102,
+    style: 'Melodic R&B Romance',
+    emoji: '❤️',
+    tagline: 'Lagdi mainu jivein ambran di rani soniye! 🌹',
+    audioUrl: '/audio/love_dose.mp3',
+    rhythmStyle: 'rnb102',
+    lyrics: [
+      '❤️ YO YO: "Lagdi mainu jivein ambran di rani!" 👸',
+      '✨ "Ek tu hi meri baby, ek tu hi zindgani!" 🌹',
+      '🔥 "Mujhe de de tu ik love dose!" 💊❤️',
+      '🕺 "Lagti hai cute jab kardi tu blush!" 🥰',
+      '🎤 "Yo Yo Honey Singh! Love Dose Romance!" 🎶'
+    ],
+    leadNotes: [
+      440.0, 0, 554.37, 0, 659.25, 659.25, 0, 587.33, 0, 554.37, 0, 493.88, 0, 440.0, 0, 0,
+      369.99, 0, 440.0, 0, 493.88, 0, 554.37, 0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0,
+      440.0, 440.0, 0, 554.37, 0, 659.25, 0, 739.99, 0, 659.25, 0, 554.37, 0, 493.88, 0, 0,
+      440.0, 0, 493.88, 0, 554.37, 0, 493.88, 0, 440.0, 0, 369.99, 0, 440.0, 0, 0, 0
+    ],
+    bassNotes: [
+      55.0, 0, 55.0, 0, 55.0, 0, 55.0, 0, 46.25, 0, 46.25, 0, 46.25, 0, 46.25, 0,
+      36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0, 41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0,
+      55.0, 0, 55.0, 0, 55.0, 0, 55.0, 0, 46.25, 0, 46.25, 0, 46.25, 0, 46.25, 0,
+      36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0, 55.0, 0, 55.0, 0, 55.0, 0, 55.0, 0
+    ]
+  },
+  {
+    id: 'desikalakaar',
+    title: 'Desi Kalakaar',
+    hindiTitle: 'देसी कलाकार',
+    year: '2014 / Title Track',
+    bpm: 110,
+    style: 'Desi Hip-Hop / Swagger',
+    emoji: '🌟',
+    tagline: 'Yaar tera superstar desi kalakaar! 🚘',
+    audioUrl: '/audio/desi_kalakaar.mp3',
+    rhythmStyle: 'hiphop95',
+    lyrics: [
+      '🌟 YO YO: "Yaar tera superstar desi kalakaar!" 🕶️',
+      '🚘 "Main putt jatt da manda ni haar!" 💥',
+      '💃 "Duniya di parwah karni chhad de tu!" 🔥',
+      '✨ "Superstar in the house!" 🎤'
+    ],
+    leadNotes: [
+      329.63, 0, 392.0, 0, 440.0, 0, 493.88, 493.88, 0, 440.0, 0, 392.0, 0, 329.63, 0, 0,
+      392.0, 0, 440.0, 0, 493.88, 0, 587.33, 0, 493.88, 0, 440.0, 0, 392.0, 0, 329.63, 0,
+      329.63, 329.63, 0, 392.0, 440.0, 440.0, 0, 392.0, 0, 329.63, 0, 293.66, 0, 329.63, 0, 0,
+      329.63, 0, 392.0, 0, 440.0, 0, 493.88, 0, 440.0, 0, 392.0, 0, 329.63, 329.63, 0, 0
+    ],
+    bassNotes: [
+      41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0, 32.70, 0, 32.70, 0, 32.70, 0, 32.70, 0,
+      36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0, 30.87, 0, 30.87, 0, 30.87, 0, 30.87, 0,
+      41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0, 32.70, 0, 32.70, 0, 32.70, 0, 32.70, 0,
+      36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0, 41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0
+    ]
+  },
+  {
+    id: 'highheels',
+    title: 'High Heels',
+    hindiTitle: 'हाई हील्स',
+    year: '2012 / Party Monster',
+    bpm: 128,
+    style: 'Bhangra Club Banger',
+    emoji: '👠',
+    tagline: 'High heels te nache tan tu badi jache! 👠✨',
+    audioUrl: '/audio/high_heels.mp3',
+    rhythmStyle: 'bhangra126',
+    lyrics: [
+      '👠 YO YO: "Pe pe pe pe.. High heels te nache!" 💃',
+      '🔥 "Aankhon se goli maare, kudi badi jache!" 💥',
+      '✨ "Dance floor pe aake aag laga de!" 🕺',
+      '🎤 "Jaz Dhami ft. Yo Yo Honey Singh!" 🎧'
+    ],
+    leadNotes: [
+      392.0, 0, 493.88, 0, 587.33, 587.33, 0, 523.25, 0, 493.88, 0, 440.0, 0, 392.0, 0, 0,
+      392.0, 392.0, 0, 493.88, 0, 587.33, 0, 659.25, 0, 587.33, 0, 493.88, 0, 392.0, 0, 0,
+      587.33, 587.33, 0, 659.25, 0, 587.33, 0, 493.88, 0, 440.0, 0, 493.88, 0, 392.0, 0, 0,
+      493.88, 493.88, 0, 440.0, 0, 392.0, 0, 329.63, 0, 392.0, 392.0, 0, 0, 0, 0, 0
+    ],
+    bassNotes: [
+      49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0, 41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0,
+      32.70, 0, 32.70, 0, 32.70, 0, 32.70, 0, 36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0,
+      49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0, 41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0,
+      32.70, 0, 32.70, 0, 32.70, 0, 32.70, 0, 49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0
+    ]
+  },
+  {
     id: 'casatupka',
-    title: 'Casa Tupka',
+    title: 'Casa Tupka Anthem',
     hindiTitle: 'कासा तुपका',
     year: '2024 / 2026',
     bpm: 105,
     style: 'Reggaeton Dembow',
     emoji: '🔥',
     tagline: 'Casa Casa Tupka Tequila • Latin Desi Party Anthem',
+    audioUrl: '/audio/desi_kalakaar.mp3',
     rhythmStyle: 'dembow',
     lyrics: [
       '🔥 YO YO: "Casa casa casa tupka tequila!" 🎧',
@@ -1575,168 +1954,9 @@ export const HONEY_SINGH_TRACKS = [
       49.0, 0, 49.0, 0, 49.0, 0, 58.27, 0, 49.0, 0, 49.0, 0, 58.27, 0, 49.0, 0,
       38.89, 0, 38.89, 0, 43.65, 0, 43.65, 0, 36.71, 0, 36.71, 0, 43.65, 0, 49.0, 0
     ]
-  },
-  {
-    id: 'blueeyes',
-    title: 'Blue Eyes',
-    hindiTitle: 'ब्लू आईज',
-    year: '2013 / Classic',
-    bpm: 128,
-    style: 'Electro Dance EDM',
-    emoji: '💙',
-    tagline: 'Blue eyes hypnotise teri kardi ai mennu! 💣',
-    rhythmStyle: 'electro4x4',
-    lyrics: [
-      '💙 YO YO: "Blue eyes hypnotise teri kardi ai mennu!" 🕶️',
-      '🔥 "I swear chhoti dress mein bomb lagdi mainu!" 💣',
-      '✨ "Bomb lagdi mainu, bomb lagdi mainu!" 🎶',
-      '🕺 "Ghar deyan nu keh de tu ki aaj nahio aana!" 🔊',
-      '🎤 "Yo Yo Honey Singh! Blue Eyes Anthem!" 🎧'
-    ],
-    leadNotes: [
-      // "Blue eyes hypnotise teri kardi ai mennu"
-      369.99, 0, 440.0, 0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0, 293.66, 0, 329.63, 0,
-      369.99, 369.99, 0, 440.0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0, 293.66, 0, 0, 0,
-      // "I swear chhoti dress mein bomb lagdi mainu"
-      587.33, 0, 554.37, 0, 493.88, 0, 440.0, 0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0,
-      369.99, 0, 440.0, 0, 493.88, 0, 587.33, 0, 554.37, 0, 493.88, 0, 440.0, 0, 369.99, 0
-    ],
-    bassNotes: [
-      73.42, 0, 73.42, 0, 73.42, 0, 73.42, 0, 61.74, 0, 61.74, 0, 61.74, 0, 61.74, 0,
-      49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0, 55.0, 0, 55.0, 0, 55.0, 0, 55.0, 0,
-      73.42, 0, 73.42, 0, 73.42, 0, 73.42, 0, 61.74, 0, 61.74, 0, 61.74, 0, 61.74, 0,
-      49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0, 55.0, 0, 55.0, 0, 55.0, 0, 55.0, 0
-    ]
-  },
-  {
-    id: 'brownrang',
-    title: 'Brown Rang',
-    hindiTitle: 'ब्राउन रंग',
-    year: '2011 / Immortal',
-    bpm: 95,
-    style: 'Desi Hip-Hop / R&B',
-    emoji: '👑',
-    tagline: 'Kudiye ni tere brown rang ne munde patt te! 🏙️',
-    rhythmStyle: 'hiphop95',
-    lyrics: [
-      '👑 YO YO: "Kudiye ni tere brown rang ne!" 💃',
-      '🔥 "Munde patt te ni saare mere town de!" 🏙️',
-      '✨ "Koyi labhdi ae shaan, koyi labhdi ae gaddi!" 🚘',
-      '🕶️ "White skin pe itna na itraao, Brown Rang is King!" 👑',
-      '🎤 "Yo Yo Honey Singh! Brown Rang Classic!" 🪔'
-    ],
-    leadNotes: [
-      // "Kudiye ni tere brown rang ne"
-      329.63, 0, 392.0, 0, 440.0, 0, 493.88, 493.88, 0, 440.0, 0, 392.0, 0, 329.63, 0, 0,
-      392.0, 0, 440.0, 0, 493.88, 0, 587.33, 0, 493.88, 0, 440.0, 0, 392.0, 0, 329.63, 0,
-      // "Munde patt te ni saare mere town de"
-      329.63, 329.63, 0, 392.0, 440.0, 440.0, 0, 392.0, 0, 329.63, 0, 293.66, 0, 329.63, 0, 0,
-      329.63, 0, 392.0, 0, 440.0, 0, 493.88, 0, 440.0, 0, 392.0, 0, 329.63, 329.63, 0, 0
-    ],
-    bassNotes: [
-      41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0, 32.70, 0, 32.70, 0, 32.70, 0, 32.70, 0,
-      36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0, 30.87, 0, 30.87, 0, 30.87, 0, 30.87, 0,
-      41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0, 32.70, 0, 32.70, 0, 32.70, 0, 32.70, 0,
-      36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0, 41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0
-    ]
-  },
-  {
-    id: 'dopeshope',
-    title: 'Dope Shope',
-    hindiTitle: 'डोप शोप',
-    year: '2011 / Club Banger',
-    bpm: 98,
-    style: 'Desi Club Bounce',
-    emoji: '🕶️',
-    tagline: 'Munda dharhi chadhai phirda, kudi dope shope! 🔊',
-    rhythmStyle: 'club98',
-    lyrics: [
-      '💥 YO YO: "Munda dharhi chadhai phirda!" 🕶️',
-      '🔊 "Kudi dope shope maareya karo!" 💃',
-      '🔥 "22 saal di hoyi aa kudi, lagdi model waang!" 🌟',
-      '🏎️ "Hummer vich baithe munde, Yo Yo sound system!" 🔊',
-      '🎤 "Yo Yo Honey Singh! Dope Shope Banger!" 🎧'
-    ],
-    leadNotes: [
-      // "Munda dharhi chadhai phirda"
-      369.99, 369.99, 0, 440.0, 0, 493.88, 0, 554.37, 554.37, 0, 493.88, 0, 440.0, 0, 369.99, 0,
-      369.99, 0, 440.0, 0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0, 369.99, 0, 0, 0,
-      // "Kudi dope shope maareya karo"
-      554.37, 554.37, 0, 493.88, 0, 440.0, 0, 493.88, 0, 554.37, 0, 440.0, 0, 369.99, 0, 0,
-      440.0, 0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0, 277.18, 0, 369.99, 0, 0, 0
-    ],
-    bassNotes: [
-      46.25, 0, 46.25, 0, 46.25, 0, 46.25, 0, 36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0,
-      41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0, 34.65, 0, 34.65, 0, 34.65, 0, 34.65, 0,
-      46.25, 0, 46.25, 0, 46.25, 0, 46.25, 0, 36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0,
-      41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0, 46.25, 0, 46.25, 0, 46.25, 0, 46.25, 0
-    ]
-  },
-  {
-    id: 'lovedose',
-    title: 'Love Dose',
-    hindiTitle: 'लव डोज़',
-    year: '2014 / Desi Kalakaar',
-    bpm: 102,
-    style: 'Melodic R&B Romance',
-    emoji: '❤️',
-    tagline: 'Lagdi mainu jivein ambran di rani soniye! 🌹',
-    rhythmStyle: 'rnb102',
-    lyrics: [
-      '❤️ YO YO: "Lagdi mainu jivein ambran di rani!" 👸',
-      '✨ "Ek tu hi meri baby, ek tu hi zindgani!" 🌹',
-      '🔥 "Mujhe de de tu ik love dose!" 💊❤️',
-      '🕺 "Lagti hai cute jab kardi tu blush!" 🥰',
-      '🎤 "Yo Yo Honey Singh! Love Dose Romance!" 🎶'
-    ],
-    leadNotes: [
-      // "Lagdi mainu jivein ambran di rani"
-      440.0, 0, 554.37, 0, 659.25, 659.25, 0, 587.33, 0, 554.37, 0, 493.88, 0, 440.0, 0, 0,
-      369.99, 0, 440.0, 0, 493.88, 0, 554.37, 0, 493.88, 0, 440.0, 0, 369.99, 0, 329.63, 0,
-      // "Meethi meethi gallan kare soniye diwaani"
-      440.0, 440.0, 0, 554.37, 0, 659.25, 0, 739.99, 0, 659.25, 0, 554.37, 0, 493.88, 0, 0,
-      440.0, 0, 493.88, 0, 554.37, 0, 493.88, 0, 440.0, 0, 369.99, 0, 440.0, 0, 0, 0
-    ],
-    bassNotes: [
-      55.0, 0, 55.0, 0, 55.0, 0, 55.0, 0, 46.25, 0, 46.25, 0, 46.25, 0, 46.25, 0,
-      36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0, 41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0,
-      55.0, 0, 55.0, 0, 55.0, 0, 55.0, 0, 46.25, 0, 46.25, 0, 46.25, 0, 46.25, 0,
-      36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0, 55.0, 0, 55.0, 0, 55.0, 0, 55.0, 0
-    ]
-  },
-  {
-    id: 'angrejibeat',
-    title: 'Angreji Beat',
-    hindiTitle: 'अंग्रेजी बीट',
-    year: '2012 / Cocktail',
-    bpm: 126,
-    style: 'Punjabi Bhangra Electro',
-    emoji: '⚡',
-    tagline: 'Angreji beat te nachdi patlo • Khadke Glassi! 🥂',
-    rhythmStyle: 'bhangra126',
-    lyrics: [
-      '🥁 YO YO: "Khadke glassi tere naa te!" 🥂',
-      '💃 "Angreji beat te nachdi patlo!" ⚡',
-      '🔥 "Pura mela nachega Yo Yo di beat te!" 🪔',
-      '✨ "Nach nach kudiye tu floor phod de!" 💥',
-      '🎤 "Yo Yo Honey Singh! Angreji Beat Power!" 🎧'
-    ],
-    leadNotes: [
-      // "Khadke glassi tere naa te"
-      392.0, 0, 493.88, 0, 587.33, 587.33, 0, 523.25, 0, 493.88, 0, 440.0, 0, 392.0, 0, 0,
-      392.0, 392.0, 0, 493.88, 0, 587.33, 0, 659.25, 0, 587.33, 0, 493.88, 0, 392.0, 0, 0,
-      // "Angreji beat te nachdi patlo"
-      587.33, 587.33, 0, 659.25, 0, 587.33, 0, 493.88, 0, 440.0, 0, 493.88, 0, 392.0, 0, 0,
-      493.88, 493.88, 0, 440.0, 0, 392.0, 0, 329.63, 0, 392.0, 392.0, 0, 0, 0, 0, 0
-    ],
-    bassNotes: [
-      49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0, 41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0,
-      32.70, 0, 32.70, 0, 32.70, 0, 32.70, 0, 36.71, 0, 36.71, 0, 36.71, 0, 36.71, 0,
-      49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0, 41.20, 0, 41.20, 0, 41.20, 0, 41.20, 0,
-      32.70, 0, 32.70, 0, 32.70, 0, 32.70, 0, 49.0, 0, 49.0, 0, 49.0, 0, 49.0, 0
-    ]
   }
 ];
 
 export const soundEngine = new SoundEngine();
+
 

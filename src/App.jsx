@@ -21,6 +21,7 @@ import confetti from 'canvas-confetti';
 import { CRACKERS, INITIAL_INVENTORY } from './data/crackers';
 import { multiplayerManager } from './multiplayer/peerSync';
 import { soundEngine } from './audio/soundEngine';
+import { notificationService } from './services/notificationService';
 import { MessageCircle } from 'lucide-react';
 
 window.__CRACKER_MAP = CRACKERS.reduce((acc, c) => {
@@ -165,6 +166,23 @@ export default function App() {
     };
   }, []);
 
+  // Background presence listener for Mela entry announcements (notifies installed devices even before entering!)
+  useEffect(() => {
+    multiplayerManager.startBackgroundPresence(roomId, (enteringPlayer) => {
+      notificationService.notifyPlayerEntered(enteringPlayer?.name, enteringPlayer);
+    });
+  }, [roomId]);
+
+  // If app is installed (standalone PWA), politely request notification permission so friend alerts work
+  useEffect(() => {
+    if (isStandalone && notificationService.isSupported() && notificationService.getPermission() === 'default') {
+      const timer = setTimeout(() => {
+        notificationService.requestPermission().catch(() => {});
+      }, 1800);
+      return () => clearTimeout(timer);
+    }
+  }, [isStandalone]);
+
   // Floating header corner chat toasts (up to 3, auto-disappear after 4 seconds)
   const [headerChatToasts, setHeaderChatToasts] = useState([]);
   const toastTimersRef = React.useRef(new Map());
@@ -263,6 +281,9 @@ export default function App() {
         setOnlineCount(peersMap.size + 1);
       },
       onPlayerJoined: (newRemotePlayer) => {
+        // Trigger system/device notification on installed phones & background tabs!
+        notificationService.notifyPlayerEntered(newRemotePlayer.name, newRemotePlayer);
+
         // Remote real player joined popup!
         triggerJoinPopup(newRemotePlayer.name, newRemotePlayer.color, newRemotePlayer.turbanColor, false);
         try {
@@ -298,6 +319,9 @@ export default function App() {
         setLitDiyasCount((c) => Math.min(16, c + 1));
       }
     });
+
+    // 3. Broadcast entry announcement so all installed apps & players receive device notifications!
+    multiplayerManager.broadcastMelaEntry(updatedPlayer);
   };
 
   // Broadcast held/equipped cracker to all players so they see you holding it

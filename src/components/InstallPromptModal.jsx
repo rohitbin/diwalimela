@@ -1,6 +1,7 @@
 // Diwali Mahotsav Mela - Progressive Web App (PWA) Install Prompt Modal
 import React, { useState, useEffect } from 'react';
-import { Download, X, Smartphone, Sparkles, Share, PlusSquare, Check } from 'lucide-react';
+import { Download, X, Smartphone, Sparkles, Share, PlusSquare, Check, Bell } from 'lucide-react';
+import { notificationService } from '../services/notificationService';
 
 export default function InstallPromptModal({
   isOpen,
@@ -27,6 +28,11 @@ export default function InstallPromptModal({
   if (!isOpen || isInstalled) return null;
 
   const handleInstallClick = async () => {
+    // Request notification permission so the installed app receives live mela entrance alerts!
+    if (notificationService.isSupported()) {
+      notificationService.requestPermission().catch(() => {});
+    }
+
     if (deferredPrompt) {
       try {
         deferredPrompt.prompt();
@@ -191,6 +197,10 @@ export default function InstallPromptModal({
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#f8fafc' }}>
             <span style={{ fontSize: 16 }}>🎆</span>
             <span><strong>Faster 60FPS Speed:</strong> Pre-caches fireworks, sounds, and stalls</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#fef08a' }}>
+            <span style={{ fontSize: 16 }}>🔔</span>
+            <span><strong>Live Friend Alerts:</strong> Get notified instantly when friends arrive at the Mela!</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#f8fafc' }}>
             <span style={{ fontSize: 16 }}>🪙</span>

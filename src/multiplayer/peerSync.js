@@ -32,7 +32,13 @@ class MultiplayerManager {
     this.bellListeners = new Set();
     this.danceListeners = new Set();
     this.dhamakaListeners = new Set();
+    this.entryListeners = new Set();
     this.processedMsgIds = new Set();
+  }
+
+  onMelaEntry(callback) {
+    this.entryListeners.add(callback);
+    return () => this.entryListeners.delete(callback);
   }
 
   onRavanHit(callback) {
@@ -75,6 +81,28 @@ class MultiplayerManager {
     return () => this.dhamakaListeners.delete(callback);
   }
 
+  startBackgroundPresence(roomId = 'diwali-mela-main', onPlayerEntered) {
+    this.roomId = roomId || 'diwali-mela-main';
+    if (onPlayerEntered) {
+      this.entryListeners.add(onPlayerEntered);
+    }
+
+    if (!this.broadcastChannel) {
+      try {
+        this.broadcastChannel = new BroadcastChannel(`diwali_mela_${this.roomId}`);
+        this.broadcastChannel.onmessage = (event) => {
+          this.handleIncomingData(event.data, 'local_channel');
+        };
+      } catch (e) {
+        console.warn('BroadcastChannel not supported', e);
+      }
+    }
+
+    if (!this.mqttClient) {
+      this.initMQTT();
+    }
+  }
+
   init(roomId = 'diwali-mela-main', myProfile, callbacks = {}) {
     this.roomId = roomId || 'diwali-mela-main';
     this.myProfile = myProfile;
@@ -85,20 +113,28 @@ class MultiplayerManager {
     if (callbacks.onDiyaUpdate) this.onDiyaUpdate = callbacks.onDiyaUpdate;
 
     // 1. Cross-tab instant local channel for seamless multi-tab testing & local network play
-    try {
-      this.broadcastChannel = new BroadcastChannel(`diwali_mela_${this.roomId}`);
-      this.broadcastChannel.onmessage = (event) => {
-        this.handleIncomingData(event.data, 'local_channel');
-      };
-    } catch (e) {
-      console.warn('BroadcastChannel not supported', e);
+    if (!this.broadcastChannel) {
+      try {
+        this.broadcastChannel = new BroadcastChannel(`diwali_mela_${this.roomId}`);
+        this.broadcastChannel.onmessage = (event) => {
+          this.handleIncomingData(event.data, 'local_channel');
+        };
+      } catch (e) {
+        console.warn('BroadcastChannel not supported', e);
+      }
     }
 
     // 2. High-reliability public MQTT WebSocket connection (works across all browsers, networks & phones)
-    this.initMQTT();
+    if (!this.mqttClient) {
+      this.initMQTT();
+    } else if (this.mqttClient.connected) {
+      this.sendHandshake();
+    }
 
     // 3. Initialize PeerJS for direct WebRTC data channels
-    this.initPeerJS();
+    if (!this.peer) {
+      this.initPeerJS();
+    }
 
     // 4. Immediately announce presence across all channels
     this.sendHandshake();
@@ -311,6 +347,41 @@ class MultiplayerManager {
     }
 
     switch (data.type) {
+      case 'MELA_ENTER': {
+        const player = data.player;
+        if (player && player.id && player.id !== this.myProfile?.id) {
+          const isNew = !this.remotePlayers.has(player.id);
+          this.remotePlayers.set(player.id, {
+            ...player,
+            lastSeen: Date.now(),
+            isRealPerson: true
+          });
+
+          // Reply with HELLO_ACK so the new entrant immediately sees us too
+          if (this.myProfile) {
+            this.sendToAll({
+              type: 'HELLO_ACK',
+              senderId: this.myProfile?.id || this.peerId,
+              player: this.myProfile,
+              timestamp: Date.now()
+            });
+          }
+
+          // Trigger entry listeners (shows push/device notifications on installed devices!)
+          this.entryListeners.forEach((fn) => {
+            try { fn(player); } catch (e) { console.error('Entry listener error:', e); }
+          });
+
+          if (isNew && this.onPlayerJoined) {
+            this.onPlayerJoined(player);
+          }
+          if (this.onPeerUpdate) {
+            this.onPeerUpdate(new Map(this.remotePlayers));
+          }
+        }
+        break;
+      }
+
       case 'HELLO': {
         const player = data.player;
         if (player && player.id && player.id !== this.myProfile?.id) {
@@ -322,12 +393,20 @@ class MultiplayerManager {
           });
 
           // Reply with HELLO_ACK so the new player immediately sees us too!
-          this.sendToAll({
-            type: 'HELLO_ACK',
-            senderId: this.myProfile?.id || this.peerId,
-            player: this.myProfile,
-            timestamp: Date.now()
-          });
+          if (this.myProfile) {
+            this.sendToAll({
+              type: 'HELLO_ACK',
+              senderId: this.myProfile?.id || this.peerId,
+              player: this.myProfile,
+              timestamp: Date.now()
+            });
+          }
+
+          if (isNew) {
+            this.entryListeners.forEach((fn) => {
+              try { fn(player); } catch (e) { console.error('Entry listener error:', e); }
+            });
+          }
 
           if (isNew && this.onPlayerJoined) {
             this.onPlayerJoined(player);
@@ -464,6 +543,24 @@ class MultiplayerManager {
       default:
         break;
     }
+  }
+
+  // Broadcast that a player entered the Mela (triggers native push/device notifications)
+  broadcastMelaEntry(player) {
+    const p = player || this.myProfile;
+    if (!p) return;
+    const payload = {
+      type: 'MELA_ENTER',
+      senderId: p.id || this.peerId,
+      player: {
+        id: p.id || this.peerId,
+        name: p.name || 'A Festive Friend',
+        color: p.color,
+        turbanColor: p.turbanColor
+      },
+      timestamp: Date.now()
+    };
+    this.sendToAll(payload);
   }
 
   // Update my local player state and broadcast to all peers

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { soundEngine } from '../audio/soundEngine';
-import { Users, Volume2, VolumeX, Music, Share2, HelpCircle, User, Sparkles, Check, MapPin, Download, SkipForward } from 'lucide-react';
+import { notificationService } from '../services/notificationService';
+import { Users, Volume2, VolumeX, Music, Share2, HelpCircle, User, Sparkles, Check, MapPin, Download, SkipForward, Bell, BellRing, BellOff } from 'lucide-react';
 
 export default function MultiplayerBar({
   roomId,
@@ -17,9 +18,28 @@ export default function MultiplayerBar({
   const [isMusicOn, setIsMusicOn] = useState(false);
   const [currentFestiveTrack, setCurrentFestiveTrack] = useState(() => soundEngine.getCurrentFestiveTrack?.() || { title: 'Aayee Hai Diwali', emoji: '🪔' });
   const [copied, setCopied] = useState(false);
+  const [notifState, setNotifState] = useState(() => notificationService.getPermission());
+  const [barToast, setBarToast] = useState(null);
+  const toastTimeoutRef = React.useRef(null);
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== 'undefined' ? window.innerWidth : 1200
   );
+
+  const showBarToast = (msg) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setBarToast(msg);
+    toastTimeoutRef.current = setTimeout(() => {
+      setBarToast(null);
+      toastTimeoutRef.current = null;
+    }, 3800);
+  };
+
+  useEffect(() => {
+    const unsub = notificationService.subscribe((perm) => {
+      setNotifState(perm);
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const handleTrackChange = (e) => {
@@ -85,6 +105,30 @@ export default function MultiplayerBar({
         setCopied(true);
         setTimeout(() => setCopied(false), 2200);
       });
+    }
+  };
+
+  const handleToggleNotification = async () => {
+    if (!notificationService.isSupported()) {
+      showBarToast('⚠️ Notifications not supported on this browser');
+      return;
+    }
+
+    const perm = notificationService.getPermission();
+    if (perm === 'granted') {
+      showBarToast('🔔 Sent test alert to your device! Entry alerts active 🪔');
+      await notificationService.sendTestNotification();
+    } else if (perm === 'denied') {
+      showBarToast('⚠️ Alerts blocked in browser settings. Please allow notifications for Diwali Mela.');
+    } else {
+      const res = await notificationService.requestPermission();
+      if (res.success) {
+        setNotifState('granted');
+        showBarToast('🎉 Entry alerts enabled! You will be alerted when friends enter 🪔');
+        await notificationService.sendTestNotification();
+      } else {
+        showBarToast('Notification permission was not granted.');
+      }
     }
   };
 
@@ -383,6 +427,56 @@ export default function MultiplayerBar({
           )}
         </div>
 
+        {/* Device Entry Alerts Bell */}
+        <button
+          onClick={handleToggleNotification}
+          style={{
+            backgroundColor: notifState === 'granted' ? 'rgba(245, 158, 11, 0.28)' : 'rgba(20, 14, 32, 0.92)',
+            backdropFilter: 'blur(12px)',
+            border: notifState === 'granted' ? '1.5px solid #fbbf24' : (notifState === 'denied' ? '1px solid rgba(248, 113, 113, 0.5)' : '1px solid rgba(245, 158, 11, 0.4)'),
+            borderRadius: '50%',
+            width: isMobile ? 32 : 36,
+            height: isMobile ? 32 : 36,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: notifState === 'granted' ? '#fef08a' : (notifState === 'denied' ? '#f87171' : '#fcd34d'),
+            cursor: 'pointer',
+            touchAction: 'manipulation',
+            boxShadow: notifState === 'granted' ? '0 0 14px rgba(245, 158, 11, 0.5)' : 'none',
+            position: 'relative'
+          }}
+          title={
+            notifState === 'granted'
+              ? 'Mela Entry Alerts: ON (Tap to send test alert)'
+              : notifState === 'denied'
+              ? 'Alerts Blocked in Browser Settings (Tap for help)'
+              : 'Enable Entry Alerts (Get notified when friends enter Mela)'
+          }
+        >
+          {notifState === 'granted' ? (
+            <BellRing size={isMobile ? 14 : 16} />
+          ) : notifState === 'denied' ? (
+            <BellOff size={isMobile ? 14 : 16} />
+          ) : (
+            <Bell size={isMobile ? 14 : 16} />
+          )}
+          {notifState !== 'granted' && notifState !== 'denied' && (
+            <span
+              style={{
+                position: 'absolute',
+                top: 2,
+                right: 2,
+                width: 7,
+                height: 7,
+                backgroundColor: '#fbbf24',
+                borderRadius: '50%',
+                boxShadow: '0 0 6px #fbbf24'
+              }}
+            />
+          )}
+        </button>
+
         {/* SFX Mute/Unmute */}
         <button
           onClick={handleToggleMute}
@@ -427,6 +521,33 @@ export default function MultiplayerBar({
           <HelpCircle size={isMobile ? 14 : 16} />
         </button>
       </div>
+
+      {/* Floating Notification Toast */}
+      {barToast && (
+        <div
+          style={{
+            position: 'fixed',
+            top: isMobile ? 54 : 64,
+            right: isMobile ? 12 : 20,
+            backgroundColor: 'rgba(23, 14, 38, 0.96)',
+            border: '1.5px solid #f59e0b',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.7), 0 0 16px rgba(245, 158, 11, 0.4)',
+            color: '#fef08a',
+            fontSize: 12,
+            fontWeight: 700,
+            padding: '8px 14px',
+            borderRadius: 14,
+            pointerEvents: 'auto',
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            animation: 'joinPopupSlide 0.25s ease-out'
+          }}
+        >
+          <span>{barToast}</span>
+        </div>
+      )}
     </header>
   );
 }

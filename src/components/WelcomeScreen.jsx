@@ -1,18 +1,23 @@
 // Grand Entrance Welcome Screen for Diwali Mahotsav Mela
 import React, { useState } from 'react';
-import { Sparkles, Users, Flame, Heart, Play } from 'lucide-react';
+import { Sparkles, Users, Flame, Heart, Play, Bell } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
+import { notificationService } from '../services/notificationService';
 
 export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
   const [name, setName] = useState('');
   const [roomId, setRoomId] = useState(defaultRoomId || 'diwali-mela-main');
   const [color, setColor] = useState('#ea580c');
   const [turban, setTurban] = useState('#f59e0b');
+  const [enableAlerts, setEnableAlerts] = useState(true);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     soundEngine.init();
     soundEngine.playTempleBell();
+    if (enableAlerts && notificationService.isSupported()) {
+      notificationService.requestPermission().catch(() => {});
+    }
     onEnterMela({
       name: name.trim() || 'Festive Friend',
       color,
@@ -257,6 +262,35 @@ export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
                 />
               ))}
             </div>
+          </div>
+
+          {/* Notification Checkbox */}
+          <div
+            onClick={() => setEnableAlerts(!enableAlerts)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              marginTop: 4,
+              cursor: 'pointer',
+              userSelect: 'none'
+            }}
+          >
+            <input
+              type="checkbox"
+              id="notifAlerts"
+              checked={enableAlerts}
+              onChange={(e) => setEnableAlerts(e.target.checked)}
+              style={{ accentColor: '#f59e0b', width: 16, height: 16, cursor: 'pointer' }}
+            />
+            <label
+              htmlFor="notifAlerts"
+              style={{ fontSize: 12, color: '#fef08a', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              <Bell size={13} color="#f59e0b" />
+              <span>Notify me on my phone when someone enters the Mela 🪔</span>
+            </label>
           </div>
 
           {/* Enter Button */}

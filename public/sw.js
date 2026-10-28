@@ -121,3 +121,59 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// 5. Notification Click Event: Focus or Open App when user taps notification on mobile or desktop
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  if (event.action === 'close') {
+    return;
+  }
+
+  const targetUrl = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // If Diwali Mela is already open in any tab or installed PWA window, focus it!
+      for (const client of windowClients) {
+        if ('focus' in client) {
+          return client.focus();
+        }
+      }
+      // Otherwise open a new window
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+
+// 6. Push event listener (for future Web Push payloads)
+self.addEventListener('push', (event) => {
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (_) {
+      data = { title: event.data.text() };
+    }
+  }
+
+  const title = data.title || '🪔 Someone entered Diwali Mela!';
+  const options = {
+    body: data.body || 'A friend has arrived at the Mela! Tap to celebrate together 🎆',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    vibrate: [200, 100, 200, 100, 300],
+    data: {
+      url: data.url || '/'
+    },
+    actions: [
+      { action: 'join', title: 'Join Mela 🪔' },
+      { action: 'close', title: 'Dismiss' }
+    ]
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+

@@ -22,7 +22,7 @@ import { CRACKERS, INITIAL_INVENTORY } from './data/crackers';
 import { multiplayerManager } from './multiplayer/peerSync';
 import { soundEngine } from './audio/soundEngine';
 import { notificationService } from './services/notificationService';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, Bell, X } from 'lucide-react';
 
 window.__CRACKER_MAP = CRACKERS.reduce((acc, c) => {
   acc[c.id] = c;
@@ -136,6 +136,28 @@ export default function App() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [showNotifPrompt, setShowNotifPrompt] = useState(false);
+
+  useEffect(() => {
+    if (hasEntered && notificationService.isSupported() && notificationService.getPermission() === 'default') {
+      const timer = setTimeout(() => {
+        setShowNotifPrompt(true);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [hasEntered]);
+
+  const handleEnableNotificationsFromBanner = async () => {
+    const res = await notificationService.requestPermission();
+    setShowNotifPrompt(false);
+    if (res.success) {
+      notificationService.notifySelfWelcome(player.name);
+      triggerChatToast({
+        senderName: 'Mela System',
+        text: '🔔 Device notifications enabled! You will get alerts on this device when friends enter 🪔'
+      });
+    }
+  };
 
   useEffect(() => {
     const standalone =
@@ -263,6 +285,9 @@ export default function App() {
 
     // 1. Popup the local player's name upon entering!
     triggerJoinPopup(profile.name, profile.color, profile.turbanColor, true);
+
+    // Trigger instant welcome notification on the phone/device being used!
+    notificationService.notifySelfWelcome(profile.name);
     try {
       confetti({
         particleCount: 65,
@@ -441,6 +466,81 @@ export default function App() {
         player={player}
         currentZone={getCurrentZoneName(player.x, player.y)}
       />
+
+      {/* 2.5 Prompt to Enable Notifications on this Phone/Device */}
+      {hasEntered && showNotifPrompt && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 56,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 90,
+            width: 'min(92vw, 400px)',
+            backgroundColor: 'rgba(23, 14, 38, 0.98)',
+            border: '2px solid #f59e0b',
+            borderRadius: 16,
+            boxShadow: '0 10px 30px rgba(0,0,0,0.85), 0 0 20px rgba(245, 158, 11, 0.45)',
+            backdropFilter: 'blur(12px)',
+            padding: '10px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            animation: 'joinPopupSlide 0.3s ease-out'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 22, animation: 'pulse 1.2s infinite ease-in-out' }}>🔔</span>
+            <div>
+              <div style={{ color: '#fef08a', fontWeight: 800, fontSize: 13 }}>
+                Enable Alerts on this Device
+              </div>
+              <div style={{ color: '#fed7aa', fontSize: 11, lineHeight: 1.2 }}>
+                Get notified on this phone when friends enter the Mela!
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              onClick={handleEnableNotificationsFromBanner}
+              style={{
+                backgroundColor: '#f59e0b',
+                backgroundImage: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)',
+                color: '#1a102a',
+                fontWeight: 800,
+                fontSize: 12,
+                padding: '6px 12px',
+                borderRadius: 10,
+                border: 'none',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 2px 8px rgba(245, 158, 11, 0.5)'
+              }}
+            >
+              Allow 🔔
+            </button>
+            <button
+              onClick={() => setShowNotifPrompt(false)}
+              aria-label="Dismiss notification prompt"
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: 'none',
+                borderRadius: '50%',
+                width: 24,
+                height: 24,
+                color: '#cbd5e1',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 3. Player Join Announcement Popup (Prompted upon entry!) */}
       <PlayerJoinPopup

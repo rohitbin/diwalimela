@@ -11,12 +11,14 @@ export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
   const [turban, setTurban] = useState('#f59e0b');
   const [enableAlerts, setEnableAlerts] = useState(true);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     soundEngine.init();
     soundEngine.playTempleBell();
     if (enableAlerts && notificationService.isSupported()) {
-      notificationService.requestPermission().catch(() => {});
+      try {
+        await notificationService.requestPermission();
+      } catch (_) {}
     }
     onEnterMela({
       name: name.trim() || 'Festive Friend',

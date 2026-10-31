@@ -45,10 +45,6 @@ function getCurrentZoneName(x, y) {
   if (x > 1400 && y >= 800) return '👹 Ravan Dahan Ground (रावण दहन - 10M HP)';
   if (x > 1150 && y >= 800) return '🏹 Shastra Armory (शस्त्रागार)';
   if (x > 1250 && y >= 650) return 'Deepotsav East Courtyard';
-  if (x >= 630 && x <= 850 && y >= 250 && y <= 480) {
-    const title = soundEngine.getCurrentHoneySinghTrack?.()?.title || 'Casa Tupka';
-    return `🎧 Yo Yo DJ Dance Floor (${title})`;
-  }
   if (x < 630 && y < 650) return '☕ Sharma Ji Chai Tapri';
   if (x < 750 && y >= 650) return 'Lakshmi-Ganesh Mandir';
   if (y > 1050) return 'Rangoli Utsav Pavilion';
@@ -934,7 +930,7 @@ export default function App() {
         onClose={() => setIsDjModalOpen(false)}
         onGoToDanceFloor={() => {
           setIsDjModalOpen(false);
-          handleNavigateTo(MELA_ZONES.DJ_FLOOR.x, MELA_ZONES.DJ_FLOOR.y);
+          handleNavigateTo(MELA_ZONES.BIG_CLUB?.x || 2500, MELA_ZONES.BIG_CLUB?.y || 950);
         }}
         player={player}
       />

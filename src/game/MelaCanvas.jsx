@@ -243,6 +243,9 @@ export default function MelaCanvas({
   });
   const [touchIndicator, setTouchIndicator] = useState(null);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(
+    typeof window !== 'undefined' ? window.innerWidth >= window.innerHeight : true
+  );
   const [joystickKnob, setJoystickKnob] = useState({ x: 0, y: 0, active: false });
   const joystickVectorRef = useRef({ active: false, x: 0, y: 0 });
   const joystickElRef = useRef(null);
@@ -250,16 +253,23 @@ export default function MelaCanvas({
   const joystickPointerIdRef = useRef(null);
 
   useEffect(() => {
-    const checkTouch = () => {
+    const checkTouchAndOrientation = () => {
       setIsTouchDevice(
         'ontouchstart' in window ||
         navigator.maxTouchPoints > 0 ||
         window.innerWidth <= 1024
       );
+      setIsLandscape(window.innerWidth >= window.innerHeight);
+      // Reset joystick center on resize/orientation so it recalculates bounding rect immediately
+      joystickCenterRef.current = { x: 0, y: 0 };
     };
-    checkTouch();
-    window.addEventListener('resize', checkTouch);
-    return () => window.removeEventListener('resize', checkTouch);
+    checkTouchAndOrientation();
+    window.addEventListener('resize', checkTouchAndOrientation);
+    window.addEventListener('orientationchange', checkTouchAndOrientation);
+    return () => {
+      window.removeEventListener('resize', checkTouchAndOrientation);
+      window.removeEventListener('orientationchange', checkTouchAndOrientation);
+    };
   }, []);
 
   const updateJoystickFromClientPos = (clientX, clientY) => {
@@ -1611,12 +1621,20 @@ export default function MelaCanvas({
     let animationFrameId;
 
     const resizeCanvas = () => {
+      if (!canvas || !canvas.parentElement) return;
       canvas.width = canvas.parentElement.clientWidth;
       canvas.height = canvas.parentElement.clientHeight;
     };
 
+    const handleOrientationResize = () => {
+      resizeCanvas();
+      setTimeout(resizeCanvas, 60);
+      setTimeout(resizeCanvas, 200);
+    };
+
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', handleOrientationResize);
 
     const render = () => {
       const world = worldRef.current;
@@ -2619,6 +2637,7 @@ export default function MelaCanvas({
     animationFrameId = requestAnimationFrame(render);
     return () => {
       window.removeEventListener('resize', resizeCanvas);
+      window.removeEventListener('orientationchange', handleOrientationResize);
       cancelAnimationFrame(animationFrameId);
       soundEngine.updateCasaTupkaSpatial?.(0);
     };
@@ -2963,9 +2982,9 @@ export default function MelaCanvas({
           onTouchCancel={handleJoystickTouchEnd}
           style={{
             position: 'fixed',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            bottom: 'max(74px, calc(env(safe-area-inset-bottom) + 68px))',
+            left: isLandscape ? 'max(20px, calc(env(safe-area-inset-left) + 16px))' : '50%',
+            transform: isLandscape ? 'none' : 'translateX(-50%)',
+            bottom: isLandscape ? 'max(16px, calc(env(safe-area-inset-bottom) + 14px))' : 'max(74px, calc(env(safe-area-inset-bottom) + 68px))',
             width: 96,
             height: 96,
             borderRadius: '50%',
@@ -3212,7 +3231,7 @@ export default function MelaCanvas({
             style={{
               position: 'fixed',
               right: 'max(20px, calc(env(safe-area-inset-right) + 16px))',
-              bottom: 'max(92px, calc(env(safe-area-inset-bottom) + 84px))',
+              bottom: isLandscape ? 'max(16px, calc(env(safe-area-inset-bottom) + 14px))' : 'max(92px, calc(env(safe-area-inset-bottom) + 84px))',
               zIndex: 60,
               display: 'flex',
               flexDirection: 'column',

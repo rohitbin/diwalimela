@@ -19,19 +19,41 @@ export default function InventoryHotbar({
   isDancing,
   danceStep = 0
 }) {
+  const [dimensions, setDimensions] = React.useState(() => ({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1200,
+    height: typeof window !== 'undefined' ? window.innerHeight : 800
+  }));
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setDimensions({ width: window.innerWidth, height: window.innerHeight });
+    };
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, []);
+
+  const isLandscape = dimensions.width >= dimensions.height;
+  const isCompactLandscape = isLandscape && dimensions.height <= 520;
+  const slotSize = isCompactLandscape ? 44 : 52;
+  const iconSize = isCompactLandscape ? 15 : 18;
+
   return (
     <div
       style={{
         position: 'fixed',
-        bottom: 'max(8px, env(safe-area-inset-bottom))',
+        bottom: isCompactLandscape ? 'max(6px, env(safe-area-inset-bottom))' : 'max(8px, env(safe-area-inset-bottom))',
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 50,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 6,
-        maxWidth: 'calc(100vw - 16px)',
+        gap: isCompactLandscape ? 4 : 6,
+        maxWidth: isLandscape ? 'min(660px, calc(100vw - 250px))' : 'calc(100vw - 16px)',
         pointerEvents: 'none'
       }}
     >
@@ -57,7 +79,7 @@ export default function InventoryHotbar({
         }}
       >
         {/* Quick Stalls & Games Group */}
-        <div style={{ display: 'flex', gap: 5, paddingRight: 6, borderRight: '1px solid rgba(245, 158, 11, 0.3)' }}>
+        <div style={{ display: 'flex', gap: isCompactLandscape ? 4 : 5, paddingRight: isCompactLandscape ? 4 : 6, borderRight: '1px solid rgba(245, 158, 11, 0.3)' }}>
           {/* Shastra Armory (Bow & Gun) */}
           <button
             onClick={onOpenArmory}
@@ -69,18 +91,18 @@ export default function InventoryHotbar({
               backgroundColor: selectedCracker?.isWeapon ? 'rgba(239, 68, 68, 0.4)' : 'rgba(180, 83, 9, 0.25)',
               border: selectedCracker?.isWeapon ? '1.5px solid #f87171' : '1px solid #b45309',
               borderRadius: 12,
-              padding: '4px 8px',
+              padding: isCompactLandscape ? '2px 6px' : '4px 8px',
               color: '#fef08a',
-              fontSize: 10,
+              fontSize: isCompactLandscape ? 9 : 10,
               fontWeight: 700,
               cursor: 'pointer',
-              minWidth: 50,
-              height: 52
+              minWidth: isCompactLandscape ? 42 : 50,
+              height: slotSize
             }}
             title="Shastra Armory - Buy Ram Dhanush & Gun to Shoot Ravan"
           >
-            <span style={{ fontSize: 18 }}>🏹</span>
-            <span style={{ marginTop: 2 }}>Armory</span>
+            <span style={{ fontSize: iconSize }}>🏹</span>
+            <span style={{ marginTop: 1 }}>Armory</span>
           </button>
 
           {/* Yo Yo Honey Singh DJ Jukebox & Dance Floor */}
@@ -94,18 +116,18 @@ export default function InventoryHotbar({
               backgroundColor: 'rgba(236, 72, 153, 0.25)',
               border: '1.5px solid #ec4899',
               borderRadius: 12,
-              padding: '4px 8px',
+              padding: isCompactLandscape ? '2px 6px' : '4px 8px',
               color: '#fbcfe8',
-              fontSize: 10,
+              fontSize: isCompactLandscape ? 9 : 10,
               fontWeight: 700,
               cursor: 'pointer',
-              minWidth: 50,
-              height: 52
+              minWidth: isCompactLandscape ? 44 : 50,
+              height: slotSize
             }}
             title="Yo Yo Honey Singh DJ Jukebox & Songs"
           >
-            <span style={{ fontSize: 18 }}>🎧</span>
-            <span style={{ marginTop: 2 }}>DJ Yo Yo</span>
+            <span style={{ fontSize: iconSize }}>🎧</span>
+            <span style={{ marginTop: 1 }}>DJ Yo Yo</span>
           </button>
 
           {/* Dance / Celebrate Emote */}
@@ -119,21 +141,21 @@ export default function InventoryHotbar({
               backgroundColor: isDancing ? '#dc2626' : 'rgba(236, 72, 153, 0.25)',
               border: isDancing ? '1.5px solid #fef08a' : '1px solid #ec4899',
               borderRadius: 12,
-              padding: '4px 6px',
+              padding: isCompactLandscape ? '2px 4px' : '4px 6px',
               color: '#fbcfe8',
-              fontSize: 9.5,
+              fontSize: isCompactLandscape ? 8.5 : 9.5,
               fontWeight: 700,
               cursor: 'pointer',
-              minWidth: 54,
-              height: 52,
+              minWidth: isCompactLandscape ? 44 : 54,
+              height: slotSize,
               animation: isDancing ? 'pulse 0.5s infinite' : 'none'
             }}
             title={isDancing ? "Auto-Dancing! Tap to Stop (Key V)" : "Dance to Festive Dhol Beats (Key V)"}
           >
-            <span style={{ fontSize: 18 }}>
+            <span style={{ fontSize: iconSize }}>
               {isDancing ? (DANCE_STEPS[danceStep % DANCE_STEPS.length]?.icon || '💃') : '💃'}
             </span>
-            <span style={{ marginTop: 2 }}>
+            <span style={{ marginTop: 1 }}>
               {isDancing ? (DANCE_STEPS[danceStep % DANCE_STEPS.length]?.name?.split(' ')[0] || 'Dance') : 'Dance'}
             </span>
           </button>
@@ -149,20 +171,19 @@ export default function InventoryHotbar({
               backgroundColor: 'rgba(59, 130, 246, 0.25)',
               border: '1px solid #3b82f6',
               borderRadius: 12,
-              padding: '4px 8px',
+              padding: isCompactLandscape ? '2px 6px' : '4px 8px',
               color: '#bfdbfe',
-              fontSize: 10,
+              fontSize: isCompactLandscape ? 9 : 10,
               fontWeight: 700,
               cursor: 'pointer',
-              minWidth: 50,
-              height: 52
+              minWidth: isCompactLandscape ? 42 : 50,
+              height: slotSize
             }}
             title="Lucky Balloon Shooting Stall"
           >
-            <span style={{ fontSize: 18 }}>🎯</span>
-            <span style={{ marginTop: 2 }}>Shoot</span>
+            <span style={{ fontSize: iconSize }}>🎯</span>
+            <span style={{ marginTop: 1 }}>Shoot</span>
           </button>
-
 
           {/* Chai Tapri */}
           <button
@@ -175,18 +196,18 @@ export default function InventoryHotbar({
               backgroundColor: 'rgba(234, 88, 12, 0.25)',
               border: '1px solid #ea580c',
               borderRadius: 12,
-              padding: '4px 8px',
+              padding: isCompactLandscape ? '2px 6px' : '4px 8px',
               color: '#fed7aa',
-              fontSize: 10,
+              fontSize: isCompactLandscape ? 9 : 10,
               fontWeight: 700,
               cursor: 'pointer',
-              minWidth: 50,
-              height: 52
+              minWidth: isCompactLandscape ? 42 : 50,
+              height: slotSize
             }}
             title="Kulhad Chai & Samosa"
           >
-            <span style={{ fontSize: 18 }}>☕</span>
-            <span style={{ marginTop: 2 }}>Chai</span>
+            <span style={{ fontSize: iconSize }}>☕</span>
+            <span style={{ marginTop: 1 }}>Chai</span>
           </button>
 
           {/* Cracker Shop */}
@@ -200,20 +221,19 @@ export default function InventoryHotbar({
               backgroundColor: 'rgba(220, 38, 38, 0.25)',
               border: '1px solid #ef4444',
               borderRadius: 12,
-              padding: '4px 10px',
+              padding: isCompactLandscape ? '2px 6px' : '4px 10px',
               color: '#fecaca',
-              fontSize: 10,
+              fontSize: isCompactLandscape ? 9 : 10,
               fontWeight: 700,
               cursor: 'pointer',
-              minWidth: 50,
-              height: 52
+              minWidth: isCompactLandscape ? 42 : 50,
+              height: slotSize
             }}
             title="Open Shri Ganesh Patakha Bhandar"
           >
-            <span style={{ fontSize: 18 }}>🧨</span>
-            <span style={{ marginTop: 2 }}>Shop</span>
+            <span style={{ fontSize: iconSize }}>🧨</span>
+            <span style={{ marginTop: 1 }}>Shop</span>
           </button>
-
 
           {/* Mandir */}
           <button
@@ -226,23 +246,23 @@ export default function InventoryHotbar({
               backgroundColor: 'rgba(202, 138, 4, 0.25)',
               border: '1px solid #ca8a04',
               borderRadius: 12,
-              padding: '4px 8px',
+              padding: isCompactLandscape ? '2px 6px' : '4px 8px',
               color: '#fef08a',
-              fontSize: 10,
+              fontSize: isCompactLandscape ? 9 : 10,
               fontWeight: 700,
               cursor: 'pointer',
-              minWidth: 50,
-              height: 52
+              minWidth: isCompactLandscape ? 42 : 50,
+              height: slotSize
             }}
             title="Visit Lakshmi-Ganesh Mandir"
           >
-            <span style={{ fontSize: 18 }}>🔔</span>
-            <span style={{ marginTop: 2 }}>Mandir</span>
+            <span style={{ fontSize: iconSize }}>🔔</span>
+            <span style={{ marginTop: 1 }}>Mandir</span>
           </button>
         </div>
 
         {/* Crackers Hotbar Slots */}
-        <div style={{ display: 'flex', gap: 6, paddingLeft: 4 }}>
+        <div style={{ display: 'flex', gap: isCompactLandscape ? 4 : 6, paddingLeft: 4 }}>
           {CRACKERS.map((cracker, idx) => {
             const invItem = inventory.find((i) => i.id === cracker.id);
             const count = invItem ? invItem.count : 0;
@@ -274,9 +294,9 @@ export default function InventoryHotbar({
                     : count > 0
                     ? '1px solid rgba(245, 158, 11, 0.3)'
                     : '1px dashed rgba(255, 255, 255, 0.12)',
-                  borderRadius: 14,
-                  width: 52,
-                  height: 52,
+                  borderRadius: isCompactLandscape ? 11 : 14,
+                  width: slotSize,
+                  height: slotSize,
                   cursor: 'pointer',
                   opacity: count > 0 ? 1 : 0.45,
                   boxShadow: isSelected ? '0 0 14px rgba(251, 191, 36, 0.6)' : 'none',
@@ -290,7 +310,7 @@ export default function InventoryHotbar({
                     position: 'absolute',
                     top: 2,
                     left: 4,
-                    fontSize: 9,
+                    fontSize: isCompactLandscape ? 8 : 9,
                     color: '#94a3b8',
                     fontWeight: 700
                   }}
@@ -298,14 +318,14 @@ export default function InventoryHotbar({
                   {idx < 9 ? idx + 1 : (idx === 9 ? '0' : '')}
                 </span>
 
-                <span style={{ fontSize: 19 }}>{cracker.icon}</span>
+                <span style={{ fontSize: isCompactLandscape ? 16 : 19 }}>{cracker.icon}</span>
 
                 <span
                   style={{
                     position: 'absolute',
                     bottom: 2,
                     right: 4,
-                    fontSize: 10,
+                    fontSize: isCompactLandscape ? 9 : 10,
                     fontWeight: 700,
                     color: count > 0 ? '#fde047' : '#94a3b8'
                   }}

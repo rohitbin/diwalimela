@@ -10,7 +10,7 @@ export default function MiniMap({
   diyas = []
 }) {
   const [collapsed, setCollapsed] = useState(
-    typeof window !== 'undefined' ? window.innerWidth < 680 : false
+    typeof window !== 'undefined' ? (window.innerWidth < 680 || window.innerHeight <= 520) : false
   );
   const [crackerPings, setCrackerPings] = useState([]);
 

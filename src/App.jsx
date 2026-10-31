@@ -18,6 +18,8 @@ import MiniMap from './components/MiniMap';
 import FestiveChecklist from './components/FestiveChecklist';
 import PlayerJoinPopup from './components/PlayerJoinPopup';
 import InstallPromptModal from './components/InstallPromptModal';
+import RotateDeviceOverlay from './components/RotateDeviceOverlay';
+import { requestLandscapeMode } from './utils/orientation';
 import confetti from 'canvas-confetti';
 import { CRACKERS, INITIAL_INVENTORY } from './data/crackers';
 import { multiplayerManager } from './multiplayer/peerSync';
@@ -646,6 +648,9 @@ export default function App() {
   };
 
   const handleEnterMela = (profile) => {
+    // Request horizontal landscape fullscreen for optimal wide-angle arcade gameplay
+    requestLandscapeMode();
+
     let finalProfile = null;
     setPlayer((prev) => {
       finalProfile = {
@@ -866,7 +871,7 @@ export default function App() {
           }}
           style={{
             position: 'fixed',
-            top: 'max(52px, calc(env(safe-area-inset-top) + 44px))',
+            top: 'max(84px, calc(env(safe-area-inset-top) + 76px))',
             left: 'max(10px, env(safe-area-inset-left))',
             zIndex: 41,
             backgroundColor: 'rgba(23, 14, 38, 0.94)',
@@ -1104,7 +1109,7 @@ export default function App() {
           id="header-corner-chat-toasts"
           style={{
             position: 'fixed',
-            top: 'max(88px, calc(env(safe-area-inset-top) + 80px))',
+            top: 'max(118px, calc(env(safe-area-inset-top) + 110px))',
             left: 'max(10px, env(safe-area-inset-left))',
             zIndex: 42,
             display: 'flex',
@@ -1290,6 +1295,9 @@ export default function App() {
         onForfeit={handleForfeitGunFight}
         myPlayerName={player.name}
       />
+
+      {/* 12. Landscape Device Orientation Prompt Overlay */}
+      <RotateDeviceOverlay />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Sparkles, Users, Flame, Heart, Play, Bell } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
 import { notificationService } from '../services/notificationService';
+import { requestLandscapeMode } from '../utils/orientation';
 
 export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
   const [name, setName] = useState('');
@@ -13,6 +14,7 @@ export default function WelcomeScreen({ onEnterMela, defaultRoomId }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    requestLandscapeMode();
     soundEngine.init();
     soundEngine.playTempleBell();
     if (enableAlerts && notificationService.isSupported()) {

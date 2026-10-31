@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { soundEngine } from '../audio/soundEngine';
 import { notificationService } from '../services/notificationService';
-import { Users, Volume2, VolumeX, Music, Share2, HelpCircle, User, Sparkles, Check, MapPin, Download, SkipForward, Bell, BellRing, BellOff } from 'lucide-react';
+import { requestLandscapeMode, exitLandscapeMode } from '../utils/orientation';
+import { Users, Volume2, VolumeX, Music, Share2, HelpCircle, User, Sparkles, Check, MapPin, Download, SkipForward, Bell, BellRing, BellOff, Maximize2, Minimize2 } from 'lucide-react';
 
 export default function MultiplayerBar({
   roomId,
@@ -16,6 +17,7 @@ export default function MultiplayerBar({
 }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isMusicOn, setIsMusicOn] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(() => typeof document !== 'undefined' && !!document.fullscreenElement);
   const [currentFestiveTrack, setCurrentFestiveTrack] = useState(() => soundEngine.getCurrentFestiveTrack?.() || { title: 'Aayee Hai Diwali', emoji: '🪔' });
   const [copied, setCopied] = useState(false);
   const [notifState, setNotifState] = useState(() => notificationService.getPermission());
@@ -62,6 +64,26 @@ export default function MultiplayerBar({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, []);
+
+  const handleToggleFullscreen = async () => {
+    if (document.fullscreenElement) {
+      await exitLandscapeMode();
+    } else {
+      await requestLandscapeMode();
+    }
+  };
 
   const isMobile = windowWidth < 680;
   const isTablet = windowWidth < 960;
@@ -418,6 +440,29 @@ export default function MultiplayerBar({
               }}
             />
           )}
+        </button>
+
+        {/* Landscape Fullscreen Toggle */}
+        <button
+          onClick={handleToggleFullscreen}
+          style={{
+            backgroundColor: isFullscreen ? 'rgba(245, 158, 11, 0.28)' : 'rgba(20, 14, 32, 0.92)',
+            backdropFilter: 'blur(12px)',
+            border: isFullscreen ? '1.5px solid #fbbf24' : '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '50%',
+            width: isMobile ? 32 : 36,
+            height: isMobile ? 32 : 36,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: isFullscreen ? '#fef08a' : '#cbd5e1',
+            cursor: 'pointer',
+            touchAction: 'manipulation',
+            boxShadow: isFullscreen ? '0 0 12px rgba(245, 158, 11, 0.45)' : 'none'
+          }}
+          title={isFullscreen ? 'Exit Fullscreen' : 'Landscape Fullscreen Mode (हॉरिजॉन्टल फुलस्क्रीन)'}
+        >
+          {isFullscreen ? <Minimize2 size={isMobile ? 14 : 16} /> : <Maximize2 size={isMobile ? 14 : 16} />}
         </button>
 
         {/* SFX Mute/Unmute */}

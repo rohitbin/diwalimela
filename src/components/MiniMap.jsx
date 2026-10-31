@@ -70,7 +70,7 @@ export default function MiniMap({
     { key: 'NEW_GROUND_GATE', label: 'East Gate', icon: '🚪', x: MELA_ZONES.NEW_GROUND_GATE?.x || 1850, y: MELA_ZONES.NEW_GROUND_GATE?.y || 470 },
     { key: 'UTSAV_CHOWK', label: 'Utsav Chowk', icon: '✨', x: MELA_ZONES.UTSAV_CHOWK?.x || 2500, y: MELA_ZONES.UTSAV_CHOWK?.y || 470 },
     { key: 'NORTH_PAVILION', label: 'North Pavilion', icon: '🌸', x: MELA_ZONES.NORTH_PAVILION?.x || 2500, y: MELA_ZONES.NORTH_PAVILION?.y || 220 },
-    { key: 'SOUTH_ARENA', label: 'South Arena', icon: '🎪', x: MELA_ZONES.SOUTH_ARENA?.x || 2500, y: MELA_ZONES.SOUTH_ARENA?.y || 920 }
+    { key: 'BIG_CLUB', label: 'The Big Club', icon: '🪩', x: MELA_ZONES.BIG_CLUB?.x || 2500, y: MELA_ZONES.BIG_CLUB?.y || 950 }
   ];
 
   return (
@@ -263,20 +263,35 @@ export default function MiniMap({
             }}
           />
 
-          {/* South Celebration Arena Courtyard */}
+          {/* The Big Club VIP Venue on MiniMap */}
           <div
             style={{
               position: 'absolute',
               left: toMapX(2500),
-              top: toMapY(920),
-              width: 240 * scaleX,
-              height: 200 * scaleY,
+              top: toMapY(950),
+              width: 480 * scaleX,
+              height: 410 * scaleY,
               transform: 'translate(-50%, -50%)',
-              backgroundColor: 'rgba(56, 189, 248, 0.18)',
-              border: '1px dashed rgba(56, 189, 248, 0.45)',
-              borderRadius: 3
+              backgroundColor: 'rgba(9, 5, 20, 0.95)',
+              border: '1.5px solid #ec4899',
+              borderRadius: 3,
+              boxShadow: '0 0 6px rgba(236, 72, 153, 0.45)'
             }}
-          />
+          >
+            {/* LED Dance floor representation */}
+            <div
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: '42%',
+                width: '60%',
+                height: '45%',
+                transform: 'translate(-50%, -50%)',
+                backgroundColor: 'rgba(6, 182, 212, 0.35)',
+                border: '1px solid #06b6d4'
+              }}
+            />
+          </div>
 
           {/* MiniMap Ground Label */}
           <div

@@ -27,7 +27,8 @@ export const MELA_ZONES = {
   NEW_GROUND_GATE: { x: 1850, y: 470, name: 'East Gate (पूर्व द्वार)' },
   UTSAV_CHOWK: { x: 2500, y: 470, name: 'Grand Utsav Chowk (महा उत्सव चौक)' },
   NORTH_PAVILION: { x: 2500, y: 220, name: 'North Rangoli Pavilion (उत्तर मंडप)' },
-  SOUTH_ARENA: { x: 2500, y: 920, name: 'South Celebration Arena (दक्षिण उत्सव अखाड़ा)' },
+  BIG_CLUB: { x: 2500, y: 950, name: 'The Big Club (द बिग क्लब - VIP Lounge & Arena)' },
+  SOUTH_ARENA: { x: 2500, y: 950, name: 'The Big Club (द बिग क्लब)' },
   EAST_TERRACE: { x: 3200, y: 470, name: 'East Viewing Terrace (पूर्व दर्शन मंडप)' }
 };
 
@@ -346,6 +347,22 @@ export default function MelaCanvas({
       { id: 'dj_d2', name: 'Simran', x: 740, y: 400, color: '#06b6d4', outfit: { top: '#06b6d4', bottom: '#f8fafc' }, danceStyle: 'hiphop' },
       { id: 'dj_d3', name: 'Rocky', x: 785, y: 368, color: '#a855f7', outfit: { top: '#a855f7', bottom: '#0f172a' }, danceStyle: 'party' }
     ],
+    // The Big Club (VIP Mega Nightclub in Second Ground)
+    bigClub: {
+      x: 2500,
+      y: 950,
+      djX: 2500,
+      djY: 1070,
+      bubble: '🔥 DJ ROHIT: "Drop the bass! Welcome to The Big Club! 🔊✨"',
+      bubbleTimer: 0,
+      scratchAngle: 0,
+      dancers: [
+        { id: 'bc_d1', name: 'Kabir', x: 2420, y: 910, color: '#f43f5e', outfit: { top: '#f43f5e', bottom: '#0f172a' }, danceStyle: 'hiphop' },
+        { id: 'bc_d2', name: 'Aanya', x: 2580, y: 910, color: '#06b6d4', outfit: { top: '#06b6d4', bottom: '#f8fafc' }, danceStyle: 'techno' },
+        { id: 'bc_d3', name: 'Vikram', x: 2450, y: 970, color: '#a855f7', outfit: { top: '#a855f7', bottom: '#1e293b' }, danceStyle: 'bhangra' },
+        { id: 'bc_d4', name: 'Rhea', x: 2550, y: 970, color: '#fbbf24', outfit: { top: '#fbbf24', bottom: '#831843' }, danceStyle: 'party' }
+      ]
+    },
     nextAmbientFireworkTime: 140,
     lastFrameTime: performance.now()
   });
@@ -1003,6 +1020,12 @@ export default function MelaCanvas({
       return true;
     }
 
+    // The Big Club DJ Stage / Jukebox (Second Ground)
+    if (dist(p.x, p.y, MELA_ZONES.BIG_CLUB.x, MELA_ZONES.BIG_CLUB.y) < 160) {
+      if (onOpenDjJukebox) onOpenDjJukebox();
+      return true;
+    }
+
     // Weapon Armory Stall (Shastra Armory)
     if (dist(p.x, p.y, MELA_ZONES.WEAPON_STALL.x, MELA_ZONES.WEAPON_STALL.y) < 140) {
       if (onOpenArmory) onOpenArmory();
@@ -1160,6 +1183,21 @@ export default function MelaCanvas({
       p.targetY = MELA_ZONES.DJ_FLOOR.y;
       p.isMoving = true;
       setPlayer((prev) => ({ ...prev, targetX: MELA_ZONES.DJ_FLOOR.x, targetY: MELA_ZONES.DJ_FLOOR.y, isMoving: true }));
+      return;
+    }
+
+    // 0a-BigClub. Clicked The Big Club DJ Stage / Booth (Open Jukebox) or Dance Floor
+    const distToBigClubStage = dist(worldClickX, worldClickY, 2500, 1070);
+    if (distToBigClubStage < 65) {
+      if (onOpenDjJukebox) onOpenDjJukebox();
+      return;
+    }
+    const distToBigClubFloor = dist(worldClickX, worldClickY, MELA_ZONES.BIG_CLUB.x, MELA_ZONES.BIG_CLUB.y);
+    if (distToBigClubFloor < 120) {
+      p.targetX = worldClickX;
+      p.targetY = worldClickY;
+      p.isMoving = true;
+      setPlayer((prev) => ({ ...prev, targetX: worldClickX, targetY: worldClickY, isMoving: true }));
       return;
     }
 
@@ -2010,22 +2048,28 @@ export default function MelaCanvas({
         }
       }
 
-      // Update Yo Yo Honey Singh DJ Dance Floor & Casa Tupka Spatial Audio
+      // Update Yo Yo Honey Singh DJ Dance Floor & The Big Club Spatial Audio
       const djFloor = MELA_ZONES.DJ_FLOOR;
       const dDj = Math.hypot(p.x - djFloor.x, p.y - djFloor.y);
       const isInsideDjFloor = dDj <= 85;
 
-      // Spatial volume: only characters that enter (or approach) can hear Casa Tupka!
+      const isInsideBigClubFloor = p.x >= 2350 && p.x <= 2650 && p.y >= 840 && p.y <= 1040;
+      const dBigClub = Math.hypot(p.x - 2500, p.y - 950);
+
+      // Spatial volume: characters in or near either dance floor hear club music!
       let djVol = 0;
-      if (dDj <= 85) {
+      if (dDj <= 85 || isInsideBigClubFloor) {
         djVol = 1.0;
       } else if (dDj <= 155) {
         djVol = (155 - dDj) / 70;
+      } else if (dBigClub <= 240) {
+        djVol = (240 - dBigClub) / 120;
       }
       soundEngine.updateCasaTupkaSpatial?.(djVol);
 
-      // Automatic dancing for characters entering the dance floor!
-      if (isInsideDjFloor && !p.isSitting) {
+      // Automatic dancing for characters entering either dance floor!
+      const isAnyClubDanceFloor = (isInsideDjFloor || isInsideBigClubFloor) && !p.isSitting;
+      if (isAnyClubDanceFloor) {
         if (!p.inDjFloor) {
           p.inDjFloor = true;
           if (setIsDancing) setIsDancing(true);
@@ -2051,7 +2095,7 @@ export default function MelaCanvas({
             )
           );
         }
-      } else if (p.inDjFloor && dDj > 95) {
+      } else if (p.inDjFloor && dDj > 95 && !isInsideBigClubFloor && dBigClub > 200) {
         p.inDjFloor = false;
         if (setIsDancing) setIsDancing(false);
         if (multiplayerManager) {
@@ -2091,6 +2135,9 @@ export default function MelaCanvas({
 
       // A2. Grand New Mela Fairground (नया मेला मैदान - Second Ground)
       renderNewMelaGround(ctx, world, p);
+
+      // A3. The Big Club (द बिग क्लब - VIP Mega Nightclub in Second Ground)
+      renderBigClub(ctx, world, p, remotePlayersRef.current);
 
       // B. Grand Entrance Arch & Signages
       renderEntranceArch(ctx);
@@ -2628,8 +2675,9 @@ export default function MelaCanvas({
         </div>
       )}
 
-      {/* Dancing on Yo Yo Honey Singh DJ Floor Banner */}
-      {Math.hypot(player.x - MELA_ZONES.DJ_FLOOR.x, player.y - MELA_ZONES.DJ_FLOOR.y) <= 85 && !player.isSitting && (
+      {/* Dancing on DJ Floor Banner (Yo Yo Stage or The Big Club) */}
+      {(Math.hypot(player.x - MELA_ZONES.DJ_FLOOR.x, player.y - MELA_ZONES.DJ_FLOOR.y) <= 85 ||
+        (player.x >= 2350 && player.x <= 2650 && player.y >= 840 && player.y <= 1040)) && !player.isSitting && (
         <div
           id="dj-floor-banner"
           style={{
@@ -2655,7 +2703,7 @@ export default function MelaCanvas({
           <span style={{ fontSize: 22 }}>🕺</span>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <span style={{ color: '#f472b6', fontSize: 10, fontWeight: 900, letterSpacing: 0.6 }}>
-              🔥 YO YO HONEY SINGH DJ STAGE
+              {player.x >= 1850 ? '🪩 THE BIG CLUB • VIP DANCE ARENA' : '🔥 YO YO HONEY SINGH DJ STAGE'}
             </span>
             <span style={{ color: '#fef08a', fontSize: 12.5, fontWeight: 800 }}>
               Dancing to "{currentDjTrack?.title || 'Casa Tupka'}" • {currentDjTrack?.bpm || 105} BPM 🎶
@@ -3523,27 +3571,18 @@ function renderNewMelaGround(ctx, world, player) {
   ctx.textAlign = 'center';
   ctx.fillText('🌸 उत्तर कला मंडप (North Art Pavilion) 🌸', 2500, 275);
 
-  // 7. South Celebration Arena Ground (x: 2360 to 2640, y: 820 to 1020) - Rectangular Arena
-  const ax = 2500;
-  const ay = 920;
-  ctx.fillStyle = 'rgba(120, 53, 15, 0.45)';
-  ctx.beginPath();
-  ctx.roundRect(2360, 820, 280, 200, 12);
-  ctx.fill();
-  ctx.strokeStyle = '#f59e0b';
-  ctx.lineWidth = 2.5;
-  ctx.stroke();
-
-  // Inner rectangular decorative border
+  // 7. Grand Avenue South Approach to The Big Club (x: 2420 to 2580, y: 590 to 770)
+  ctx.fillStyle = 'rgba(185, 28, 28, 0.65)';
+  ctx.fillRect(2440, 590, 120, 180);
   ctx.strokeStyle = '#fbbf24';
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(2380, 840, 240, 160);
+  ctx.lineWidth = 2;
+  ctx.strokeRect(2440, 590, 120, 180);
 
-  // Arena Sign
-  ctx.fillStyle = '#fed7aa';
-  ctx.font = 'bold 13px "Cinzel", serif';
+  // VIP Entrance Welcome Sign facing North along the avenue
+  ctx.fillStyle = '#fef08a';
+  ctx.font = 'bold 12px "Outfit", sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('🎪 दक्षिण उत्सव मैदान (South Fairground Arena) 🎪', ax, ay + 75);
+  ctx.fillText('⬇ 🪩 THE BIG CLUB (VIP ENTRANCE) ⬇', 2500, 755);
 
   // 8. East Viewing Terrace (x: 3200, y: 470)
   ctx.fillStyle = 'rgba(185, 28, 28, 0.5)';
@@ -4827,6 +4866,555 @@ function renderYoYoDjDanceFloor(ctx, world, player, remotePlayers) {
     ctx.textAlign = 'center';
     const trackName = soundEngine.getCurrentHoneySinghTrack?.()?.title || 'Casa Tupka';
     ctx.fillText(`🎧 [ Step Inside to Hear ${trackName} & Dance! ] 🕺🎶`, 740, floorY + floorH + 20);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+// -------------------------------------------------------------
+// THE BIG CLUB (द बिग क्लब - VIP MEGA NIGHTCLUB IN SECOND MAP)
+// -------------------------------------------------------------
+function renderBigClub(ctx, world, player, remotePlayers) {
+  const dist = (x1, y1, x2, y2) => Math.hypot(x1 - x2, y1 - y2);
+  const now = performance.now();
+  const bigClub = world.bigClub;
+
+  ctx.save();
+
+  // 1. Main Venue Obsidian Perimeter & VIP Carpet (x: 2260 to 2740, y: 770 to 1180)
+  const clubX = 2260;
+  const clubY = 770;
+  const clubW = 480;
+  const clubH = 410;
+
+  // Ambient Club Neon Pulse Glow underneath
+  const neonHue = (now * 0.05) % 360;
+  const neonColor = `hsl(${neonHue}, 90%, 60%)`;
+
+  ctx.save();
+  ctx.shadowBlur = 35;
+  ctx.shadowColor = 'rgba(236, 72, 153, 0.45)';
+  ctx.fillStyle = '#090514'; // Dark Obsidian Club Floor
+  ctx.beginPath();
+  ctx.roundRect(clubX, clubY, clubW, clubH, 16);
+  ctx.fill();
+  ctx.restore();
+
+  // Glowing Neon Outer Boundary
+  ctx.strokeStyle = neonColor;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.roundRect(clubX, clubY, clubW, clubH, 16);
+  ctx.stroke();
+
+  // Golden Geometric Floor Accents
+  ctx.strokeStyle = 'rgba(251, 191, 36, 0.12)';
+  ctx.lineWidth = 1;
+  for (let gx = clubX + 40; gx < clubX + clubW; gx += 50) {
+    ctx.beginPath();
+    ctx.moveTo(gx, clubY + 60);
+    ctx.lineTo(gx, clubY + clubH - 20);
+    ctx.stroke();
+  }
+
+  // 2. Grand Entrance & VIP Red Carpet (y: 770 to 850, x: 2430 to 2570)
+  ctx.fillStyle = 'rgba(185, 28, 28, 0.85)';
+  ctx.fillRect(2440, 770, 120, 80);
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(2440, 770, 120, 80);
+
+  // Brass Stanchion Posts & Red Velvet Ropes at Entry
+  const stanchions = [
+    { x: 2436, y: 790 }, { x: 2436, y: 830 },
+    { x: 2564, y: 790 }, { x: 2564, y: 830 }
+  ];
+  stanchions.forEach((st) => {
+    ctx.fillStyle = '#b45309';
+    ctx.fillRect(st.x - 3, st.y - 14, 6, 14);
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(st.x, st.y - 15, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  // Velvet Ropes
+  ctx.strokeStyle = '#dc2626';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(2436, 790 - 10);
+  ctx.quadraticCurveTo(2436, 810, 2436, 830 - 10);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(2564, 790 - 10);
+  ctx.quadraticCurveTo(2564, 810, 2564, 830 - 10);
+  ctx.stroke();
+
+  // 3. VIP Security Bouncer NPC ("Shera") at Entrance
+  ctx.save();
+  const bouncerX = 2415;
+  const bouncerY = 805;
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.beginPath();
+  ctx.ellipse(bouncerX, bouncerY + 12, 10, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#0f172a';
+  ctx.fillRect(bouncerX - 8, bouncerY + 2, 7, 10);
+  ctx.fillRect(bouncerX + 1, bouncerY + 2, 7, 10);
+  ctx.fillStyle = '#020617';
+  ctx.beginPath();
+  ctx.roundRect(bouncerX - 10, bouncerY - 12, 20, 16, 3);
+  ctx.fill();
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(bouncerX - 2, bouncerY - 10, 4, 10);
+  ctx.fillStyle = '#dc2626';
+  ctx.fillRect(bouncerX - 1, bouncerY - 8, 2, 8);
+  ctx.fillStyle = '#d97706';
+  ctx.beginPath();
+  ctx.arc(bouncerX, bouncerY - 18, 7.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#0f172a';
+  ctx.fillRect(bouncerX - 6, bouncerY - 20, 12, 4);
+  ctx.font = 'bold 8.5px "Outfit", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fef08a';
+  ctx.fillText('🕶️ Shera (VIP Security)', bouncerX, bouncerY - 28);
+  ctx.restore();
+
+  // 4. Grand Neon Marquee Header Sign
+  ctx.save();
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = neonColor;
+  ctx.fillStyle = 'rgba(15, 10, 30, 0.95)';
+  ctx.beginPath();
+  ctx.roundRect(2340, 755, 320, 26, 8);
+  ctx.fill();
+  ctx.strokeStyle = neonColor;
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+
+  ctx.font = 'bold 13px "Cinzel", serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fef08a';
+  ctx.fillText('✨ 🪩 THE BIG CLUB • VIP ARENA 🍸 ✨', 2500, 773);
+  ctx.restore();
+
+  // 5. Massive LED Matrix Dance Floor (x: 2360 to 2640, y: 850 to 1025)
+  const danceX = 2360;
+  const danceY = 850;
+  const danceW = 280;
+  const danceH = 175;
+
+  ctx.fillStyle = 'rgba(10, 6, 22, 0.92)';
+  ctx.fillRect(danceX, danceY, danceW, danceH);
+
+  // 8 Columns x 5 Rows of Pulsating LED Acrylic Tiles
+  const dCols = 8;
+  const dRows = 5;
+  const tileW = (danceW - 16) / dCols;
+  const tileH = (danceH - 14) / dRows;
+  const partyCols = ['#ec4899', '#06b6d4', '#8b5cf6', '#facc15', '#10b981', '#f43f5e', '#3b82f6'];
+
+  for (let r = 0; r < dRows; r++) {
+    for (let c = 0; c < dCols; c++) {
+      const tx = danceX + 8 + c * tileW;
+      const ty = danceY + 7 + r * tileH;
+      const cIdx = Math.floor((c + r * 2 + Math.floor(now * 0.0035)) % partyCols.length);
+      const col = partyCols[cIdx];
+      const pAlpha = Math.sin(now * 0.009 + c * 0.7 + r * 1.1) * 0.35 + 0.65;
+
+      ctx.fillStyle = col;
+      ctx.globalAlpha = pAlpha * 0.55;
+      ctx.fillRect(tx + 2, ty + 2, tileW - 4, tileH - 4);
+
+      ctx.strokeStyle = col;
+      ctx.globalAlpha = pAlpha * 0.85;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(tx + 2, ty + 2, tileW - 4, tileH - 4);
+    }
+  }
+  ctx.globalAlpha = 1.0;
+
+  // 6. Overhead Giant Mirror Disco Ball (at x: 2500, y: 885)
+  const ballX = 2500;
+  const ballY = 885;
+  const rotAngle = now * 0.0018;
+
+  // Hanging wire
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(ballX, 780);
+  ctx.lineTo(ballX, ballY);
+  ctx.stroke();
+
+  ctx.save();
+  ctx.translate(ballX, ballY);
+  ctx.rotate(rotAngle);
+
+  ctx.shadowBlur = 22;
+  ctx.shadowColor = '#ffffff';
+  ctx.fillStyle = '#e2e8f0';
+  ctx.beginPath();
+  ctx.arc(0, 0, 18, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = '#64748b';
+  ctx.lineWidth = 0.8;
+  for (let a = 0; a < 8; a++) {
+    const ang = (a * Math.PI) / 4;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(ang) * -16, Math.sin(ang) * -16);
+    ctx.lineTo(Math.cos(ang) * 16, Math.sin(ang) * 16);
+    ctx.stroke();
+  }
+
+  for (let s = 0; s < 6; s++) {
+    const sAng = (s * Math.PI) / 3 + rotAngle * 2;
+    ctx.fillStyle = partyCols[s % partyCols.length];
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.arc(Math.cos(sAng) * 45, Math.sin(sAng) * 45, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1.0;
+
+  // 7. Dynamic Sweeping Concert Laser Beams
+  const laserOrigins = [
+    { x: danceX + 10, y: danceY + danceH - 5, targetAngle: Math.sin(now * 0.002) * 0.6 - 0.7 },
+    { x: danceX + danceW - 10, y: danceY + danceH - 5, targetAngle: Math.sin(now * 0.0023 + 1) * 0.6 - 2.4 },
+    { x: danceX + 10, y: danceY + 10, targetAngle: Math.sin(now * 0.0026 + 2) * 0.5 + 0.4 },
+    { x: danceX + danceW - 10, y: danceY + 10, targetAngle: Math.sin(now * 0.0021 + 3) * 0.5 + 2.7 }
+  ];
+  const beamColors = ['rgba(6, 182, 212, 0.45)', 'rgba(236, 72, 153, 0.45)', 'rgba(250, 204, 21, 0.45)', 'rgba(168, 85, 247, 0.45)'];
+  laserOrigins.forEach((l, idx) => {
+    ctx.save();
+    ctx.strokeStyle = beamColors[idx % beamColors.length];
+    ctx.lineWidth = 2.5;
+    ctx.shadowBlur = 14;
+    ctx.shadowColor = beamColors[idx % beamColors.length];
+    ctx.beginPath();
+    ctx.moveTo(l.x, l.y);
+    const beamLen = 220;
+    ctx.lineTo(l.x + Math.cos(l.targetAngle) * beamLen, l.y + Math.sin(l.targetAngle) * beamLen);
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  // 8. Elevated Mega DJ Mainstage (x: 2380 to 2620, y: 1040 to 1130)
+  const stageX = 2380;
+  const stageY = 1040;
+  const stageW = 240;
+  const stageH = 85;
+
+  ctx.fillStyle = '#0f172a';
+  ctx.beginPath();
+  ctx.roundRect(stageX, stageY, stageW, stageH, 8);
+  ctx.fill();
+  ctx.strokeStyle = '#ec4899';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // LED Video Wall Backdrop (16 Graphic Equalizer Bars)
+  const eqX = stageX + 15;
+  const eqY = stageY + 8;
+  const eqW = stageW - 30;
+  ctx.fillStyle = 'rgba(2, 6, 23, 0.9)';
+  ctx.fillRect(eqX, eqY, eqW, 28);
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(eqX, eqY, eqW, 28);
+
+  const numBars = 16;
+  const barW = (eqW - 8) / numBars;
+  for (let b = 0; b < numBars; b++) {
+    const barH = 4 + Math.abs(Math.sin(now * 0.013 + b * 0.6)) * 20;
+    ctx.fillStyle = b < 6 ? '#22c55e' : (b < 12 ? '#facc15' : '#ef4444');
+    ctx.fillRect(eqX + 4 + b * barW, eqY + 26 - barH, barW - 2, barH);
+  }
+
+  // Twin Mega Subwoofer Speaker Towers (Left & Right of stage)
+  const speakers = [
+    { x: stageX - 25, y: stageY + 10 },
+    { x: stageX + stageW + 5, y: stageY + 10 }
+  ];
+  speakers.forEach((spk) => {
+    ctx.fillStyle = '#1e1b4b';
+    ctx.fillRect(spk.x, spk.y, 20, 65);
+    ctx.strokeStyle = '#ec4899';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(spk.x, spk.y, 20, 65);
+
+    const bassPump = Math.sin(now * 0.02) * 2;
+    for (let w = 0; w < 2; w++) {
+      const wy = spk.y + 18 + w * 28;
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(spk.x + 10, wy, 7 + bassPump, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+  });
+
+  // DJ Console Desk
+  const deskX = 2450;
+  const deskY = stageY + 45;
+  const deskW = 100;
+  const deskH = 30;
+
+  ctx.fillStyle = '#1e293b';
+  ctx.beginPath();
+  ctx.roundRect(deskX, deskY, deskW, deskH, 4);
+  ctx.fill();
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+
+  ctx.fillStyle = '#0f172a';
+  ctx.beginPath();
+  ctx.arc(deskX + 22, deskY + 15, 11, 0, Math.PI * 2);
+  ctx.arc(deskX + deskW - 22, deskY + 15, 11, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#ec4899';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // DJ Rohit on Stage
+  const djX = 2500;
+  const djY = stageY + 36;
+  ctx.save();
+  ctx.translate(djX, djY);
+
+  ctx.fillStyle = '#ec4899';
+  ctx.beginPath();
+  ctx.roundRect(-8, -10, 16, 14, [4, 4, 1, 1]);
+  ctx.fill();
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(0, -6, 4, 0, Math.PI);
+  ctx.stroke();
+
+  ctx.fillStyle = '#fed7aa';
+  ctx.beginPath();
+  ctx.arc(0, -16, 7.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#0f172a';
+  ctx.fillRect(-6, -18, 12, 4);
+
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillRect(-9, -21, 3, 9);
+  ctx.fillRect(6, -21, 3, 9);
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, -20, 8.5, Math.PI * 0.9, Math.PI * 2.1);
+  ctx.stroke();
+
+  const scratch = Math.sin(now * 0.02) * 5;
+  const fist = Math.sin(now * 0.016) * 6;
+  ctx.strokeStyle = '#fed7aa';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-6, -6);
+  ctx.lineTo(-16 + scratch, 4);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(6, -6);
+  ctx.lineTo(16, -16 + fist);
+  ctx.stroke();
+  ctx.fillStyle = '#fed7aa';
+  ctx.beginPath();
+  ctx.arc(16, -16 + fist, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.font = 'bold 9.5px "Outfit", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#f472b6';
+  ctx.fillText('🎧 DJ ROHIT (Big Club Resident) 🎧', 0, -32);
+
+  const djBubble = bigClub?.bubble || '🔥 DJ ROHIT: "Drop the bass! Welcome to The Big Club! 🔊✨"';
+  ctx.font = 'bold 9.5px "Outfit", sans-serif';
+  const bubbleWidth = ctx.measureText(djBubble).width + 16;
+  ctx.fillStyle = 'rgba(23, 15, 38, 0.96)';
+  ctx.strokeStyle = '#ec4899';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(-bubbleWidth / 2, -64, bubbleWidth, 20, 6);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#fef08a';
+  ctx.fillText(djBubble, 0, -50);
+  ctx.restore();
+
+  ctx.font = 'bold 10px "Outfit", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fef08a';
+  ctx.fillText('[ 🎧 Tap DJ / Press E to Open Jukebox ]', 2500, stageY + stageH + 16);
+
+  // 9. VIP Luxury Sofa Lounge (West Wing: x: 2275 to 2345, y: 850 to 1025)
+  const lX = 2275;
+  const lY = 850;
+  const lW = 75;
+  const lH = 175;
+
+  ctx.fillStyle = 'rgba(88, 28, 135, 0.4)';
+  ctx.beginPath();
+  ctx.roundRect(lX, lY, lW, lH, 10);
+  ctx.fill();
+  ctx.strokeStyle = '#c084fc';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  const couches = [
+    { y: lY + 15 },
+    { y: lY + 70 },
+    { y: lY + 125 }
+  ];
+  couches.forEach((c) => {
+    ctx.fillStyle = '#701a75';
+    ctx.beginPath();
+    ctx.roundRect(lX + 8, c.y, 58, 24, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.arc(lX + 37, c.y + 34, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#06b6d4';
+    ctx.beginPath();
+    ctx.arc(lX + 37, c.y + 34, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.font = 'bold 9px "Outfit", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#f5d0fe';
+  ctx.fillText('🛋️ VIP LOUNGE', lX + 37, lY + lH + 14);
+
+  // 10. Neon Mocktail Bar (East Wing: x: 2650 to 2725, y: 850 to 1025)
+  const bX = 2650;
+  const bY = 850;
+  const barAreaW = 75;
+  const barAreaH = 175;
+
+  ctx.fillStyle = 'rgba(14, 116, 144, 0.4)';
+  ctx.beginPath();
+  ctx.roundRect(bX, bY, barAreaW, barAreaH, 10);
+  ctx.fill();
+  ctx.strokeStyle = '#06b6d4';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.fillStyle = '#0e7490';
+  ctx.beginPath();
+  ctx.roundRect(bX + 8, bY + 30, 24, 115, 4);
+  ctx.fill();
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  const bCols = ['#ec4899', '#facc15', '#06b6d4', '#10b981', '#a855f7'];
+  for (let bi = 0; bi < 8; bi++) {
+    const byy = bY + 40 + bi * 12;
+    ctx.fillStyle = bCols[bi % bCols.length];
+    ctx.fillRect(bX + 48, byy, 6, 9);
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(bX + 49, byy - 2, 4, 3);
+  }
+
+  // Bartender "Rocky"
+  ctx.save();
+  const barTenderX = bX + 50;
+  const barTenderY = bY + 90;
+  ctx.fillStyle = '#fed7aa';
+  ctx.beginPath();
+  ctx.arc(barTenderX, barTenderY - 10, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#0f172a';
+  ctx.fillRect(barTenderX - 5, barTenderY - 4, 10, 14);
+  ctx.font = 'bold 8px "Outfit", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#bae6fd';
+  ctx.fillText('🍸 Rocky (Bar)', barTenderX, barTenderY - 20);
+  ctx.restore();
+
+  ctx.font = 'bold 9px "Outfit", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#bae6fd';
+  ctx.fillText('🍸 VIP BAR', bX + 37, bY + barAreaH + 14);
+
+  // 11. NPC Dancers Grooving on The Big Club Floor
+  const dancers = bigClub?.dancers || [];
+  dancers.forEach((dancer) => {
+    ctx.save();
+    const bob = Math.sin(now * 0.015 + (dancer.danceOffset || dancer.x)) * 4.5;
+    const sway = Math.cos(now * 0.012 + (dancer.danceOffset || dancer.y)) * 3.5;
+
+    ctx.translate(dancer.x + sway, dancer.y + bob);
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.beginPath();
+    ctx.ellipse(0, 11 - bob, 8, 3.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = dancer.outfit?.bottom || '#0f172a';
+    ctx.fillRect(-5, 2, 3, 9);
+    ctx.fillRect(2, 2, 3, 9);
+
+    ctx.fillStyle = dancer.outfit?.top || dancer.color || '#ec4899';
+    ctx.beginPath();
+    ctx.roundRect(-7, -10, 14, 13, [3, 3, 1, 1]);
+    ctx.fill();
+
+    ctx.fillStyle = '#fed7aa';
+    ctx.beginPath();
+    ctx.arc(0, -15, 6.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#1e1b4b';
+    ctx.beginPath();
+    ctx.arc(0, -17, 6.5, Math.PI, 0);
+    ctx.fill();
+
+    ctx.font = 'bold 8.5px "Outfit", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fef08a';
+    ctx.fillText(`${dancer.name} 💃`, 0, -24);
+    ctx.restore();
+  });
+
+  // 12. Remote Players inside The Big Club
+  if (remotePlayers && remotePlayers.size > 0) {
+    remotePlayers.forEach((rem) => {
+      if (rem.x >= danceX && rem.x <= danceX + danceW && rem.y >= danceY && rem.y <= danceY + danceH) {
+        ctx.save();
+        ctx.font = '12px serif';
+        ctx.fillStyle = '#ec4899';
+        ctx.fillText('🪩', rem.x + 8, rem.y - 45);
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillText('🎶', rem.x - 8, rem.y - 42);
+        ctx.restore();
+      }
+    });
+  }
+
+  // 13. Approach Guide text when player is standing near The Big Club (outside dance floor)
+  const distToClub = dist(player.x, player.y, 2500, 950);
+  const isInsideFloor = player.x >= danceX && player.x <= danceX + danceW && player.y >= danceY && player.y <= danceY + danceH;
+  if (!isInsideFloor && distToClub < 220 && !player.isSitting) {
+    ctx.save();
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = '#000000';
+    ctx.fillStyle = '#f472b6';
+    ctx.font = 'bold 11.5px "Outfit", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🪩 [ Step onto the LED Floor to Dance & Party at The Big Club! ] 🔊', 2500, 842);
     ctx.restore();
   }
 

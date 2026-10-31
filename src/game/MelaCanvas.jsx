@@ -3370,23 +3370,19 @@ function renderNewMelaGround(ctx, world, player) {
     ctx.fill();
   }
 
-  // Corner Royal Bastions
+  // Corner Royal Bastions (Square Bastion Pillars)
   const corners = [
     { x: 3500, y: 110 },
     { x: 3500, y: 1330 }
   ];
   corners.forEach((c) => {
     ctx.fillStyle = '#451a03';
+    ctx.fillRect(c.x - 14, c.y - 14, 28, 28);
     ctx.strokeStyle = '#fbbf24';
     ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, 16, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+    ctx.strokeRect(c.x - 14, c.y - 14, 28, 28);
     ctx.fillStyle = '#f59e0b';
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, 8, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillRect(c.x - 7, c.y - 7, 14, 14);
   });
 
   // 3. Main Royal Promenade (East-West Avenue: x: 1850 to 3300, y: 410 to 530)
@@ -3435,105 +3431,82 @@ function renderNewMelaGround(ctx, world, player) {
     ctx.fill();
   }
 
-  // 5. Grand Central Utsav Chowk (नया उत्सव चौक - Grand Ceremonial Plaza)
+  // 5. Grand Central Utsav Chowk (महा उत्सव चौक - Grand Square Ceremonial Plaza)
   const cx = 2500;
   const cy = 470;
+  const pw = 280; // plaza width
+  const ph = 240; // plaza height
 
-  // Outer plaza ring (Radius: 155)
+  // Outer plaza rectangular base
   ctx.fillStyle = 'rgba(69, 10, 10, 0.65)';
   ctx.beginPath();
-  ctx.arc(cx, cy, 155, 0, Math.PI * 2);
+  ctx.roundRect(cx - pw / 2, cy - ph / 2, pw, ph, 12);
   ctx.fill();
 
   ctx.strokeStyle = '#f59e0b';
   ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.arc(cx, cy, 155, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Middle concentric decorative ring
+  // Middle rectangular decorative border
   ctx.strokeStyle = '#fbbf24';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(cx, cy, 115, 0, Math.PI * 2);
+  ctx.roundRect(cx - (pw - 36) / 2, cy - (ph - 36) / 2, pw - 36, ph - 36, 8);
   ctx.stroke();
 
-  // 16 Marigold flowers around the middle ring
-  for (let i = 0; i < 16; i++) {
-    const angle = (i * Math.PI) / 8;
-    const fx = cx + Math.cos(angle) * 115;
-    const fy = cy + Math.sin(angle) * 115;
-    ctx.fillStyle = i % 2 === 0 ? '#f59e0b' : '#ea580c';
-    ctx.beginPath();
-    ctx.arc(fx, fy, 5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Giant 12-Petaled Sacred Royal Rangoli Art at Central Utsav Chowk
-  ctx.save();
-  ctx.translate(cx, cy);
-
-  // Inner sanctum base
-  ctx.fillStyle = '#78350f';
-  ctx.beginPath();
-  ctx.arc(0, 0, 75, 0, Math.PI * 2);
-  ctx.fill();
+  // Inner sanctum square carpet
+  ctx.fillStyle = 'rgba(120, 53, 15, 0.75)';
+  ctx.fillRect(cx - 70, cy - 70, 140, 140);
   ctx.strokeStyle = '#fef08a';
   ctx.lineWidth = 2;
-  ctx.stroke();
+  ctx.strokeRect(cx - 70, cy - 70, 140, 140);
 
-  // Rangoli Petals
-  for (let p = 0; p < 12; p++) {
-    const pAngle = (p * Math.PI) / 6;
-    ctx.save();
-    ctx.rotate(pAngle);
-
-    // Crimson petal
-    ctx.fillStyle = p % 2 === 0 ? '#dc2626' : '#ea580c';
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.quadraticCurveTo(18, -35, 0, -68);
-    ctx.quadraticCurveTo(-18, -35, 0, 0);
-    ctx.fill();
-
-    // Golden petal outline & core
-    ctx.fillStyle = '#fbbf24';
-    ctx.beginPath();
-    ctx.arc(0, -42, 4.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-  }
-
-  // Central Auspicious Deepstambh Base
-  ctx.fillStyle = '#451a03';
+  // Geometric Festive Diamond / Square Rangoli in the center
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(Math.PI / 4); // Diamond square
+  ctx.fillStyle = 'rgba(220, 38, 38, 0.85)';
+  ctx.fillRect(-35, -35, 70, 70);
   ctx.strokeStyle = '#fbbf24';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.arc(0, 0, 26, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
+  ctx.lineWidth = 2;
+  ctx.strokeRect(-35, -35, 70, 70);
+  ctx.restore();
 
-  // Eternal Central Flame of New Ground
+  // Central Auspicious Deepstambh Base (Square Pedestal)
+  ctx.fillStyle = '#451a03';
+  ctx.fillRect(cx - 18, cy - 18, 36, 36);
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(cx - 18, cy - 18, 36, 36);
+
+  // Eternal Central Flame of New Ground (Flame shape, not a circle)
+  ctx.save();
   ctx.shadowBlur = 24;
   ctx.shadowColor = '#f59e0b';
-  ctx.fillStyle = '#f59e0b';
+  const fTime = performance.now() * 0.005;
+  const flameWobble = Math.cos(fTime * 2) * 3;
+  ctx.fillStyle = '#ea580c';
   ctx.beginPath();
-  ctx.arc(0, 0, 14, 0, Math.PI * 2);
+  ctx.moveTo(cx - 12, cy + 6);
+  ctx.quadraticCurveTo(cx - 16, cy - 14, cx + flameWobble, cy - 28);
+  ctx.quadraticCurveTo(cx + 16, cy - 14, cx + 12, cy + 6);
+  ctx.closePath();
   ctx.fill();
+
   ctx.fillStyle = '#fef08a';
   ctx.beginPath();
-  ctx.arc(0, 0, 8, 0, Math.PI * 2);
+  ctx.moveTo(cx - 6, cy + 4);
+  ctx.quadraticCurveTo(cx - 8, cy - 8, cx + flameWobble * 0.5, cy - 18);
+  ctx.quadraticCurveTo(cx + 8, cy - 8, cx + 6, cy + 4);
+  ctx.closePath();
   ctx.fill();
-  ctx.shadowBlur = 0;
-
   ctx.restore();
 
   // Plaza Name Badge on Floor
   ctx.fillStyle = '#fef08a';
   ctx.font = 'bold 13px "Cinzel", serif';
   ctx.textAlign = 'center';
-  ctx.fillText('✨ महा उत्सव चौक (Grand Utsav Plaza) ✨', cx, cy + 138);
+  ctx.fillText('✨ महा उत्सव चौक (Grand Utsav Plaza) ✨', cx, cy + 104);
 
   // 6. North Rangoli Arts Pavilion Ground (x: 2360 to 2640, y: 150 to 290)
   ctx.fillStyle = 'rgba(76, 29, 149, 0.45)'; // Royal Purple Pavilion Floor
@@ -3550,31 +3523,27 @@ function renderNewMelaGround(ctx, world, player) {
   ctx.textAlign = 'center';
   ctx.fillText('🌸 उत्तर कला मंडप (North Art Pavilion) 🌸', 2500, 275);
 
-  // 7. South Celebration Arena Ground (x: 2500, y: 920, radius: 155)
+  // 7. South Celebration Arena Ground (x: 2360 to 2640, y: 820 to 1020) - Rectangular Arena
   const ax = 2500;
   const ay = 920;
   ctx.fillStyle = 'rgba(120, 53, 15, 0.45)';
   ctx.beginPath();
-  ctx.arc(ax, ay, 150, 0, Math.PI * 2);
+  ctx.roundRect(2360, 820, 280, 200, 12);
   ctx.fill();
   ctx.strokeStyle = '#f59e0b';
   ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.arc(ax, ay, 150, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Inner arena ring
+  // Inner rectangular decorative border
   ctx.strokeStyle = '#fbbf24';
   ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(ax, ay, 100, 0, Math.PI * 2);
-  ctx.stroke();
+  ctx.strokeRect(2380, 840, 240, 160);
 
   // Arena Sign
   ctx.fillStyle = '#fed7aa';
   ctx.font = 'bold 13px "Cinzel", serif';
   ctx.textAlign = 'center';
-  ctx.fillText('🎪 दक्षिण उत्सव मैदान (South Fairground Arena) 🎪', ax, ay + 130);
+  ctx.fillText('🎪 दक्षिण उत्सव मैदान (South Fairground Arena) 🎪', ax, ay + 75);
 
   // 8. East Viewing Terrace (x: 3200, y: 470)
   ctx.fillStyle = 'rgba(185, 28, 28, 0.5)';
@@ -3625,33 +3594,33 @@ function renderNewMelaGround(ctx, world, player) {
   });
 
   // 10. Hanging Strings of Twinkling Fairy Lights across Central Utsav Chowk
-  const fTime = performance.now() * 0.003;
+  const fairyTime = performance.now() * 0.003;
   const festColors = ['#f43f5e', '#38bdf8', '#fbbf24', '#4ade80', '#c084fc'];
-  for (let s = 0; s < 4; s++) {
-    const sAngle = (s * Math.PI) / 2 + Math.PI / 4;
-    const startX = cx;
-    const startY = cy;
-    const endX = cx + Math.cos(sAngle) * 150;
-    const endY = cy + Math.sin(sAngle) * 150;
-
+  const lightSpans = [
+    { x1: cx - 130, y1: cy - 100, x2: cx + 130, y2: cy - 100 },
+    { x1: cx - 130, y1: cy + 100, x2: cx + 130, y2: cy + 100 },
+    { x1: cx - 120, y1: cy - 100, x2: cx - 120, y2: cy + 100 },
+    { x1: cx + 120, y1: cy - 100, x2: cx + 120, y2: cy + 100 }
+  ];
+  lightSpans.forEach((span, s) => {
     ctx.strokeStyle = 'rgba(251, 191, 36, 0.45)';
     ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.quadraticCurveTo((startX + endX) / 2, (startY + endY) / 2 + 15, endX, endY);
+    ctx.moveTo(span.x1, span.y1);
+    ctx.quadraticCurveTo((span.x1 + span.x2) / 2, (span.y1 + span.y2) / 2 + 10, span.x2, span.y2);
     ctx.stroke();
 
-    for (let b = 1; b <= 5; b++) {
-      const t = b / 6;
-      const lx = (1 - t) * (1 - t) * startX + 2 * (1 - t) * t * ((startX + endX) / 2) + t * t * endX;
-      const ly = (1 - t) * (1 - t) * startY + 2 * (1 - t) * t * ((startY + endY) / 2 + 15) + t * t * endY;
-      const colIdx = Math.floor(s + b + fTime * 2) % festColors.length;
+    for (let b = 1; b <= 6; b++) {
+      const t = b / 7;
+      const lx = (1 - t) * (1 - t) * span.x1 + 2 * (1 - t) * t * ((span.x1 + span.x2) / 2) + t * t * span.x2;
+      const ly = (1 - t) * (1 - t) * span.y1 + 2 * (1 - t) * t * ((span.y1 + span.y2) / 2 + 10) + t * t * span.y2;
+      const colIdx = Math.floor(s + b + fairyTime * 2) % festColors.length;
       ctx.fillStyle = festColors[colIdx];
       ctx.beginPath();
       ctx.arc(lx, ly, 3, 0, Math.PI * 2);
       ctx.fill();
     }
-  }
+  });
 
   ctx.restore();
 }

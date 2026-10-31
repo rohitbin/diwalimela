@@ -240,9 +240,9 @@ export default function MiniMap({
               left: toMapX(2500),
               top: toMapY(470),
               width: 280 * scaleX,
-              height: 280 * scaleY,
+              height: 240 * scaleY,
               transform: 'translate(-50%, -50%)',
-              borderRadius: '50%',
+              borderRadius: 3,
               backgroundColor: 'rgba(245, 158, 11, 0.22)',
               border: '1px solid rgba(251, 191, 36, 0.5)'
             }}

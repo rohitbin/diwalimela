@@ -127,7 +127,7 @@ export default function InventoryHotbar({
               height: 52,
               animation: isDancing ? 'pulse 0.5s infinite' : 'none'
             }}
-            title={isDancing ? "Tap to Switch Dance Step (Key V / X)" : "Dance to Festive Dhol Beats (Key V)"}
+            title={isDancing ? "Auto-Dancing! Tap to Stop (Key V)" : "Dance to Festive Dhol Beats (Key V)"}
           >
             <span style={{ fontSize: 18 }}>
               {isDancing ? ['🕺', '💃', '✨', '🙌', '🔥'][danceStep % 5] : '💃'}

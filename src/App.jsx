@@ -171,6 +171,27 @@ export default function App() {
   const [danceStep, setDanceStep] = useState(0);
   const danceTimeoutRef = useRef(null);
 
+  // Automatic dance move rotation every 2.8 seconds while dancing
+  useEffect(() => {
+    if (!isDancing) return;
+
+    const interval = setInterval(() => {
+      setDanceStep((prev) => {
+        const next = (prev + 1) % 5;
+        if (multiplayerManager) {
+          multiplayerManager.broadcastPlayerDance({
+            isDancing: true,
+            playerName: player.name,
+            danceStep: next
+          });
+        }
+        return next;
+      });
+    }, 2800);
+
+    return () => clearInterval(interval);
+  }, [isDancing, multiplayerManager, player.name]);
+
   // Multiplayer & Social
   const [remotePlayers, setRemotePlayers] = useState(new Map());
   const [chatMessages, setChatMessages] = useState([]);
@@ -438,24 +459,33 @@ export default function App() {
   };
 
   const handleTriggerDance = () => {
-    setIsDancing(true);
-    setDanceStep((prev) => {
-      const next = (prev + 1) % 5;
+    // If already dancing, tapping the hotbar dance button toggles it OFF gracefully
+    if (isDancing) {
+      setIsDancing(false);
+      if (danceTimeoutRef.current) clearTimeout(danceTimeoutRef.current);
       if (multiplayerManager) {
-        multiplayerManager.broadcastPlayerDance({ isDancing: true, playerName: player.name, danceStep: next });
+        multiplayerManager.broadcastPlayerDance({ isDancing: false, playerName: player.name });
       }
-      return next;
-    });
+      return;
+    }
+
+    // Start dancing with automatic multi-step choreography
+    setIsDancing(true);
     soundEngine.init();
     soundEngine.playDholakBeat(true);
     soundEngine.playCrowdCheer();
+    if (multiplayerManager) {
+      multiplayerManager.broadcastPlayerDance({ isDancing: true, playerName: player.name, danceStep });
+    }
+
+    // Full 16-second routine allows smoothly experiencing all 5 dance steps automatically
     if (danceTimeoutRef.current) clearTimeout(danceTimeoutRef.current);
     danceTimeoutRef.current = setTimeout(() => {
       setIsDancing(false);
       if (multiplayerManager) {
         multiplayerManager.broadcastPlayerDance({ isDancing: false, playerName: player.name });
       }
-    }, 4500);
+    }, 16000);
   };
 
   // Keyboard number shortcuts to select crackers (Keys 1-8)

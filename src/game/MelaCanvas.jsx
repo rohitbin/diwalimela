@@ -119,6 +119,37 @@ export default function MelaCanvas({
     return () => window.removeEventListener('honeySinghTrackChanged', handleTrackChange);
   }, []);
 
+  // Visual star burst feedback whenever dance step automatically rotates
+  const prevDanceStepRef = useRef(danceStep);
+  useEffect(() => {
+    if (isDancing && prevDanceStepRef.current !== danceStep) {
+      prevDanceStepRef.current = danceStep;
+      const p = playerRef.current;
+      const world = worldRef.current;
+      if (p && world) {
+        const partyCols = ['#ec4899', '#facc15', '#06b6d4', '#10b981', '#f43f5e', '#a855f7'];
+        for (let i = 0; i < 18; i++) {
+          world.particles.push(
+            new Particle(
+              p.x + (Math.random() - 0.5) * 24,
+              p.y - 14 + (Math.random() - 0.5) * 16,
+              (Math.random() - 0.5) * 3.2,
+              -Math.random() * 3.5 - 1.2,
+              partyCols[Math.floor(Math.random() * partyCols.length)],
+              28 + Math.floor(Math.random() * 16),
+              2.2,
+              0.05,
+              0.96,
+              'star'
+            )
+          );
+        }
+      }
+    } else {
+      prevDanceStepRef.current = danceStep;
+    }
+  }, [danceStep, isDancing]);
+
   useEffect(() => {
     return () => {
       if (autoFireIntervalRef.current) clearInterval(autoFireIntervalRef.current);
@@ -720,9 +751,11 @@ export default function MelaCanvas({
         }
       }
 
-      // V or X key triggers / cycles festive dance
-      if (e.key.toLowerCase() === 'v' || e.key.toLowerCase() === 'x') {
-        triggerFestiveDance();
+      // V key toggles festive dance; X key manually skips to next dance step
+      if (e.key.toLowerCase() === 'v') {
+        triggerFestiveDance(false);
+      } else if (e.key.toLowerCase() === 'x') {
+        triggerFestiveDance(true);
       }
     };
 
@@ -739,10 +772,20 @@ export default function MelaCanvas({
     };
   }, []);
 
-  // Dance emote helper (Cycles through Bhangra, Thumka, Disco, Wave, Hip-Hop!)
-  const triggerFestiveDance = () => {
+  // Dance emote helper (Automatically cycles through Bhangra, Thumka, Disco, Wave, Hip-Hop!)
+  const triggerFestiveDance = (advanceOnly = false) => {
+    // If already dancing and not explicitly skipping to next move, toggle OFF
+    if (isDancing && !advanceOnly) {
+      setIsDancing(false);
+      if (danceTimeoutRef.current) clearTimeout(danceTimeoutRef.current);
+      if (multiplayerManager) {
+        multiplayerManager.broadcastPlayerDance({ isDancing: false, playerName: playerRef.current.name });
+      }
+      return;
+    }
+
     setIsDancing(true);
-    if (setDanceStep) {
+    if (advanceOnly && setDanceStep) {
       setDanceStep((prev) => {
         const next = (prev + 1) % DANCE_STEPS.length;
         if (multiplayerManager) {
@@ -776,13 +819,14 @@ export default function MelaCanvas({
       );
     }
 
+    // Full 16-second routine allows smoothly experiencing all 5 dance steps automatically
     if (danceTimeoutRef.current) clearTimeout(danceTimeoutRef.current);
     danceTimeoutRef.current = setTimeout(() => {
       setIsDancing(false);
       if (multiplayerManager) {
         multiplayerManager.broadcastPlayerDance({ isDancing: false, playerName: p.name });
       }
-    }, 4500);
+    }, 16000);
   };
 
   // Fire Bow or Gun projectile at Ravan effigy
@@ -2733,7 +2777,7 @@ export default function MelaCanvas({
             </span>
             <span style={{ color: '#fef08a', fontSize: 12.5, fontWeight: 800 }}>
               {isDancing
-                ? `Dance Move: ${DANCE_STEPS[danceStep % DANCE_STEPS.length].name}!`
+                ? `Auto-Dancing: ${DANCE_STEPS[danceStep % DANCE_STEPS.length].name} (${(danceStep % DANCE_STEPS.length) + 1}/5) ✨`
                 : `Dancing to "${currentDjTrack?.title || 'Casa Tupka'}" • ${currentDjTrack?.bpm || 105} BPM 🎶`}
             </span>
           </div>
@@ -2743,7 +2787,7 @@ export default function MelaCanvas({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                triggerFestiveDance();
+                triggerFestiveDance(true);
               }}
               style={{
                 background: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
@@ -2759,7 +2803,7 @@ export default function MelaCanvas({
                 alignItems: 'center',
                 gap: 4
               }}
-              title="Change Dance Step (Key V / X)"
+              title="Auto-cycling moves every 3s (Tap to skip now - Key X)"
             >
               <span>{DANCE_STEPS[(danceStep + 1) % DANCE_STEPS.length].icon}</span>
               <span>Next Move ➜</span>
@@ -5434,6 +5478,22 @@ function renderBigClub(ctx, world, player, remotePlayers) {
     ctx.fillStyle = '#1e1b4b';
     ctx.beginPath();
     ctx.arc(0, -17, 6.5, Math.PI, 0);
+    ctx.fill();
+
+    // Animated hands pumping up and down on the dance floor
+    const dHandPump = Math.sin(now * 0.014 + (dancer.danceOffset || dancer.x)) * 6;
+    ctx.strokeStyle = dancer.outfit?.top || dancer.color || '#ec4899';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(-6, -6);
+    ctx.lineTo(-10, -13 - dHandPump);
+    ctx.moveTo(6, -6);
+    ctx.lineTo(10, -13 + dHandPump);
+    ctx.stroke();
+    ctx.fillStyle = '#fed7aa';
+    ctx.beginPath();
+    ctx.arc(-10, -13 - dHandPump, 2, 0, Math.PI * 2);
+    ctx.arc(10, -13 + dHandPump, 2, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.font = 'bold 8.5px "Outfit", sans-serif';

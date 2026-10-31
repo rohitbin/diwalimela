@@ -1,5 +1,5 @@
 // Diwali Mahotsav Mela - Main Application
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import MelaCanvas, { MELA_ZONES } from './game/MelaCanvas';
 import WelcomeScreen from './components/WelcomeScreen';
 import CrackerShopModal from './components/CrackerShopModal';
@@ -166,8 +166,10 @@ export default function App() {
     return () => unsub();
   }, [updateRavanHp]);
 
-  // Dance emote state
+  // Dance emote state & various dynamic dance steps
   const [isDancing, setIsDancing] = useState(false);
+  const [danceStep, setDanceStep] = useState(0);
+  const danceTimeoutRef = useRef(null);
 
   // Multiplayer & Social
   const [remotePlayers, setRemotePlayers] = useState(new Map());
@@ -437,18 +439,23 @@ export default function App() {
 
   const handleTriggerDance = () => {
     setIsDancing(true);
+    setDanceStep((prev) => {
+      const next = (prev + 1) % 5;
+      if (multiplayerManager) {
+        multiplayerManager.broadcastPlayerDance({ isDancing: true, playerName: player.name, danceStep: next });
+      }
+      return next;
+    });
     soundEngine.init();
     soundEngine.playDholakBeat(true);
     soundEngine.playCrowdCheer();
-    if (multiplayerManager) {
-      multiplayerManager.broadcastPlayerDance({ isDancing: true, playerName: player.name });
-    }
-    setTimeout(() => {
+    if (danceTimeoutRef.current) clearTimeout(danceTimeoutRef.current);
+    danceTimeoutRef.current = setTimeout(() => {
       setIsDancing(false);
       if (multiplayerManager) {
         multiplayerManager.broadcastPlayerDance({ isDancing: false, playerName: player.name });
       }
-    }, 3500);
+    }, 4500);
   };
 
   // Keyboard number shortcuts to select crackers (Keys 1-8)
@@ -723,6 +730,8 @@ export default function App() {
         onCrackerBurst={() => setBurstCount((b) => b + 1)}
         isDancing={isDancing}
         setIsDancing={setIsDancing}
+        danceStep={danceStep}
+        setDanceStep={setDanceStep}
       />
 
       {/* 7. Bottom Inventory Hotbar */}
@@ -745,6 +754,7 @@ export default function App() {
         onOpenDjJukebox={() => setIsDjModalOpen(true)}
         onTriggerDance={handleTriggerDance}
         isDancing={isDancing}
+        danceStep={danceStep}
       />
 
       {/* 3 New Header Corner Floating Chat Toasts (Disappear after 4 seconds) */}

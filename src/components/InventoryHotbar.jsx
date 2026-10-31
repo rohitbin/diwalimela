@@ -15,7 +15,8 @@ export default function InventoryHotbar({
   onOpenArmory,
   onOpenDjJukebox,
   onTriggerDance,
-  isDancing
+  isDancing,
+  danceStep = 0
 }) {
   return (
     <div
@@ -115,21 +116,25 @@ export default function InventoryHotbar({
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: isDancing ? '#dc2626' : 'rgba(236, 72, 153, 0.25)',
-              border: isDancing ? '1px solid #fef08a' : '1px solid #ec4899',
+              border: isDancing ? '1.5px solid #fef08a' : '1px solid #ec4899',
               borderRadius: 12,
-              padding: '4px 8px',
+              padding: '4px 6px',
               color: '#fbcfe8',
-              fontSize: 10,
+              fontSize: 9.5,
               fontWeight: 700,
               cursor: 'pointer',
-              minWidth: 50,
+              minWidth: 54,
               height: 52,
               animation: isDancing ? 'pulse 0.5s infinite' : 'none'
             }}
-            title="Dance to Festive Dhol Beats (Key V)"
+            title={isDancing ? "Tap to Switch Dance Step (Key V / X)" : "Dance to Festive Dhol Beats (Key V)"}
           >
-            <span style={{ fontSize: 18 }}>💃</span>
-            <span style={{ marginTop: 2 }}>{isDancing ? 'Dancing!' : 'Dance'}</span>
+            <span style={{ fontSize: 18 }}>
+              {isDancing ? ['🕺', '💃', '✨', '🙌', '🔥'][danceStep % 5] : '💃'}
+            </span>
+            <span style={{ marginTop: 2 }}>
+              {isDancing ? ['Bhangra', 'Thumka', 'Disco', 'Wave', 'HipHop'][danceStep % 5] : 'Dance'}
+            </span>
           </button>
 
           {/* Balloon Game */}

@@ -564,7 +564,8 @@ class MultiplayerManager {
           if (existing) {
             this.remotePlayers.set(data.dance.playerId, {
               ...existing,
-              isDancing: data.dance.isDancing
+              isDancing: data.dance.isDancing,
+              danceStep: data.dance.danceStep !== undefined ? data.dance.danceStep : (existing.danceStep || 0)
             });
             if (this.onPeerUpdate) this.onPeerUpdate(new Map(this.remotePlayers));
           }

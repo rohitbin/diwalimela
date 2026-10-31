@@ -32,6 +32,15 @@ export const MELA_ZONES = {
   EAST_TERRACE: { x: 3200, y: 470, name: 'East Viewing Terrace (पूर्व दर्शन मंडप)' }
 };
 
+// Dynamic Dance Steps with energetic hand & body choreographies
+export const DANCE_STEPS = [
+  { id: 'bhangra', name: 'Bhangra Dholak Jump', hindi: 'भांगड़ा स्टेप', icon: '🕺' },
+  { id: 'bollywood', name: 'Bollywood Thumka', hindi: 'बॉलीवुड ठुमका', icon: '💃' },
+  { id: 'disco', name: 'Disco Saturday Night', hindi: 'डिस्को स्टार', icon: '✨' },
+  { id: 'wave', name: 'Party Concert Wave', hindi: 'हैंड्स इन द एयर', icon: '🙌' },
+  { id: 'hiphop', name: 'Desi Hip-Hop Shuffle', hindi: 'हिप-हॉप शफल', icon: '🔥' }
+];
+
 // 10 Chairs and 3 Tables at Sharma Ji Chai Tapri
 export const CHAI_TABLES = [
   { id: 'table_0', x: 280, y: 535, radius: 24, name: 'Table 1' },
@@ -86,7 +95,9 @@ export default function MelaCanvas({
   onDiyaLit,
   onCrackerBurst,
   isDancing,
-  setIsDancing
+  setIsDancing,
+  danceStep = 0,
+  setDanceStep
 }) {
   const canvasRef = useRef(null);
   const wrapperRef = useRef(null);
@@ -98,6 +109,7 @@ export default function MelaCanvas({
   const [currentDjTrack, setCurrentDjTrack] = useState(() => soundEngine.getCurrentHoneySinghTrack?.());
   const autoFireIntervalRef = useRef(null);
   const speedResetTimeoutRef = useRef(null);
+  const danceTimeoutRef = useRef(null);
 
   useEffect(() => {
     const handleTrackChange = (e) => {
@@ -708,8 +720,8 @@ export default function MelaCanvas({
         }
       }
 
-      // V key triggers festive dance
-      if (e.key.toLowerCase() === 'v') {
+      // V or X key triggers / cycles festive dance
+      if (e.key.toLowerCase() === 'v' || e.key.toLowerCase() === 'x') {
         triggerFestiveDance();
       }
     };
@@ -727,10 +739,18 @@ export default function MelaCanvas({
     };
   }, []);
 
-  // Dance emote helper
+  // Dance emote helper (Cycles through Bhangra, Thumka, Disco, Wave, Hip-Hop!)
   const triggerFestiveDance = () => {
-    if (isDancing) return;
     setIsDancing(true);
+    if (setDanceStep) {
+      setDanceStep((prev) => {
+        const next = (prev + 1) % DANCE_STEPS.length;
+        if (multiplayerManager) {
+          multiplayerManager.broadcastPlayerDance({ isDancing: true, playerName: playerRef.current.name, danceStep: next });
+        }
+        return next;
+      });
+    }
     soundEngine.playDholakBeat(true);
     soundEngine.playCrowdCheer();
 
@@ -756,7 +776,13 @@ export default function MelaCanvas({
       );
     }
 
-    setTimeout(() => setIsDancing(false), 3500);
+    if (danceTimeoutRef.current) clearTimeout(danceTimeoutRef.current);
+    danceTimeoutRef.current = setTimeout(() => {
+      setIsDancing(false);
+      if (multiplayerManager) {
+        multiplayerManager.broadcastPlayerDance({ isDancing: false, playerName: p.name });
+      }
+    }, 4500);
   };
 
   // Fire Bow or Gun projectile at Ravan effigy
@@ -2187,13 +2213,13 @@ export default function MelaCanvas({
         livePeers.forEach((remPlayer) => {
           if (remPlayer.id === p.id) return; // Skip own player
           const heldCracker = remPlayer.holdingCracker ? (CRACKER_MAP[remPlayer.holdingCracker] || { id: remPlayer.holdingCracker }) : null;
-          renderCharacter(ctx, remPlayer, true, false, heldCracker, remPlayer.activeBuffs, remPlayer.isDancing);
+          renderCharacter(ctx, remPlayer, true, false, heldCracker, remPlayer.activeBuffs, remPlayer.isDancing, remPlayer.danceStep || 0);
         });
       }
 
       // L. Local Player Character (if not riding wheel)
       if (!isRidingWheel) {
-        renderCharacter(ctx, p, false, true, selectedCracker, activeBuffs, isDancing);
+        renderCharacter(ctx, p, false, true, selectedCracker, activeBuffs, isDancing, danceStep);
       }
 
       // L2. Chai Tapri Server (Chhotu / चायवाला carrying kettle & kulhad tray)
@@ -2700,17 +2726,45 @@ export default function MelaCanvas({
             animation: 'fadeInUp 0.3s ease-out'
           }}
         >
-          <span style={{ fontSize: 22 }}>🕺</span>
+          <span style={{ fontSize: 22 }}>{DANCE_STEPS[danceStep % DANCE_STEPS.length].icon}</span>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <span style={{ color: '#f472b6', fontSize: 10, fontWeight: 900, letterSpacing: 0.6 }}>
               {player.x >= 1850 ? '🪩 THE BIG CLUB • VIP DANCE ARENA' : '🔥 YO YO HONEY SINGH DJ STAGE'}
             </span>
             <span style={{ color: '#fef08a', fontSize: 12.5, fontWeight: 800 }}>
-              Dancing to "{currentDjTrack?.title || 'Casa Tupka'}" • {currentDjTrack?.bpm || 105} BPM 🎶
+              {isDancing
+                ? `Dance Move: ${DANCE_STEPS[danceStep % DANCE_STEPS.length].name}!`
+                : `Dancing to "${currentDjTrack?.title || 'Casa Tupka'}" • ${currentDjTrack?.bpm || 105} BPM 🎶`}
             </span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                triggerFestiveDance();
+              }}
+              style={{
+                background: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
+                border: 'none',
+                borderRadius: 14,
+                padding: '5px 11px',
+                color: '#ffffff',
+                fontSize: 11,
+                fontWeight: 800,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(245, 158, 11, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}
+              title="Change Dance Step (Key V / X)"
+            >
+              <span>{DANCE_STEPS[(danceStep + 1) % DANCE_STEPS.length].icon}</span>
+              <span>Next Move ➜</span>
+            </button>
+
             <button
               type="button"
               onClick={(e) => {
@@ -5698,8 +5752,16 @@ function renderCharacter(
   isLocal = false,
   selectedCracker = null,
   activeBuffs = null,
-  isDancing = false
+  isDancing = false,
+  danceStep = 0
 ) {
+  const now = performance.now();
+  const dancing = isLocal ? isDancing : Boolean(char.isDancing);
+  const currentStep = isLocal ? danceStep : (char.danceStep || 0);
+  const activeStep = DANCE_STEPS[currentStep % DANCE_STEPS.length] || DANCE_STEPS[0];
+  const stepId = dancing ? activeStep.id : null;
+  const isSitting = char.isSitting;
+
   ctx.save();
   ctx.translate(char.x, char.y);
 
@@ -5707,16 +5769,46 @@ function renderCharacter(
   const CHAR_SCALE = 1.4;
   ctx.scale(CHAR_SCALE, CHAR_SCALE);
 
-  // Dance rotation
-  if (isDancing) {
-    const danceAngle = Math.sin(performance.now() * 0.015) * 0.3;
-    ctx.rotate(danceAngle);
-  }
-
+  // Ground shadow (drawn before body translation so shadow anchors naturally to the floor)
+  const shadowPulse = dancing ? Math.sin(now * 0.012) * 1.5 : 0;
   ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
   ctx.beginPath();
-  ctx.ellipse(0, 13, 13, 5, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 13, 13 + shadowPulse, 5 + shadowPulse * 0.3, 0, 0, Math.PI * 2);
   ctx.fill();
+
+  // Dynamic dance choreographies: Body Bob, Hip Sway, and Tilt Rotation
+  let jumpBob = 0;
+  let hipSway = 0;
+  let danceAngle = 0;
+
+  if (dancing && !isSitting) {
+    if (stepId === 'bhangra') {
+      jumpBob = -Math.abs(Math.sin(now * 0.016)) * 4.5;
+      danceAngle = Math.sin(now * 0.008) * 0.12;
+    } else if (stepId === 'bollywood') {
+      hipSway = Math.sin(now * 0.010) * 5.0;
+      jumpBob = -Math.abs(Math.cos(now * 0.010)) * 2.5;
+      danceAngle = Math.sin(now * 0.010) * 0.16;
+    } else if (stepId === 'disco') {
+      hipSway = Math.sin(now * 0.012) * 3.5;
+      jumpBob = -Math.abs(Math.sin(now * 0.012)) * 3.0;
+      danceAngle = Math.sin(now * 0.012) * 0.14;
+    } else if (stepId === 'wave') {
+      hipSway = Math.sin(now * 0.008) * 4.0;
+      jumpBob = Math.sin(now * 0.016) * 2.0;
+      danceAngle = Math.sin(now * 0.008) * 0.10;
+    } else if (stepId === 'hiphop') {
+      jumpBob = -Math.abs(Math.sin(now * 0.020)) * 4.0;
+      hipSway = Math.sin(now * 0.020) * 2.5;
+      danceAngle = Math.sin(now * 0.020) * 0.13;
+    } else {
+      jumpBob = -Math.abs(Math.sin(now * 0.015)) * 3.5;
+      danceAngle = Math.sin(now * 0.015) * 0.25;
+    }
+
+    ctx.translate(hipSway, jumpBob);
+    ctx.rotate(danceAngle);
+  }
 
   // Consumed Sweet / Chai Aura (both local and remote players!)
   const buffs = isLocal ? activeBuffs : char.activeBuffs;
@@ -5731,7 +5823,7 @@ function renderCharacter(
       ctx.stroke();
     }
     if (buffs.kulhad_chai) {
-      const t = performance.now() * 0.005;
+      const t = now * 0.005;
       ctx.fillStyle = 'rgba(254, 215, 170, 0.55)';
       ctx.beginPath();
       ctx.arc(Math.sin(t) * 7, -28 - Math.cos(t) * 4, 3.2, 0, Math.PI * 2);
@@ -5742,47 +5834,90 @@ function renderCharacter(
       ctx.shadowBlur = 8;
       ctx.shadowColor = '#38bdf8';
       ctx.beginPath();
-      ctx.arc(Math.cos(performance.now() * 0.006) * 16, -10, 2.5, 0, Math.PI * 2);
+      ctx.arc(Math.cos(now * 0.006) * 16, -10, 2.5, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
-  // Floating dance musical notes
-  const dancing = isLocal ? isDancing : char.isDancing;
+  // Floating dance musical notes and overhead Dance Step Badge
   if (dancing) {
-    const t = performance.now() * 0.004;
+    const t = now * 0.004;
     ctx.font = '12px serif';
     ctx.fillStyle = '#f43f5e';
-    ctx.fillText('🎵', -10 + Math.sin(t) * 4, -50);
+    ctx.fillText('🎵', -12 + Math.sin(t) * 4, -52);
     ctx.fillStyle = '#38bdf8';
-    ctx.fillText('🎶', 10 + Math.cos(t) * 4, -54);
+    ctx.fillText('🎶', 12 + Math.cos(t) * 4, -56);
+
+    // Glowing Dance Step overhead pill badge
+    const badgeText = `${activeStep.icon} ${activeStep.name}`;
+    ctx.font = 'bold 8.5px "Outfit", sans-serif';
+    const btw = ctx.measureText(badgeText).width + 10;
+    ctx.fillStyle = 'rgba(24, 15, 38, 0.94)';
+    ctx.strokeStyle = '#ec4899';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(-btw / 2, -70, btw, 15, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#fef08a';
+    ctx.textAlign = 'center';
+    ctx.fillText(badgeText, 0, -59);
   }
 
-  const isSitting = char.isSitting;
-  const walkOffset = !isSitting && (char.isMoving || isDancing) ? Math.sin(char.walkFrame || (performance.now() * 0.01)) * 4 : 0;
-
+  // Legs rendering
   ctx.fillStyle = char.outfit?.bottom || char.bottomColor || '#f8fafc';
   if (isSitting) {
     // Seated folded legs
     ctx.fillRect(-7, 3, 14, 5);
+  } else if (dancing) {
+    if (stepId === 'bhangra') {
+      const kickPhase = Math.sin(now * 0.016);
+      const leftLift = kickPhase > 0 ? kickPhase * 4.5 : 0;
+      const rightLift = kickPhase < 0 ? -kickPhase * 4.5 : 0;
+      ctx.fillRect(-6, 2, 4, 11 - leftLift);
+      ctx.fillRect(2, 2, 4, 11 - rightLift);
+    } else if (stepId === 'bollywood') {
+      const legCurve = Math.sin(now * 0.010) * 2.5;
+      ctx.fillRect(-6 + legCurve * 0.4, 2, 4, 11);
+      ctx.fillRect(2 + legCurve * 0.4, 2, 4, 11);
+    } else if (stepId === 'disco') {
+      ctx.fillRect(-7, 2, 4, 11);
+      ctx.fillRect(3, 2, 4, 11);
+    } else if (stepId === 'hiphop') {
+      const shuf = Math.sin(now * 0.024) * 2.5;
+      ctx.fillRect(-6 + shuf, 2, 4, 11);
+      ctx.fillRect(2 - shuf, 2, 4, 11);
+    } else {
+      ctx.fillRect(-6, 2, 4, 11);
+      ctx.fillRect(2, 2, 4, 11);
+    }
   } else {
+    const walkOffset = char.isMoving ? Math.sin(char.walkFrame || (now * 0.01)) * 4 : 0;
     ctx.fillRect(-6, 2, 4, 11 + walkOffset);
     ctx.fillRect(2, 2, 4, 11 - walkOffset);
   }
 
-  ctx.fillStyle = char.outfit?.top || char.color || '#ea580c';
+  // Torso / Kurta
+  const sleeveCol = char.outfit?.top || char.color || '#ea580c';
+  const skinCol = '#fed7aa';
+
+  ctx.fillStyle = sleeveCol;
   ctx.beginPath();
   ctx.roundRect(-9, -12, 18, 16, [4, 4, 2, 2]);
   ctx.fill();
 
+  // Kurta golden border
   ctx.fillStyle = '#fbbf24';
   ctx.fillRect(-8, -12, 3, 16);
 
-  ctx.fillStyle = '#fed7aa';
+  // Head
+  ctx.fillStyle = skinCol;
   ctx.beginPath();
   ctx.arc(0, -18, 8, 0, Math.PI * 2);
   ctx.fill();
 
+  // Turban or Hair
   const turbanColor = char.outfit?.turban || char.turbanColor;
   if (turbanColor) {
     ctx.fillStyle = turbanColor;
@@ -5800,8 +5935,7 @@ function renderCharacter(
   // If sitting: character is holding and sipping hot kulhad chai
   if (isSitting) {
     ctx.save();
-    // Hands holding cup in front
-    ctx.fillStyle = '#fed7aa';
+    ctx.fillStyle = skinCol;
     ctx.beginPath();
     ctx.arc(-4, -1, 3, 0, Math.PI * 2);
     ctx.arc(4, -1, 3, 0, Math.PI * 2);
@@ -5824,7 +5958,7 @@ function renderCharacter(
     ctx.fill();
 
     // Rising steam curls
-    const st = performance.now() * 0.005;
+    const st = now * 0.005;
     ctx.strokeStyle = 'rgba(254, 243, 199, 0.75)';
     ctx.lineWidth = 1.2;
     ctx.beginPath();
@@ -5836,6 +5970,152 @@ function renderCharacter(
 
   // Equipped Weapon or Bomb / Cracker in Hand
   const holding = selectedCracker || (char.holdingCracker ? (CRACKER_MAP[char.holdingCracker] || { id: char.holdingCracker }) : null);
+
+  // Dynamic Arms & Hands (UP and DOWN with rich festive choreography!)
+  if (!isSitting) {
+    const lsX = -8, lsY = -9;
+    const rsX = 8, rsY = -9;
+
+    let lhX = -11, lhY = 0, leX = -10, leY = -5;
+    let rhX = 11, rhY = 0, reX = 10, reY = -5;
+    let showSparkleOnRightHand = false;
+
+    if (dancing) {
+      if (stepId === 'bhangra') {
+        // 1. BHANGRA: Both hands pump high up into the air (-38) and down to shoulders (-14)!
+        const pump = (Math.sin(now * 0.016) + 1) * 0.5; // 0 to 1
+        lhY = -14 - pump * 24;
+        rhY = -14 - pump * 24;
+        lhX = -11 - pump * 3;
+        rhX = 11 + pump * 3;
+        leY = -11 - pump * 14;
+        reY = -11 - pump * 14;
+        leX = -12 - pump * 4;
+        reX = 12 + pump * 4;
+      } else if (stepId === 'bollywood') {
+        // 2. BOLLYWOOD: Alternating hands going up and down (-39 to -3)!
+        const swap = Math.sin(now * 0.010); // -1 to +1
+        lhY = -21 - swap * 18;
+        lhX = -10 - (swap > 0 ? 4 : 1);
+        leX = -12 - (swap > 0 ? 3 : 1);
+        leY = -11 - (swap > 0 ? 10 : 0);
+
+        rhY = -21 + swap * 18;
+        rhX = 10 + (swap < 0 ? 4 : 1);
+        reX = 12 + (swap < 0 ? 3 : 1);
+        reY = -11 - (swap < 0 ? 10 : 0);
+      } else if (stepId === 'disco') {
+        // 3. DISCO: Right hand points to the sky (-40) and sweeps down to hip (+2)
+        const discoT = Math.sin(now * 0.013); // -1 to +1
+        rhX = 4 + discoT * 13;
+        rhY = -19 - discoT * 21;
+        reX = 8 + discoT * 5;
+        reY = -12 - discoT * 9;
+        if (discoT > 0.45) showSparkleOnRightHand = true;
+
+        lhX = -12;
+        lhY = -2 + discoT * 8;
+        leX = -11;
+        leY = -6;
+      } else if (stepId === 'wave') {
+        // 4. WAVE: Both hands high overhead (-35), waving left and right together
+        const waveLateral = Math.sin(now * 0.008) * 9;
+        const waveBob = Math.sin(now * 0.016) * 3.5;
+        lhX = -11 + waveLateral;
+        lhY = -35 + waveBob;
+        leX = -13 + waveLateral * 0.7;
+        leY = -22 + waveBob * 0.5;
+
+        rhX = 11 + waveLateral;
+        rhY = -35 + waveBob;
+        reX = 13 + waveLateral * 0.7;
+        reY = -22 + waveBob * 0.5;
+      } else if (stepId === 'hiphop') {
+        // 5. HIP-HOP: Cross chest (-7) to explosive upward throw (-37)
+        const hipPhase = (Math.sin(now * 0.020) + 1) * 0.5;
+        lhX = -3 - hipPhase * 14;
+        lhY = -7 - hipPhase * 30;
+        leX = -7 - hipPhase * 6;
+        leY = -6 - hipPhase * 16;
+
+        rhX = 3 + hipPhase * 14;
+        rhY = -7 - hipPhase * 30;
+        reX = 7 + hipPhase * 6;
+        reY = -6 - hipPhase * 16;
+      }
+    } else {
+      // Normal standing / walking
+      const walkSwing = Math.sin(char.walkFrame || (now * 0.01)) * (char.isMoving ? 3.5 : 0.8);
+      lhX = -11;
+      lhY = 0 + walkSwing;
+      leX = -10;
+      leY = -5;
+
+      if (holding) {
+        rhX = 12;
+        rhY = -4;
+        reX = 11;
+        reY = -6;
+      } else {
+        rhX = 11;
+        rhY = 0 - walkSwing;
+        reX = 10;
+        reY = -5;
+      }
+    }
+
+    // Left Arm (Sleeve + Skin + Hand)
+    ctx.strokeStyle = sleeveCol;
+    ctx.lineWidth = 3.8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(lsX, lsY);
+    ctx.lineTo(leX, leY);
+    ctx.stroke();
+
+    ctx.strokeStyle = skinCol;
+    ctx.lineWidth = 3.0;
+    ctx.beginPath();
+    ctx.moveTo(leX, leY);
+    ctx.lineTo(lhX, lhY);
+    ctx.stroke();
+
+    ctx.fillStyle = skinCol;
+    ctx.beginPath();
+    ctx.arc(lhX, lhY, 2.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Right Arm (Sleeve + Skin + Hand)
+    ctx.strokeStyle = sleeveCol;
+    ctx.lineWidth = 3.8;
+    ctx.beginPath();
+    ctx.moveTo(rsX, rsY);
+    ctx.lineTo(reX, reY);
+    ctx.stroke();
+
+    ctx.strokeStyle = skinCol;
+    ctx.lineWidth = 3.0;
+    ctx.beginPath();
+    ctx.moveTo(reX, reY);
+    ctx.lineTo(rhX, rhY);
+    ctx.stroke();
+
+    ctx.fillStyle = skinCol;
+    ctx.beginPath();
+    ctx.arc(rhX, rhY, 2.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Sparkle star on right fingertip during disco pointing
+    if (showSparkleOnRightHand) {
+      ctx.fillStyle = '#fef08a';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#facc15';
+      ctx.beginPath();
+      ctx.arc(rhX, rhY - 3, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
 
   if (holding) {
     // 1. Phuljhadi (Handheld Sparkler)
@@ -6111,11 +6391,11 @@ function renderCharacter(
   const nameY = -35;
 
   if (isLocal) {
-    ctx.fillStyle = char.isSitting ? '#fed7aa' : (isDancing ? '#f43f5e' : '#fbbf24');
-    ctx.fillText(`${char.name || 'You'} ${char.isSitting ? '☕ (Sipping Chai)' : (isDancing ? '💃 (Dancing!)' : '(You)')}`, 0, nameY);
+    ctx.fillStyle = char.isSitting ? '#fed7aa' : (dancing ? '#f43f5e' : '#fbbf24');
+    ctx.fillText(`${char.name || 'You'} ${char.isSitting ? '☕ (Sipping Chai)' : (dancing ? `${activeStep.icon} (${activeStep.name.split(' ')[0]}!)` : '(You)')}`, 0, nameY);
   } else if (isRemote) {
     ctx.fillStyle = '#38bdf8';
-    ctx.fillText(`🟢 ${char.name || 'Player'} ${char.isSitting ? '☕ (Chai)' : '(Online)'}`, 0, nameY);
+    ctx.fillText(`🟢 ${char.name || 'Player'} ${char.isSitting ? '☕ (Chai)' : (dancing ? `${activeStep.icon} (${activeStep.name.split(' ')[0]}!)` : '(Online)')}`, 0, nameY);
   } else {
     ctx.fillStyle = '#e2e8f0';
     ctx.fillText(char.name, 0, nameY);
@@ -6131,7 +6411,7 @@ function renderCharacter(
     const bw = textWidth + pad * 2;
     const bh = 22;
     const bx = -bw / 2;
-    const by = holding ? -92 : -68;
+    const by = (holding || dancing) ? -96 : -68;
 
     ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
     ctx.strokeStyle = '#f59e0b';

@@ -116,11 +116,15 @@ export default function MelaCanvas({
   const autoFireIntervalRef = useRef(null);
   const speedResetTimeoutRef = useRef(null);
   const danceTimeoutRef = useRef(null);
+  const fireBtnCenterRef = useRef(null);
 
-  // Finger Aiming State & Ref for Gun Fight Duel
+  // Finger Aiming State & Ref for Gun Fight Duel and Right-Side Drag Aiming
   const [fingerAim, setFingerAim] = useState(null);
   const fingerAimRef = useRef(null);
   fingerAimRef.current = fingerAim;
+  const aimTouchIdRef = useRef(null);
+  const aimStartScreenRef = useRef(null);
+  const [rightAimVisual, setRightAimVisual] = useState(null);
 
   // Fresh refs for Gun Fight state
   const gunFightRef = useRef(gunFight);
@@ -886,9 +890,9 @@ export default function MelaCanvas({
     }
   };
 
-  // Fire Bow or Gun projectile at Ravan effigy
+  // Fire Bow or Gun projectile at Ravan effigy or finger-aimed coordinates
   // Dynamically accelerates projectile throwing speed according to how fast the user clicks!
-  const fireWeaponAtRavan = () => {
+  const fireWeaponAtRavan = (customTargetX, customTargetY) => {
     soundEngine.init();
     const world = worldRef.current;
     const now = performance.now();
@@ -945,9 +949,19 @@ export default function MelaCanvas({
       soundEngine.playBowShot(finalMultiplier);
     }
 
-    // Aim at Ravan effigy torso/heads
-    const targetX = MELA_ZONES.RAVAN.x + (Math.random() - 0.5) * 55;
-    const targetY = MELA_ZONES.RAVAN.y - 120 + (Math.random() - 0.5) * 65;
+    // Aim at finger-aimed coordinates or Ravan effigy torso/heads
+    let targetX = customTargetX;
+    let targetY = customTargetY;
+    if (targetX === undefined || targetY === undefined) {
+      if (fingerAimRef.current) {
+        targetX = fingerAimRef.current.worldX;
+        targetY = fingerAimRef.current.worldY;
+      } else {
+        targetX = MELA_ZONES.RAVAN.x + (Math.random() - 0.5) * 55;
+        targetY = MELA_ZONES.RAVAN.y - 120 + (Math.random() - 0.5) * 65;
+      }
+    }
+    p.facing = targetX < p.x ? 'left' : 'right';
 
     // Base projectile speed:
     // Gun base 32 -> up to 85 px/frame!
@@ -1008,10 +1022,15 @@ export default function MelaCanvas({
     let destX = targetX;
     let destY = targetY;
 
-    // If no target provided (e.g. from tactile on-screen fire button), aim in player's facing direction
+    // If no target provided (e.g. from tactile on-screen fire button), aim in fingerAim direction or player's facing direction
     if (destX === undefined || destY === undefined) {
-      destX = p.x + (p.facing === 'left' ? -420 : 420);
-      destY = p.y - 18;
+      if (fingerAimRef.current) {
+        destX = fingerAimRef.current.worldX;
+        destY = fingerAimRef.current.worldY;
+      } else {
+        destX = p.x + (p.facing === 'left' ? -420 : 420);
+        destY = p.y - 18;
+      }
     }
 
     const startX = p.x + (destX < p.x ? -14 : 14);
@@ -2598,9 +2617,9 @@ export default function MelaCanvas({
         renderCharacter(ctx, p, false, true, selectedCracker, activeBuffs, isDancingRef.current, danceStepRef.current, gunFightRef.current);
       }
 
-      // L3. Finger Aiming Laser & Crosshair Reticle (Active Gun Fight Duel)
-      if (gunFightRef.current?.status === 'ACTIVE' && fingerAimRef.current) {
-        renderFingerAimReticle(ctx, p, fingerAimRef.current);
+      // L3. Finger Aiming Laser & Crosshair Reticle (Active Gun Fight Duel or Right-Side Weapon Aiming)
+      if (fingerAimRef.current && (gunFightRef.current?.status === 'ACTIVE' || selectedCracker?.isWeapon || selectedCracker?.id === 'gun' || selectedCracker?.id === 'bow')) {
+        renderFingerAimReticle(ctx, p, fingerAimRef.current, selectedCracker?.id === 'bow' ? 'bow' : 'gun');
       }
 
       // L2. Chai Tapri Server (Chhotu / चायवाला carrying kettle & kulhad tray)
@@ -2659,153 +2678,184 @@ export default function MelaCanvas({
 
     const onTouchStart = (e) => {
       if (e.target.closest('button') || e.target.closest('#fixed-virtual-joystick') || e.target.closest('#weapon-fire-controller')) return;
-      if (e.touches.length === 0) return;
+      if (!e.changedTouches || e.changedTouches.length === 0) return;
       e.preventDefault(); // Stop iOS Safari from scrolling or zooming
 
-      const touch = e.touches[0];
       const rect = el.getBoundingClientRect();
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
+      const canvas = canvasRef.current;
+      const world = worldRef.current;
+      const isCombatMode = gunFightRef.current?.status === 'ACTIVE' || selectedCracker?.isWeapon || selectedCracker?.id === 'gun' || selectedCracker?.id === 'bow';
 
-      // Gun Fight Active Duel: Direct Finger Aiming & Shooting!
-      if (gunFightRef.current?.status === 'ACTIVE') {
-        const canvas = canvasRef.current;
-        if (canvas) {
-          const world = worldRef.current;
-          const worldX = (x - canvas.width / 2) / (world.cameraZoom || 1) + world.camera.x;
-          const worldY = (y - canvas.height / 2) / (world.cameraZoom || 1) + world.camera.y;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        const screenX = touch.clientX;
+        const screenY = touch.clientY;
+        const canvasRelX = screenX - rect.left;
+        const canvasRelY = screenY - rect.top;
 
-          // Directly fire a bullet towards where the finger touched!
-          fireDuelGunShot(worldX, worldY);
-          setFingerAim({ worldX, worldY, screenX: touch.clientX, screenY: touch.clientY });
-          fingerAimRef.current = { worldX, worldY, screenX: touch.clientX, screenY: touch.clientY };
+        // 1. Placement Cracker check (Anar, Chakri, etc.)
+        const isPlacementCracker = selectedCracker && !selectedCracker.isWeapon && selectedCracker.id !== 'bow' && selectedCracker.id !== 'gun';
+        if (isPlacementCracker) {
+          setPlacementPreview({
+            screenX,
+            screenY,
+            touchId: touch.identifier
+          });
+          continue;
         }
-        return;
+
+        // 2. Right-Side Aiming Check:
+        // Any touch on the right side of the screen (or in combat mode) activates aiming!
+        const isRightSide = screenX >= window.innerWidth * 0.42;
+
+        if (isRightSide || isCombatMode) {
+          if (aimTouchIdRef.current === null) {
+            aimTouchIdRef.current = touch.identifier;
+            aimStartScreenRef.current = { x: screenX, y: screenY, time: performance.now() };
+
+            if (canvas) {
+              const worldX = (canvasRelX - canvas.width / 2) / (world.cameraZoom || 1) + world.camera.x;
+              const worldY = (canvasRelY - canvas.height / 2) / (world.cameraZoom || 1) + world.camera.y;
+
+              const p = playerRef.current;
+              p.facing = worldX < p.x ? 'left' : 'right';
+
+              const aimObj = {
+                worldX,
+                worldY,
+                screenX,
+                screenY,
+                isDragging: false,
+                touchId: touch.identifier
+              };
+              fingerAimRef.current = aimObj;
+              setFingerAim(aimObj);
+              setRightAimVisual({
+                originX: screenX,
+                originY: screenY,
+                currentX: screenX,
+                currentY: screenY,
+                active: true,
+                dist: 0
+              });
+            }
+            continue;
+          }
+        }
+
+        // 3. Otherwise (Left Side): Movement Touch
+        if (!touchControlRef.current.active) {
+          touchMovedRef.current = false;
+          touchControlRef.current = {
+            active: true,
+            originX: canvasRelX,
+            originY: canvasRelY,
+            currentX: canvasRelX,
+            currentY: canvasRelY,
+            startX: canvasRelX,
+            startY: canvasRelY,
+            startTime: performance.now(),
+            isDragging: false,
+            touchId: touch.identifier
+          };
+          setTouchIndicator({
+            originX: screenX,
+            originY: screenY,
+            currentX: screenX,
+            currentY: screenY
+          });
+        }
       }
-
-      const isPlacementCracker = selectedCracker && !selectedCracker.isWeapon && selectedCracker.id !== 'bow' && selectedCracker.id !== 'gun';
-
-      if (isPlacementCracker) {
-        // Placement Mode for Phone: track aiming position
-        setPlacementPreview({
-          screenX: touch.clientX,
-          screenY: touch.clientY,
-          touchId: touch.identifier
-        });
-        touchControlRef.current.active = false;
-        return;
-      }
-
-      touchMovedRef.current = false;
-      touchControlRef.current = {
-        active: true,
-        originX: x,
-        originY: y,
-        currentX: x,
-        currentY: y,
-        startX: x,
-        startY: y,
-        startTime: performance.now(),
-        isDragging: false,
-        touchId: touch.identifier
-      };
-
-      setTouchIndicator({
-        originX: touch.clientX,
-        originY: touch.clientY,
-        currentX: touch.clientX,
-        currentY: touch.clientY
-      });
     };
 
     const onTouchMove = (e) => {
       if (e.target.closest('button') || e.target.closest('#fixed-virtual-joystick') || e.target.closest('#weapon-fire-controller')) return;
       e.preventDefault();
-      if (e.touches.length === 0) return;
+      if (!e.touches || e.touches.length === 0) return;
 
-      // Gun Fight Active Duel: Finger Aim tracking & Crosshairs Reticle!
-      if (gunFightRef.current?.status === 'ACTIVE') {
-        const touch = e.touches[0];
-        const rect = el.getBoundingClientRect();
-        const canvas = canvasRef.current;
-        if (canvas && touch) {
-          const world = worldRef.current;
-          const x = touch.clientX - rect.left;
-          const y = touch.clientY - rect.top;
-          const worldX = (x - canvas.width / 2) / (world.cameraZoom || 1) + world.camera.x;
-          const worldY = (y - canvas.height / 2) / (world.cameraZoom || 1) + world.camera.y;
+      const rect = el.getBoundingClientRect();
+      const canvas = canvasRef.current;
+      const world = worldRef.current;
 
-          const p = playerRef.current;
-          p.facing = worldX < p.x ? 'left' : 'right';
+      for (let i = 0; i < e.touches.length; i++) {
+        const touch = e.touches[i];
 
-          setFingerAim({ worldX, worldY, screenX: touch.clientX, screenY: touch.clientY });
-          fingerAimRef.current = { worldX, worldY, screenX: touch.clientX, screenY: touch.clientY };
-        }
-        return;
-      }
-
-      const isPlacementCracker = selectedCracker && !selectedCracker.isWeapon && selectedCracker.id !== 'bow' && selectedCracker.id !== 'gun';
-
-      if (isPlacementCracker) {
-        let touch = null;
-        for (let i = 0; i < e.touches.length; i++) {
-          if (e.touches[i].identifier === placementPreview?.touchId) {
-            touch = e.touches[i];
-            break;
-          }
-        }
-        if (!touch) touch = e.touches[0];
-        if (touch) {
+        // 1. Placement Cracker
+        if (placementPreview && touch.identifier === placementPreview.touchId) {
           setPlacementPreview({
             screenX: touch.clientX,
             screenY: touch.clientY,
             touchId: touch.identifier
           });
+          continue;
         }
-        return;
-      }
 
-      if (!touchControlRef.current.active) return;
+        // 2. Right-Side Dragging Finger to AIM:
+        if (aimTouchIdRef.current !== null && touch.identifier === aimTouchIdRef.current) {
+          if (canvas) {
+            const canvasRelX = touch.clientX - rect.left;
+            const canvasRelY = touch.clientY - rect.top;
+            const worldX = (canvasRelX - canvas.width / 2) / (world.cameraZoom || 1) + world.camera.x;
+            const worldY = (canvasRelY - canvas.height / 2) / (world.cameraZoom || 1) + world.camera.y;
 
-      let touch = null;
-      for (let i = 0; i < e.touches.length; i++) {
-        if (e.touches[i].identifier === touchControlRef.current.touchId) {
-          touch = e.touches[i];
-          break;
+            const startX = aimStartScreenRef.current?.x || touch.clientX;
+            const startY = aimStartScreenRef.current?.y || touch.clientY;
+            const dragDist = Math.hypot(touch.clientX - startX, touch.clientY - startY);
+
+            const p = playerRef.current;
+            p.facing = worldX < p.x ? 'left' : 'right';
+
+            const aimObj = {
+              worldX,
+              worldY,
+              screenX: touch.clientX,
+              screenY: touch.clientY,
+              isDragging: dragDist > 6,
+              dragDist,
+              touchId: touch.identifier
+            };
+            fingerAimRef.current = aimObj;
+            setFingerAim(aimObj);
+            setRightAimVisual({
+              originX: startX,
+              originY: startY,
+              currentX: touch.clientX,
+              currentY: touch.clientY,
+              active: true,
+              dist: dragDist
+            });
+          }
+          continue;
+        }
+
+        // 3. Left-Side Movement Touch
+        if (touchControlRef.current.active && touch.identifier === touchControlRef.current.touchId) {
+          const canvasRelX = touch.clientX - rect.left;
+          const canvasRelY = touch.clientY - rect.top;
+          const dist = Math.hypot(canvasRelX - touchControlRef.current.originX, canvasRelY - touchControlRef.current.originY);
+          if (dist > 8) {
+            touchControlRef.current.isDragging = true;
+            touchMovedRef.current = true;
+          }
+          touchControlRef.current.currentX = canvasRelX;
+          touchControlRef.current.currentY = canvasRelY;
+
+          const maxR = 30;
+          const angle = dist > 0 ? Math.atan2(canvasRelY - touchControlRef.current.originY, canvasRelX - touchControlRef.current.originX) : 0;
+          const clampedDist = Math.min(dist, maxR);
+          setJoystickKnob({
+            x: Math.cos(angle) * clampedDist,
+            y: Math.sin(angle) * clampedDist,
+            active: true
+          });
+          setTouchIndicator({
+            originX: rect.left + touchControlRef.current.originX,
+            originY: rect.top + touchControlRef.current.originY,
+            currentX: touch.clientX,
+            currentY: touch.clientY
+          });
         }
       }
-      if (!touch) touch = e.touches[0];
-      if (!touch) return;
-
-      const rect = el.getBoundingClientRect();
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
-
-      const dist = Math.hypot(x - touchControlRef.current.originX, y - touchControlRef.current.originY);
-      if (dist > 8) {
-        touchControlRef.current.isDragging = true;
-        touchMovedRef.current = true;
-      }
-
-      touchControlRef.current.currentX = x;
-      touchControlRef.current.currentY = y;
-
-      // Sync fixed joystick knob to touch movement
-      const maxR = 30;
-      const angle = dist > 0 ? Math.atan2(y - touchControlRef.current.originY, x - touchControlRef.current.originX) : 0;
-      const clampedDist = Math.min(dist, maxR);
-      setJoystickKnob({
-        x: Math.cos(angle) * clampedDist,
-        y: Math.sin(angle) * clampedDist,
-        active: true
-      });
-
-      setTouchIndicator({
-        originX: rect.left + touchControlRef.current.originX,
-        originY: rect.top + touchControlRef.current.originY,
-        currentX: touch.clientX,
-        currentY: touch.clientY
-      });
     };
 
     const onTouchEnd = (e) => {
@@ -2813,53 +2863,61 @@ export default function MelaCanvas({
       e.preventDefault();
       lastTouchEndTimeRef.current = performance.now();
 
-      if (gunFightRef.current?.status === 'ACTIVE') {
-        setFingerAim(null);
-        fingerAimRef.current = null;
-        return;
-      }
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
 
-      const isPlacementCracker = selectedCracker && !selectedCracker.isWeapon && selectedCracker.id !== 'bow' && selectedCracker.id !== 'gun';
-
-      if (isPlacementCracker) {
-        let touch = null;
-        if (e.changedTouches && e.changedTouches.length > 0) {
-          touch = e.changedTouches[0];
-        } else if (e.touches && e.touches.length > 0) {
-          touch = e.touches[0];
-        }
-        if (touch) {
+        // 1. Placement Cracker
+        if (placementPreview && touch.identifier === placementPreview.touchId) {
           processCanvasInteraction(touch.clientX, touch.clientY);
-        } else if (placementPreview) {
-          processCanvasInteraction(placementPreview.screenX, placementPreview.screenY);
+          setPlacementPreview(null);
+          continue;
         }
-        setPlacementPreview(null);
-        return;
-      }
 
-      const tc = touchControlRef.current;
-      if (!tc.active) return;
-      const elapsed = performance.now() - tc.startTime;
-      const totalDist = Math.hypot(tc.currentX - tc.startX, tc.currentY - tc.startY);
-      const wasMoved = touchMovedRef.current || tc.isDragging || totalDist >= 14;
+        // 2. Right-Side Aim Release -> Fire Shot!
+        if (aimTouchIdRef.current !== null && touch.identifier === aimTouchIdRef.current) {
+          const aim = fingerAimRef.current;
+          const isCombat = gunFightRef.current?.status === 'ACTIVE' || selectedCracker?.isWeapon || selectedCracker?.id === 'gun' || selectedCracker?.id === 'bow';
 
-      tc.active = false;
-      tc.isDragging = false;
-      setTouchIndicator(null);
-      setJoystickKnob({ x: 0, y: 0, active: false });
+          if (aim && isCombat) {
+            if (gunFightRef.current?.status === 'ACTIVE') {
+              fireDuelGunShot(aim.worldX, aim.worldY);
+            } else if (selectedCracker?.isWeapon || selectedCracker?.id === 'gun' || selectedCracker?.id === 'bow') {
+              fireWeaponAtRavan(aim.worldX, aim.worldY);
+            }
+          } else if (aim) {
+            const startX = aimStartScreenRef.current?.x || touch.clientX;
+            const startY = aimStartScreenRef.current?.y || touch.clientY;
+            const dist = Math.hypot(touch.clientX - startX, touch.clientY - startY);
+            if (dist < 14) {
+              processCanvasInteraction(touch.clientX, touch.clientY);
+            }
+          }
 
-      if (wasMoved) {
-        // Drag movement completed: character stays right where he was released!
-        playerRef.current.targetX = undefined;
-        playerRef.current.targetY = undefined;
-        setPlayer((prev) => (prev.targetX !== undefined ? { ...prev, targetX: undefined, targetY: undefined } : prev));
-        return;
-      }
+          aimTouchIdRef.current = null;
+          aimStartScreenRef.current = null;
+          fingerAimRef.current = null;
+          setFingerAim(null);
+          setRightAimVisual(null);
+          continue;
+        }
 
-      // If legitimate tap on phone, walk or interact!
-      if (!wasMoved && totalDist < 14) {
-        const rect = el.getBoundingClientRect();
-        processCanvasInteraction(tc.startX + rect.left, tc.startY + rect.top);
+        // 3. Left-Side Movement Release
+        if (touchControlRef.current.active && touch.identifier === touchControlRef.current.touchId) {
+          const tc = touchControlRef.current;
+          const wasMoved = touchMovedRef.current || tc.isDragging || Math.hypot(tc.currentX - tc.startX, tc.currentY - tc.startY) >= 14;
+          tc.active = false;
+          tc.isDragging = false;
+          setTouchIndicator(null);
+          setJoystickKnob({ x: 0, y: 0, active: false });
+
+          if (wasMoved) {
+            playerRef.current.targetX = undefined;
+            playerRef.current.targetY = undefined;
+            setPlayer((prev) => (prev.targetX !== undefined ? { ...prev, targetX: undefined, targetY: undefined } : prev));
+          } else {
+            processCanvasInteraction(touch.clientX, touch.clientY);
+          }
+        }
       }
     };
 
@@ -3178,7 +3236,52 @@ export default function MelaCanvas({
           }
           lastTouchEndTimeRef.current = performance.now();
           if (navigator.vibrate) navigator.vibrate(12);
+
+          try {
+            if (e && e.pointerId !== undefined && e.currentTarget.setPointerCapture) {
+              e.currentTarget.setPointerCapture(e.pointerId);
+            }
+          } catch (_) {}
+
+          const rect = e.currentTarget.getBoundingClientRect();
+          fireBtnCenterRef.current = {
+            cx: rect.left + rect.width / 2,
+            cy: rect.top + rect.height / 2,
+            pointerId: e?.pointerId
+          };
+
           startAutoFire(e);
+        };
+
+        const handleFireMove = (e) => {
+          if (!fireBtnCenterRef.current) return;
+          if (fireBtnCenterRef.current.pointerId !== undefined && e.pointerId !== undefined && fireBtnCenterRef.current.pointerId !== e.pointerId) return;
+
+          const { cx, cy } = fireBtnCenterRef.current;
+          const dx = e.clientX - cx;
+          const dy = e.clientY - cy;
+          const dist = Math.hypot(dx, dy);
+
+          // If dragged outward from the fire button, aim along the drag vector!
+          if (dist > 12) {
+            const angle = Math.atan2(dy, dx);
+            const p = playerRef.current;
+            p.facing = dx < 0 ? 'left' : 'right';
+
+            const aimDist = 550;
+            const worldX = p.x + Math.cos(angle) * aimDist;
+            const worldY = (p.y - 18) + Math.sin(angle) * aimDist;
+
+            const aimObj = {
+              worldX,
+              worldY,
+              screenX: e.clientX,
+              screenY: e.clientY,
+              isDragging: true
+            };
+            fingerAimRef.current = aimObj;
+            setFingerAim(aimObj);
+          }
         };
 
         const handleFireUp = (e) => {
@@ -3188,7 +3291,26 @@ export default function MelaCanvas({
             if (e.nativeEvent && e.nativeEvent.stopImmediatePropagation) e.nativeEvent.stopImmediatePropagation();
           }
           lastTouchEndTimeRef.current = performance.now();
+          try {
+            if (e && e.pointerId !== undefined && e.currentTarget.releasePointerCapture) {
+              e.currentTarget.releasePointerCapture(e.pointerId);
+            }
+          } catch (_) {}
+
+          fireBtnCenterRef.current = null;
           stopAutoFire(e);
+
+          const aim = fingerAimRef.current;
+          if (aim && aim.isDragging) {
+            if (gunFightRef.current?.status === 'ACTIVE') {
+              fireDuelGunShot(aim.worldX, aim.worldY);
+            } else {
+              fireWeaponAtRavan(aim.worldX, aim.worldY);
+            }
+          }
+
+          fingerAimRef.current = null;
+          setFingerAim(null);
         };
 
         const handleFireClick = (e) => {
@@ -3353,6 +3475,7 @@ export default function MelaCanvas({
                 id="fire-weapon-btn"
                 type="button"
                 onPointerDown={handleFireDown}
+                onPointerMove={handleFireMove}
                 onPointerUp={handleFireUp}
                 onPointerLeave={handleFireUp}
                 onPointerCancel={handleFireUp}
@@ -3474,6 +3597,62 @@ export default function MelaCanvas({
           >
             Release to place & ignite!
           </span>
+        </div>
+      )}
+
+      {/* Right-Side Finger Drag Aim Touch Indicator */}
+      {rightAimVisual?.active && (
+        <div
+          id="right-aim-touch-indicator"
+          style={{
+            position: 'fixed',
+            left: rightAimVisual.currentX,
+            top: rightAimVisual.currentY,
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'none',
+            zIndex: 65,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            userSelect: 'none'
+          }}
+        >
+          {/* Aim Circle Ring with Tactical Crosshair */}
+          <div
+            style={{
+              width: 76,
+              height: 76,
+              borderRadius: '50%',
+              border: '2px dashed #38bdf8',
+              background: 'radial-gradient(circle, rgba(56, 189, 248, 0.28) 0%, rgba(15, 10, 25, 0.72) 80%)',
+              boxShadow: '0 0 22px rgba(56, 189, 248, 0.65)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              animation: 'pulse 1.2s infinite ease-in-out'
+            }}
+          >
+            <span style={{ fontSize: 24, filter: 'drop-shadow(0 0 6px #38bdf8)' }}>🎯</span>
+          </div>
+          {/* Helper Badge */}
+          <div
+            style={{
+              marginTop: 4,
+              backgroundColor: 'rgba(15, 10, 25, 0.94)',
+              border: '1px solid #38bdf8',
+              borderRadius: 12,
+              padding: '2px 8px',
+              fontSize: 10,
+              fontWeight: 800,
+              color: '#fef08a',
+              letterSpacing: 0.5,
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.8)'
+            }}
+          >
+            🎯 AIMING • RELEASE TO SHOOT
+          </div>
         </div>
       )}
 
@@ -7451,51 +7630,112 @@ function renderVeerNpc(ctx, world, player, gunFight) {
 }
 
 // -------------------------------------------------------------
-// FINGER AIMING CROSSHAIR & LASER SIGHT (GUN FIGHT DUEL)
+// FINGER AIMING CROSSHAIR & LASER SIGHT (GUN FIGHT & WEAPON DRAG AIM)
 // -------------------------------------------------------------
-function renderFingerAimReticle(ctx, player, aim) {
+function renderFingerAimReticle(ctx, player, aim, weaponType = 'gun') {
   if (!aim || !player) return;
+  const isBow = weaponType === 'bow';
   const startX = player.x + (aim.worldX < player.x ? -14 : 14);
   const startY = player.y - 18;
   const targetX = aim.worldX;
   const targetY = aim.worldY;
 
+  const dx = targetX - startX;
+  const dy = targetY - startY;
+  const totalDist = Math.hypot(dx, dy);
+
   ctx.save();
 
-  // 1. Sleek laser sight line from player's gun to finger target
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
-  ctx.lineWidth = 1.6;
-  ctx.setLineDash([6, 6]);
+  const primaryColor = isBow ? '#fbbf24' : '#38bdf8';
+  const secondaryColor = isBow ? '#ea580c' : '#ef4444';
+  const laserColor = isBow ? 'rgba(251, 191, 36, 0.65)' : 'rgba(56, 189, 248, 0.65)';
+
+  // 1. Sleek laser sight line from player's weapon to finger target
+  ctx.strokeStyle = laserColor;
+  ctx.lineWidth = 1.8;
+  ctx.setLineDash([7, 5]);
   ctx.beginPath();
   ctx.moveTo(startX, startY);
   ctx.lineTo(targetX, targetY);
   ctx.stroke();
   ctx.setLineDash([]);
 
+  // 1.2 Animated Trajectory Particle Beads moving outward along the laser
+  const now = performance.now();
+  const beadCount = 4;
+  for (let i = 0; i < beadCount; i++) {
+    const offset = ((now * 0.0018 + i / beadCount) % 1.0);
+    const beadX = startX + dx * offset;
+    const beadY = startY + dy * offset;
+    ctx.fillStyle = primaryColor;
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = primaryColor;
+    ctx.beginPath();
+    ctx.arc(beadX, beadY, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   // 2. High-visibility Tactical Crosshair Reticle at finger target
   ctx.translate(targetX, targetY);
-  ctx.strokeStyle = '#38bdf8';
+  ctx.strokeStyle = primaryColor;
   ctx.lineWidth = 2;
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = primaryColor;
 
   // Outer glowing pulse ring
-  const pulse = Math.sin(performance.now() * 0.012) * 2;
+  const pulse = Math.sin(now * 0.012) * 2.5;
   ctx.beginPath();
-  ctx.arc(0, 0, 16 + pulse, 0, Math.PI * 2);
+  ctx.arc(0, 0, 18 + pulse, 0, Math.PI * 2);
   ctx.stroke();
 
+  // Outer rotating bracket ticks
+  ctx.save();
+  ctx.rotate(now * 0.003);
+  const bracketR = 24;
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = isBow ? '#fde047' : '#7dd3fc';
+  for (let a = 0; a < 4; a++) {
+    ctx.beginPath();
+    ctx.arc(0, 0, bracketR, (a * Math.PI) / 2 - 0.25, (a * Math.PI) / 2 + 0.25);
+    ctx.stroke();
+  }
+  ctx.restore();
+
   // Inner center dot
-  ctx.fillStyle = '#ef4444';
+  ctx.fillStyle = secondaryColor;
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = secondaryColor;
   ctx.beginPath();
-  ctx.arc(0, 0, 3, 0, Math.PI * 2);
+  ctx.arc(0, 0, 3.5, 0, Math.PI * 2);
   ctx.fill();
 
   // Crosshair hash marks
+  ctx.strokeStyle = primaryColor;
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(-22, 0); ctx.lineTo(-10, 0);
-  ctx.moveTo(10, 0); ctx.lineTo(22, 0);
-  ctx.moveTo(0, -22); ctx.lineTo(0, -10);
-  ctx.moveTo(0, 10); ctx.lineTo(0, 22);
+  ctx.moveTo(-24, 0); ctx.lineTo(-10, 0);
+  ctx.moveTo(10, 0); ctx.lineTo(24, 0);
+  ctx.moveTo(0, -24); ctx.lineTo(0, -10);
+  ctx.moveTo(0, 10); ctx.lineTo(0, 24);
   ctx.stroke();
+
+  // Mini Tactical Range & Status Pill above crosshair
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = 'rgba(15, 10, 26, 0.85)';
+  ctx.strokeStyle = primaryColor;
+  ctx.lineWidth = 1;
+  const labelText = `🎯 ${Math.round(totalDist)}px`;
+  ctx.font = 'bold 10px sans-serif';
+  const textWidth = ctx.measureText(labelText).width;
+  ctx.beginPath();
+  ctx.roundRect(-textWidth / 2 - 5, -38, textWidth + 10, 15, 4);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#fef08a';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(labelText, 0, -30);
 
   ctx.restore();
 }

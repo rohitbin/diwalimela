@@ -34,6 +34,40 @@ class MultiplayerManager {
     this.dhamakaListeners = new Set();
     this.entryListeners = new Set();
     this.processedMsgIds = new Set();
+    this.currentRavanHp = 10000000;
+    this.mqttRavanTopic = null;
+  }
+
+  setInitialRavanHp(hp) {
+    if (typeof hp === 'number' && Number.isFinite(hp) && hp >= 0) {
+      this.currentRavanHp = Math.min(this.currentRavanHp, Math.round(hp));
+    }
+  }
+
+  updateRavanHp(newHp) {
+    if (typeof newHp !== 'number' || !Number.isFinite(newHp)) return;
+    const rounded = Math.max(0, Math.round(newHp));
+    // STRICT RULE: Ravan's energy can ONLY DECREASE, NEVER AUTOMATICALLY INCREASE!
+    if (rounded < this.currentRavanHp) {
+      this.currentRavanHp = rounded;
+      if (this.mqttClient && this.mqttClient.connected && this.mqttRavanTopic) {
+        try {
+          this.mqttClient.publish(
+            this.mqttRavanTopic,
+            JSON.stringify({ type: 'RAVAN_SYNC', hp: this.currentRavanHp, timestamp: Date.now() }),
+            { qos: 1, retain: true }
+          );
+        } catch (_) {}
+      }
+      this.sendToAll({
+        type: 'RAVAN_SYNC',
+        hp: this.currentRavanHp,
+        timestamp: Date.now()
+      });
+      this.ravanListeners.forEach((fn) => {
+        try { fn({ type: 'SYNC', hp: this.currentRavanHp }); } catch (_) {}
+      });
+    }
   }
 
   onMelaEntry(callback) {
@@ -165,7 +199,9 @@ class MultiplayerManager {
       const randomSuffix = Math.random().toString(36).substring(2, 8);
       const clientId = `diwali_p_${sanitizedRoom}_${randomSuffix}`;
       const topic = `diwalimela/${sanitizedRoom}/events`;
+      const ravanTopic = `diwalimela/${sanitizedRoom}/ravan_state`;
       this.mqttTopic = topic;
+      this.mqttRavanTopic = ravanTopic;
 
       // Connect to fast public MQTT WebSocket broker
       this.mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
@@ -178,17 +214,38 @@ class MultiplayerManager {
 
       this.mqttClient.on('connect', () => {
         this.isConnected = true;
-        this.mqttClient.subscribe(topic, { qos: 0 }, (err) => {
+        // Subscribe to events and retained Ravan boss state
+        this.mqttClient.subscribe([topic, ravanTopic], { qos: 0 }, (err) => {
           if (!err) {
             this.sendHandshake();
+            // Publish our current Ravan HP if we have a reduced state
+            if (this.currentRavanHp < 10000000) {
+              try {
+                this.mqttClient.publish(
+                  ravanTopic,
+                  JSON.stringify({ type: 'RAVAN_SYNC', hp: this.currentRavanHp, timestamp: Date.now() }),
+                  { qos: 1, retain: true }
+                );
+              } catch (_) {}
+            }
           }
         });
       });
 
-      this.mqttClient.on('message', (_t, payload) => {
+      this.mqttClient.on('message', (t, payload) => {
         try {
           const str = payload.toString();
           const data = JSON.parse(str);
+          if (t === this.mqttRavanTopic || data.type === 'RAVAN_SYNC') {
+            const incomingHp = data.hp ?? data.currentHp ?? data.ravanHp;
+            if (typeof incomingHp === 'number' && Number.isFinite(incomingHp) && incomingHp < this.currentRavanHp) {
+              this.currentRavanHp = Math.max(0, Math.round(incomingHp));
+              this.ravanListeners.forEach((fn) => {
+                try { fn({ type: 'SYNC', hp: this.currentRavanHp }); } catch (_) {}
+              });
+            }
+            return;
+          }
           this.handleIncomingData(data, 'mqtt');
         } catch (_) {}
       });
@@ -281,6 +338,7 @@ class MultiplayerManager {
         type: 'HELLO_ACK',
         senderId: this.myProfile?.id || this.peerId,
         player: this.myProfile,
+        ravanHp: this.currentRavanHp,
         timestamp: Date.now()
       });
     });
@@ -321,6 +379,7 @@ class MultiplayerManager {
       type: 'HELLO',
       senderId: this.myProfile.id || this.peerId,
       player: this.myProfile,
+      ravanHp: this.currentRavanHp,
       timestamp: Date.now()
     };
     this.sendToAll(payload);
@@ -346,6 +405,21 @@ class MultiplayerManager {
       return;
     }
 
+    // Sync Ravan HP from any incoming message, strictly lowering only (never automatically refills)!
+    const incomingRavanHp = data.currentHp ?? data.ravanHp ?? (data.type === 'RAVAN_SYNC' ? data.hp : undefined);
+    if (typeof incomingRavanHp === 'number' && Number.isFinite(incomingRavanHp) && incomingRavanHp >= 0) {
+      if (incomingRavanHp < this.currentRavanHp) {
+        this.currentRavanHp = Math.round(incomingRavanHp);
+        this.ravanListeners.forEach((fn) => {
+          try { fn({ type: 'SYNC', hp: this.currentRavanHp }); } catch (_) {}
+        });
+      }
+    }
+
+    if (data.type === 'RAVAN_SYNC') {
+      return;
+    }
+
     switch (data.type) {
       case 'MELA_ENTER': {
         const player = data.player;
@@ -363,6 +437,7 @@ class MultiplayerManager {
               type: 'HELLO_ACK',
               senderId: this.myProfile?.id || this.peerId,
               player: this.myProfile,
+              ravanHp: this.currentRavanHp,
               timestamp: Date.now()
             });
           }
@@ -398,6 +473,7 @@ class MultiplayerManager {
               type: 'HELLO_ACK',
               senderId: this.myProfile?.id || this.peerId,
               player: this.myProfile,
+              ravanHp: this.currentRavanHp,
               timestamp: Date.now()
             });
           }
@@ -524,8 +600,26 @@ class MultiplayerManager {
       }
 
       case 'RAVAN_HIT': {
+        const dmg = data.event?.damage || data.damage || 100;
+        const incomingHp = data.currentHp ?? data.event?.currentHp;
+        if (typeof incomingHp === 'number' && Number.isFinite(incomingHp)) {
+          if (incomingHp < this.currentRavanHp) {
+            this.currentRavanHp = Math.max(0, Math.round(incomingHp));
+          }
+        } else {
+          this.currentRavanHp = Math.max(0, this.currentRavanHp - dmg);
+        }
         this.ravanListeners.forEach((fn) => {
-          try { fn(data.event); } catch (e) { console.error('Ravan listener error:', e); }
+          try {
+            fn({
+              ...(data.event || {}),
+              damage: dmg,
+              hp: this.currentRavanHp,
+              currentHp: this.currentRavanHp
+            });
+          } catch (e) {
+            console.error('Ravan listener error:', e);
+          }
         });
         break;
       }
@@ -558,6 +652,7 @@ class MultiplayerManager {
         color: p.color,
         turbanColor: p.turbanColor
       },
+      ravanHp: this.currentRavanHp,
       timestamp: Date.now()
     };
     this.sendToAll(payload);
@@ -670,15 +765,39 @@ class MultiplayerManager {
     this.sendToAll(payload);
   }
 
-  // Send Ravan shot / hit event
+  // Send Ravan shot / hit event (strictly lowers HP, never allows energy to refill)
   broadcastRavanHit(hitEvent) {
+    const dmg = hitEvent.damage || 100;
+    const nextHp = typeof hitEvent.currentHp === 'number'
+      ? Math.max(0, Math.round(hitEvent.currentHp))
+      : Math.max(0, this.currentRavanHp - dmg);
+
+    // Strictly lower only:
+    this.currentRavanHp = Math.min(this.currentRavanHp, nextHp);
+
     const payload = {
       type: 'RAVAN_HIT',
       senderId: this.myProfile?.id || this.peerId,
-      event: hitEvent,
+      event: {
+        ...hitEvent,
+        damage: dmg,
+        currentHp: this.currentRavanHp
+      },
+      currentHp: this.currentRavanHp,
       timestamp: Date.now()
     };
     this.sendToAll(payload);
+
+    // Retain reduced HP to MQTT broker so all clients persist this state
+    if (this.mqttClient && this.mqttClient.connected && this.mqttRavanTopic) {
+      try {
+        this.mqttClient.publish(
+          this.mqttRavanTopic,
+          JSON.stringify({ type: 'RAVAN_SYNC', hp: this.currentRavanHp, timestamp: Date.now() }),
+          { qos: 1, retain: true }
+        );
+      } catch (_) {}
+    }
   }
 
   pruneStalePeers() {

@@ -30,6 +30,8 @@ window.__CRACKER_MAP = CRACKERS.reduce((acc, c) => {
 }, {});
 
 function getCurrentZoneName(x, y) {
+  if (x >= 1970) return '✨ New Fairground (नया मैदान)';
+  if (Math.hypot(x - 1950, y - 650) < 85) return '🚪 East Gate (पूर्व द्वार)';
   if (y < 280) return 'Grand Entrance Gate';
   if (x > 1500 && y < 350) return '🎡 Mela Giant Wheel (झूला)';
   if (x > 1200 && y < 350) return '🎯 Balloon Shooting Stall';
@@ -96,32 +98,67 @@ export default function App() {
   const [isArmoryOpen, setIsArmoryOpen] = useState(false);
   const [isDjModalOpen, setIsDjModalOpen] = useState(false);
 
-  // Ravan Boss State (10,000,000 HP)
+  // Ravan Boss State (10,000,000 HP) - strictly persistent, never automatically fills or increases!
   const [ravanHp, setRavanHp] = useState(() => {
     try {
-      const saved = localStorage.getItem('diwali_ravan_hp');
-      return saved ? Math.max(0, parseInt(saved, 10)) : 10000000;
+      const roomKey = `diwali_ravan_hp_${initialRoomId}`;
+      const saved = localStorage.getItem(roomKey) || localStorage.getItem('diwali_ravan_hp');
+      if (saved !== null && saved !== undefined) {
+        const parsed = parseInt(saved, 10);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+          return Math.min(10000000, parsed);
+        }
+      }
+      return 10000000;
     } catch (_) {
       return 10000000;
     }
   });
   const [ravanShotCount, setRavanShotCount] = useState(0);
 
-  // Multiplayer listener for Ravan hits from remote peers
+  // Strict updater: Ravan's energy can ONLY DECREASE, NEVER AUTOMATICALLY INCREASE OR REFILL!
+  const updateRavanHp = React.useCallback((updaterOrVal) => {
+    setRavanHp((prev) => {
+      const raw = typeof updaterOrVal === 'function' ? updaterOrVal(prev) : updaterOrVal;
+      const num = Number(raw);
+      if (!Number.isFinite(num)) return prev;
+      // Rule: energy can only reduce or stay same, never automatically refill!
+      const next = Math.max(0, Math.min(prev, Math.round(num)));
+      try {
+        localStorage.setItem('diwali_ravan_hp', next.toString());
+        localStorage.setItem(`diwali_ravan_hp_${roomId}`, next.toString());
+      } catch (_) {}
+      if (multiplayerManager) {
+        multiplayerManager.updateRavanHp?.(next);
+      }
+      return next;
+    });
+  }, [roomId]);
+
+  // Sync initial Ravan HP with multiplayer manager
+  useEffect(() => {
+    if (multiplayerManager) {
+      multiplayerManager.setInitialRavanHp?.(ravanHp);
+    }
+  }, []);
+
+  // Multiplayer listener for Ravan hits and HP sync from remote peers
   useEffect(() => {
     if (!multiplayerManager) return;
     const unsub = multiplayerManager.onRavanHit((data) => {
-      const dmg = data.damage || 100;
-      setRavanHp((prev) => {
-        const next = Math.max(0, prev - dmg);
-        try {
-          localStorage.setItem('diwali_ravan_hp', next.toString());
-        } catch (_) {}
-        return next;
-      });
+      if (data.type === 'SYNC' && typeof data.hp === 'number') {
+        updateRavanHp(data.hp);
+        return;
+      }
+      if (typeof data.currentHp === 'number') {
+        updateRavanHp(data.currentHp);
+        return;
+      }
+      const dmg = data.damage || data.event?.damage || 100;
+      updateRavanHp((prev) => prev - dmg);
     });
     return () => unsub();
-  }, []);
+  }, [updateRavanHp]);
 
   // Dance emote state
   const [isDancing, setIsDancing] = useState(false);
@@ -300,6 +337,7 @@ export default function App() {
     // Local player entered mela
 
     // 2. Initialize Multiplayer Peer connection
+    multiplayerManager.setInitialRavanHp?.(ravanHp);
     multiplayerManager.init(profile.roomId, updatedPlayer, {
       onPeerUpdate: (peersMap) => {
         setRemotePlayers(peersMap);
@@ -628,7 +666,7 @@ export default function App() {
         onOpenArmory={() => setIsArmoryOpen(true)}
         onOpenDjJukebox={() => setIsDjModalOpen(true)}
         ravanHp={ravanHp}
-        setRavanHp={setRavanHp}
+        setRavanHp={updateRavanHp}
         onRavanShot={() => {
           setRavanShotCount((c) => c + 1);
         }}

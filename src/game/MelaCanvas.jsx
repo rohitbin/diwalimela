@@ -23,7 +23,9 @@ export const MELA_ZONES = {
   DJ_FLOOR: { x: 740, y: 360, name: 'Yo Yo DJ Dance Floor (यो यो डीजे फ्लोर - Casa Tupka)' },
   RAVAN_GATE: { x: 1380, y: 980, name: 'Ravan Arena Gate (रावण दहन द्वार)' },
   RAVAN: { x: 1550, y: 980, name: 'Ravan Dahan Ground (रावण दहन - 10M HP)' },
-  WEAPON_STALL: { x: 1240, y: 880, name: 'Shastra Armory (शस्त्रागार)' }
+  WEAPON_STALL: { x: 1240, y: 880, name: 'Shastra Armory (शस्त्रागार)' },
+  NEW_GROUND_GATE: { x: 1950, y: 650, name: 'East Gate (पूर्व द्वार - नया मैदान)' },
+  NEW_GROUND: { x: 2700, y: 700, name: 'New Fairground (नया मैदान)' }
 };
 
 // 10 Chairs and 3 Tables at Sharma Ji Chai Tapri
@@ -257,7 +259,7 @@ export default function MelaCanvas({
 
   // Game World State
   const worldRef = useRef({
-    width: 2000,
+    width: 3600,
     height: 1400,
     particles: [],
     activeCrackers: [],
@@ -629,6 +631,23 @@ export default function MelaCanvas({
       }
 
       if (e.key.toLowerCase() === 'e' || e.code === 'Space' || e.key.toLowerCase() === 'f') {
+        // East Gate (New Ground) Proximity Pass
+        const dEastGate = Math.hypot(playerRef.current.x - MELA_ZONES.NEW_GROUND_GATE.x, playerRef.current.y - MELA_ZONES.NEW_GROUND_GATE.y);
+        if (dEastGate < 75) {
+          const isEast = playerRef.current.x >= 1950;
+          const tx = isEast ? 1880 : 2040;
+          playerRef.current.targetX = tx;
+          playerRef.current.targetY = 650;
+          playerRef.current.isMoving = true;
+          setPlayer((prev) => ({ ...prev, targetX: tx, targetY: 650, isMoving: true }));
+          soundEngine.playGatePass?.();
+          setGateNotice({
+            text: isEast ? '🏮 Entered Main Mela Fairground!' : '✨ Entered New Ground (नया मैदान)!',
+            time: Date.now()
+          });
+          return;
+        }
+
         const dGate = Math.hypot(playerRef.current.x - MELA_ZONES.RAVAN_GATE.x, playerRef.current.y - MELA_ZONES.RAVAN_GATE.y);
         if (dGate < 65) {
           const isInside = playerRef.current.x >= 1380;
@@ -978,6 +997,23 @@ export default function MelaCanvas({
       return true;
     }
 
+    // East Gate (New Ground) Proximity
+    const dEastGate = dist(p.x, p.y, MELA_ZONES.NEW_GROUND_GATE.x, MELA_ZONES.NEW_GROUND_GATE.y);
+    if (dEastGate < 75) {
+      const isEast = p.x >= 1950;
+      const tx = isEast ? 1880 : 2040;
+      p.targetX = tx;
+      p.targetY = 650;
+      p.isMoving = true;
+      setPlayer((prev) => ({ ...prev, targetX: tx, targetY: 650, isMoving: true }));
+      soundEngine.playGatePass?.();
+      setGateNotice({
+        text: isEast ? '🏮 Entered Main Mela Fairground!' : '✨ Entered New Ground (नया मैदान)!',
+        time: Date.now()
+      });
+      return true;
+    }
+
     // Ravan Gate Proximity
     const dGate = dist(p.x, p.y, MELA_ZONES.RAVAN_GATE.x, MELA_ZONES.RAVAN_GATE.y);
     if (dGate < 65) {
@@ -1112,6 +1148,23 @@ export default function MelaCanvas({
       p.targetY = MELA_ZONES.DJ_FLOOR.y;
       p.isMoving = true;
       setPlayer((prev) => ({ ...prev, targetX: MELA_ZONES.DJ_FLOOR.x, targetY: MELA_ZONES.DJ_FLOOR.y, isMoving: true }));
+      return;
+    }
+
+    // 0a-East. Clicked East Gate (Enter or Exit the New Ground)
+    const distToEastGate = dist(worldClickX, worldClickY, MELA_ZONES.NEW_GROUND_GATE.x, MELA_ZONES.NEW_GROUND_GATE.y);
+    if (distToEastGate < 75) {
+      const isEast = p.x >= 1950;
+      const tx = isEast ? 1880 : 2040;
+      p.targetX = tx;
+      p.targetY = 650;
+      p.isMoving = true;
+      setPlayer((prev) => ({ ...prev, targetX: tx, targetY: 650, isMoving: true }));
+      soundEngine.playGatePass?.();
+      setGateNotice({
+        text: isEast ? '🏮 Entered Main Mela Fairground!' : '✨ Entered New Ground (नया मैदान)!',
+        time: Date.now()
+      });
       return;
     }
 
@@ -1408,8 +1461,22 @@ export default function MelaCanvas({
             p.facing = moveY > 0 ? 'down' : 'up';
           }
         } else if (p.targetX !== undefined && p.targetY !== undefined) {
-          const dx = p.targetX - p.x;
-          const dy = p.targetY - p.y;
+          // Smart Waypoint Routing across East Gate (x: 1950, y: 650)
+          let effTargetX = p.targetX;
+          let effTargetY = p.targetY;
+          const isCrossingToNewGround = p.x < 1930 && p.targetX > 1950;
+          const isReturningToMainMela = p.x > 1970 && p.targetX < 1950;
+
+          if (isCrossingToNewGround) {
+            effTargetX = 2020;
+            effTargetY = 650;
+          } else if (isReturningToMainMela) {
+            effTargetX = 1880;
+            effTargetY = 650;
+          }
+
+          const dx = effTargetX - p.x;
+          const dy = effTargetY - p.y;
           const dist = Math.hypot(dx, dy);
           if (dist > frameSpeed + 1) {
             newX += (dx / dist) * frameSpeed;
@@ -1421,17 +1488,23 @@ export default function MelaCanvas({
               p.facing = dy > 0 ? 'down' : 'up';
             }
           } else {
-            // Target arrived: clear target destination so player NEVER walks back to old targets
-            newX = p.targetX;
-            newY = p.targetY;
-            isMoving = false;
-            p.targetX = undefined;
-            p.targetY = undefined;
+            if (isCrossingToNewGround || isReturningToMainMela) {
+              // Stepped through gate waypoint! Continue naturally to destination
+              newX = effTargetX;
+              newY = effTargetY;
+            } else {
+              // Target arrived: clear target destination so player NEVER walks back to old targets
+              newX = p.targetX;
+              newY = p.targetY;
+              isMoving = false;
+              p.targetX = undefined;
+              p.targetY = undefined;
 
-            if (p.targetChairToSit) {
-              const chairToSit = p.targetChairToSit;
-              p.targetChairToSit = undefined;
-              sitDownOnChair(chairToSit);
+              if (p.targetChairToSit) {
+                const chairToSit = p.targetChairToSit;
+                p.targetChairToSit = undefined;
+                sitDownOnChair(chairToSit);
+              }
             }
           }
         } else if (p.isSitting) {
@@ -1471,6 +1544,22 @@ export default function MelaCanvas({
             const a = Math.atan2(newY - 980, newX - 1550);
             newX = 1550 + Math.cos(a) * 164;
             newY = 980 + Math.sin(a) * 164;
+          }
+        }
+
+        // -------------------------------------------------------------
+        // East Boundary Fence & East Gate opening (x: 1950)
+        // Gate opening is at y: 585 to 715 (walkway level)
+        // -------------------------------------------------------------
+        const inEastGateOpening = newY >= 585 && newY <= 715;
+        if (!inEastGateOpening) {
+          // Attempting to cross from West (main mela) to East (new ground)
+          if (p.x < 1950 && newX >= 1935) {
+            newX = 1935;
+          }
+          // Attempting to cross from East (new ground) to West (main mela)
+          else if (p.x >= 1950 && newX <= 1965) {
+            newX = 1965;
           }
         }
 
@@ -1713,10 +1802,12 @@ export default function MelaCanvas({
 
           const dmg = proj.damage || 100;
 
-          // 1 shot reduces Ravan's HP by 100
+          let calculatedNextHp = null;
+          // 1 shot reduces Ravan's HP by 100 (never automatically fills or increases)
           if (proj.isLocal && setRavanHp) {
             setRavanHp((prevHp) => {
               const nextHp = Math.max(0, prevHp - dmg);
+              calculatedNextHp = nextHp;
               try {
                 localStorage.setItem('diwali_ravan_hp', nextHp.toString());
               } catch (_) {}
@@ -1758,10 +1849,11 @@ export default function MelaCanvas({
           // Subtle impact screen shake
           world.screenShake = { intensity: 2.2, duration: 3 };
 
-          // Broadcast hit event to live peers if local shooter
+          // Broadcast hit event with exact reduced HP to live peers if local shooter
           if (proj.isLocal && multiplayerManager) {
             multiplayerManager.broadcastRavanHit({
               damage: dmg,
+              currentHp: calculatedNextHp !== null ? calculatedNextHp : Math.max(0, ravanHp - dmg),
               shooterName: p.name || 'Hero',
               weapon: proj.type
             });
@@ -2006,6 +2098,9 @@ export default function MelaCanvas({
 
       // E2b. Grand Ravan Dahan Arena Gate (प्रवेश द्वार)
       renderRavanGate(ctx, world, p);
+
+      // E2c. Grand East Gate to New Ground (पूर्व द्वार)
+      renderNewGroundGate(ctx, world, p);
 
       // E3. 10-Headed Ravan Effigy with 10,000,000 Boss HP Bar (रावण दहन)
       renderRavanEffigy(ctx, world, p, ravanHp);
@@ -2975,12 +3070,19 @@ function renderGroundAndCourtyards(ctx, world) {
     ctx.fill();
   }
 
-  // Cross Walkway (West to East)
+  // Cross Walkway (West to East, extending to East Gate at x: 1950)
   ctx.fillStyle = 'rgba(120, 53, 15, 0.35)';
-  ctx.fillRect(400, 590, 1200, 120);
+  ctx.fillRect(400, 590, 1550, 120);
   ctx.strokeStyle = '#ca8a04';
   ctx.lineWidth = 2;
-  ctx.strokeRect(400, 590, 1200, 120);
+  ctx.strokeRect(400, 590, 1550, 120);
+
+  // Red Carpet leading to East Gate (New Ground Portal)
+  ctx.fillStyle = 'rgba(153, 27, 27, 0.45)';
+  ctx.fillRect(1580, 620, 370, 60);
+  ctx.strokeStyle = '#eab308';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1580, 620, 370, 60);
 
   // Lamp Posts
   const lampPosts = [
@@ -2989,7 +3091,11 @@ function renderGroundAndCourtyards(ctx, world) {
     { x: 860, y: 850 },
     { x: 1140, y: 850 },
     { x: 680, y: 570 },
-    { x: 1320, y: 570 }
+    { x: 1320, y: 570 },
+    { x: 1620, y: 565 },
+    { x: 1840, y: 565 },
+    { x: 1620, y: 735 },
+    { x: 1840, y: 735 }
   ];
 
   lampPosts.forEach((lp) => {
@@ -3003,6 +3109,57 @@ function renderGroundAndCourtyards(ctx, world) {
     ctx.fill();
     ctx.shadowBlur = 0;
   });
+
+  // Boundary Fence between Main Mela & New Ground along x: 1950
+  // Leaves the grand gate opening open at y: 575 to 725
+  ctx.save();
+  ctx.strokeStyle = '#78350f';
+  ctx.lineWidth = 3;
+
+  // North fence railing: y: 0 to 570
+  ctx.beginPath();
+  ctx.moveTo(1950, 0);
+  ctx.lineTo(1950, 570);
+  ctx.stroke();
+
+  // South fence railing: y: 730 to world.height
+  ctx.beginPath();
+  ctx.moveTo(1950, 730);
+  ctx.lineTo(1950, world.height);
+  ctx.stroke();
+
+  // North fence decorative posts
+  for (let fy = 30; fy <= 550; fy += 45) {
+    ctx.fillStyle = '#451a03';
+    ctx.fillRect(1947, fy - 6, 6, 12);
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(1950, fy - 7, 3, 0, Math.PI * 2);
+    ctx.fill();
+    if (fy % 90 === 30) {
+      ctx.fillStyle = '#f97316';
+      ctx.beginPath();
+      ctx.arc(1950, fy - 10, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // South fence decorative posts
+  for (let fy = 750; fy <= world.height - 30; fy += 45) {
+    ctx.fillStyle = '#451a03';
+    ctx.fillRect(1947, fy - 6, 6, 12);
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(1950, fy - 7, 3, 0, Math.PI * 2);
+    ctx.fill();
+    if (fy % 90 === 750 % 90) {
+      ctx.fillStyle = '#f97316';
+      ctx.beginPath();
+      ctx.arc(1950, fy - 10, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
 
   // Ravan Dahan Arena Courtyard (Grand circular festive ring)
   const ravanArenaX = MELA_ZONES.RAVAN.x;
@@ -5447,18 +5604,21 @@ function renderRavanEffigy(ctx, world, player, ravanHp = 10000000) {
   ctx.stroke();
 
   // HP Gauge Fill
+  const isDefeated = ravanHp <= 0;
   const hpRatio = Math.max(0, Math.min(1.0, ravanHp / 10000000));
-  const fillW = Math.max(4, trackW * hpRatio);
+  const fillW = isDefeated ? 0 : Math.max(2, trackW * hpRatio);
 
-  const hpGrad = ctx.createLinearGradient(trackX, trackY, trackX + trackW, trackY);
-  hpGrad.addColorStop(0, '#dc2626');
-  hpGrad.addColorStop(0.7, '#ea580c');
-  hpGrad.addColorStop(1, '#f59e0b');
+  if (fillW > 0) {
+    const hpGrad = ctx.createLinearGradient(trackX, trackY, trackX + trackW, trackY);
+    hpGrad.addColorStop(0, '#dc2626');
+    hpGrad.addColorStop(0.7, '#ea580c');
+    hpGrad.addColorStop(1, '#f59e0b');
 
-  ctx.fillStyle = hpGrad;
-  ctx.beginPath();
-  ctx.roundRect(trackX, trackY, fillW, trackH, 7);
-  ctx.fill();
+    ctx.fillStyle = hpGrad;
+    ctx.beginPath();
+    ctx.roundRect(trackX, trackY, fillW, trackH, 7);
+    ctx.fill();
+  }
 
   // HP Numbers & Percentage
   const formattedHp = ravanHp.toLocaleString('en-IN');
@@ -5467,7 +5627,12 @@ function renderRavanEffigy(ctx, world, player, ravanHp = 10000000) {
   ctx.fillStyle = '#ffffff';
   ctx.shadowBlur = 4;
   ctx.shadowColor = '#000000';
-  ctx.fillText(`HP: ${formattedHp} / 10,000,000 (${percentStr})`, 0, trackY + 11);
+  if (isDefeated) {
+    ctx.fillStyle = '#4ade80';
+    ctx.fillText('👹 RAVAN DEFEATED! 0 / 10,000,000 HP (VICTORY / विजयी!) 🎆', 0, trackY + 11);
+  } else {
+    ctx.fillText(`HP: ${formattedHp} / 10,000,000 (${percentStr})`, 0, trackY + 11);
+  }
   ctx.shadowBlur = 0;
 
   // Subtitle / Raid hint
@@ -5669,6 +5834,219 @@ function renderRavanGate(ctx, world, player) {
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.fillText(promptText, 0, -58);
+
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+// -------------------------------------------------------------
+// GRAND EAST GATE TO NEW GROUND (पूर्व द्वार - नया मैदान)
+// -------------------------------------------------------------
+function renderNewGroundGate(ctx, world, player) {
+  const gx = MELA_ZONES.NEW_GROUND_GATE?.x || 1950;
+  const gy = MELA_ZONES.NEW_GROUND_GATE?.y || 650;
+  const distToPlayer = Math.hypot(player.x - gx, player.y - gy);
+  const isPlayerInNewGround = player.x >= 1950;
+  const animTime = performance.now() * 0.003;
+
+  ctx.save();
+
+  // 1. Red Velvet Carpet Threshold passing through Gate (x: 1890 to 2010, y: 585 to 715)
+  ctx.fillStyle = 'rgba(185, 28, 28, 0.88)';
+  ctx.fillRect(gx - 60, gy - 65, 120, 130);
+
+  // Gold Brocade Trim
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2.5;
+  ctx.strokeRect(gx - 60, gy - 65, 120, 130);
+
+  // Inlaid Brass Dividing Strip
+  ctx.fillStyle = '#f59e0b';
+  ctx.fillRect(gx - 2, gy - 65, 4, 130);
+
+  // Auspicious Toran Rangoli Motif at threshold center
+  ctx.save();
+  ctx.translate(gx, gy);
+  ctx.strokeStyle = '#fef08a';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(0, 0, 16, 0, Math.PI * 2);
+  ctx.stroke();
+  for (let a = 0; a < 8; a++) {
+    const angle = (a * Math.PI) / 4;
+    ctx.beginPath();
+    ctx.arc(Math.cos(angle) * 12, Math.sin(angle) * 12, 3, 0, Math.PI * 2);
+    ctx.fillStyle = a % 2 === 0 ? '#f59e0b' : '#ea580c';
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // 2. Twin Royal Sandstone Pillars (North at gy - 75, South at gy + 75)
+  const pillars = [
+    { y: gy - 75, id: 1 },
+    { y: gy + 75, id: 2 }
+  ];
+
+  pillars.forEach((p) => {
+    // Pedestal Base
+    ctx.fillStyle = '#451a03';
+    ctx.strokeStyle = '#b45309';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.roundRect(gx - 18, p.y - 16, 36, 32, 5);
+    ctx.fill();
+    ctx.stroke();
+
+    // Carved Sandstone Shaft
+    ctx.fillStyle = '#78350f';
+    ctx.fillRect(gx - 12, p.y - 48, 24, 34);
+
+    // Gold Fluting Lines
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillRect(gx - 3, p.y - 46, 6, 30);
+
+    // Capital Bracket
+    ctx.fillStyle = '#92400e';
+    ctx.beginPath();
+    ctx.roundRect(gx - 16, p.y - 58, 32, 10, 4);
+    ctx.fill();
+
+    // Brass Urli / Mashaal (Eternal Flame Bowl)
+    ctx.fillStyle = '#b45309';
+    ctx.beginPath();
+    ctx.ellipse(gx, p.y - 60, 12, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Animated Flickering Torch Flame
+    const flicker = Math.sin(animTime * 3 + p.id * 2) * 2.5;
+    const flameH = 16 + flicker;
+
+    ctx.save();
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#f97316';
+
+    // Outer Orange Flame
+    ctx.fillStyle = '#ea580c';
+    ctx.beginPath();
+    ctx.moveTo(gx - 8, p.y - 61);
+    ctx.quadraticCurveTo(gx - 5, p.y - 61 - flameH * 0.6, gx, p.y - 61 - flameH);
+    ctx.quadraticCurveTo(gx + 5, p.y - 61 - flameH * 0.6, gx + 8, p.y - 61);
+    ctx.closePath();
+    ctx.fill();
+
+    // Inner Yellow Core
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.moveTo(gx - 5, p.y - 61);
+    ctx.quadraticCurveTo(gx - 2, p.y - 61 - flameH * 0.4, gx, p.y - 61 - flameH * 0.7);
+    ctx.quadraticCurveTo(gx + 2, p.y - 61 - flameH * 0.4, gx + 5, p.y - 61);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  });
+
+  // 3. Overhead Toran & Arch Beam connecting North & South Pillars
+  ctx.strokeStyle = '#78350f';
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.moveTo(gx, gy - 75);
+  ctx.lineTo(gx, gy + 75);
+  ctx.stroke();
+
+  // Double Swag Marigold Garlands
+  for (let sw = -1; sw <= 1; sw += 2) {
+    const midX = gx - sw * 8;
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(gx, gy - 75);
+    ctx.quadraticCurveTo(midX, gy, gx, gy + 75);
+    ctx.stroke();
+  }
+
+  // Marigold & Mango Leaf rosettes along arch
+  for (let ay = gy - 70; ay <= gy + 70; ay += 18) {
+    // Mango Leaf
+    ctx.fillStyle = '#15803d';
+    ctx.beginPath();
+    ctx.ellipse(gx - 7, ay, 6, 3, Math.PI / 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Marigold Bloom
+    ctx.fillStyle = ay % 36 === 0 ? '#f59e0b' : '#ea580c';
+    ctx.beginPath();
+    ctx.arc(gx, ay, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.arc(gx, ay, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 4. Regal Overhead Signboard
+  ctx.save();
+  ctx.translate(gx - 8, gy);
+
+  // Plaque Background (Crimson & Gold)
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = '#f59e0b';
+  ctx.fillStyle = '#7f1d1d';
+  ctx.beginPath();
+  ctx.roundRect(-24, -55, 48, 110, 8);
+  ctx.fill();
+
+  // Plaque Gold Border
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Rotated text for vertical gate orientation facing West
+  ctx.rotate(-Math.PI / 2);
+
+  ctx.font = 'bold 12px "Cinzel", serif';
+  ctx.fillStyle = '#fef08a';
+  ctx.textAlign = 'center';
+  ctx.fillText('🚪 पूर्व द्वार • EAST GATE 🚪', 0, -5);
+
+  ctx.font = 'bold 10px "Outfit", sans-serif';
+  ctx.fillStyle = '#fed7aa';
+  ctx.fillText('✨ NEW GROUND (नया मैदान) ➜', 0, 9);
+
+  ctx.restore();
+
+  // 5. Interactive Proximity Prompt (Floating Badge)
+  if (distToPlayer < 120) {
+    const pulse = 1 + Math.sin(animTime * 2.5) * 0.04;
+    ctx.save();
+    ctx.translate(gx - 25, gy);
+    ctx.scale(pulse, pulse);
+
+    const promptText = isPlayerInNewGround
+      ? '🏮 [ Tap Gate / Press E ] Return to Main Mela'
+      : '🚪 [ Tap Gate / Walk Through ] Enter New Ground ✨';
+
+    ctx.font = 'bold 11px "Outfit", sans-serif';
+    const textW = ctx.measureText(promptText).width;
+
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = isPlayerInNewGround ? '#38bdf8' : '#fbbf24';
+    ctx.fillStyle = 'rgba(15, 10, 25, 0.94)';
+    ctx.beginPath();
+    ctx.roundRect(-textW / 2 - 12, -80, textW + 24, 26, 13);
+    ctx.fill();
+
+    ctx.strokeStyle = isPlayerInNewGround ? '#38bdf8' : '#fbbf24';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.fillText(promptText, 0, -63);
 
     ctx.restore();
   }

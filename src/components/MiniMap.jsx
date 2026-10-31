@@ -45,9 +45,9 @@ export default function MiniMap({
     };
   }, [multiplayerManager]);
 
-  const mapW = 190;
-  const mapH = 133;
-  const scaleX = mapW / 2000;
+  const mapW = 234;
+  const mapH = 91;
+  const scaleX = mapW / 3600;
   const scaleY = mapH / 1400;
 
   const toMapX = (wx) => wx * scaleX;
@@ -66,7 +66,8 @@ export default function MiniMap({
     { key: 'RANGOLI_PAVILION', label: 'Rangoli', icon: '🌸', x: MELA_ZONES.RANGOLI_PAVILION.x, y: MELA_ZONES.RANGOLI_PAVILION.y },
     { key: 'WEAPON_STALL', label: 'Shastra Armory', icon: '🏹', x: MELA_ZONES.WEAPON_STALL.x, y: MELA_ZONES.WEAPON_STALL.y },
     { key: 'RAVAN_GATE', label: 'Ravan Gate', icon: '🚪', x: MELA_ZONES.RAVAN_GATE?.x || 1380, y: MELA_ZONES.RAVAN_GATE?.y || 980 },
-    { key: 'RAVAN', label: 'Ravan (10M HP)', icon: '👹', x: MELA_ZONES.RAVAN.x, y: MELA_ZONES.RAVAN.y }
+    { key: 'RAVAN', label: 'Ravan (10M HP)', icon: '👹', x: MELA_ZONES.RAVAN.x, y: MELA_ZONES.RAVAN.y },
+    { key: 'NEW_GROUND_GATE', label: 'East Gate', icon: '🚪', x: MELA_ZONES.NEW_GROUND_GATE?.x || 1950, y: MELA_ZONES.NEW_GROUND_GATE?.y || 650 }
   ];
 
   return (
@@ -151,11 +152,51 @@ export default function MiniMap({
               position: 'absolute',
               left: toMapX(400),
               top: toMapY(590),
-              width: 1200 * scaleX,
+              width: 1550 * scaleX,
               height: 120 * scaleY,
               backgroundColor: 'rgba(245, 158, 11, 0.14)'
             }}
           />
+
+          {/* Boundary fence between Main Mela & New Ground */}
+          <div
+            style={{
+              position: 'absolute',
+              left: toMapX(1950),
+              top: 0,
+              width: 1,
+              height: toMapY(585),
+              borderLeft: '1px dashed rgba(245, 158, 11, 0.35)'
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              left: toMapX(1950),
+              top: toMapY(715),
+              width: 1,
+              height: toMapY(1400 - 715),
+              borderLeft: '1px dashed rgba(245, 158, 11, 0.35)'
+            }}
+          />
+
+          {/* New Ground Area Label on MiniMap */}
+          <div
+            style={{
+              position: 'absolute',
+              left: toMapX(2750),
+              top: toMapY(700),
+              transform: 'translate(-50%, -50%)',
+              fontSize: 8,
+              color: 'rgba(254, 240, 138, 0.35)',
+              fontWeight: 700,
+              pointerEvents: 'none',
+              letterSpacing: 0.5,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            ✨ New Ground
+          </div>
 
 
           {/* POI Markers */}

@@ -1,6 +1,6 @@
 // Diwali Mahotsav Mela - Main Application
 import React, { useState, useEffect, useRef } from 'react';
-import MelaCanvas, { MELA_ZONES } from './game/MelaCanvas';
+import MelaCanvas, { MELA_ZONES, DANCE_STEPS } from './game/MelaCanvas';
 import WelcomeScreen from './components/WelcomeScreen';
 import CrackerShopModal from './components/CrackerShopModal';
 import TempleModal from './components/TempleModal';
@@ -171,13 +171,14 @@ export default function App() {
   const [danceStep, setDanceStep] = useState(0);
   const danceTimeoutRef = useRef(null);
 
-  // Automatic dance move rotation every 2.8 seconds while dancing
+  // Automatic dance move rotation every 2.6 seconds while dancing
   useEffect(() => {
     if (!isDancing) return;
 
+    const totalSteps = DANCE_STEPS?.length || 9;
     const interval = setInterval(() => {
       setDanceStep((prev) => {
-        const next = (prev + 1) % 5;
+        const next = (prev + 1) % totalSteps;
         if (multiplayerManager) {
           multiplayerManager.broadcastPlayerDance({
             isDancing: true,
@@ -187,7 +188,7 @@ export default function App() {
         }
         return next;
       });
-    }, 2800);
+    }, 2600);
 
     return () => clearInterval(interval);
   }, [isDancing, multiplayerManager, player.name]);
@@ -478,14 +479,14 @@ export default function App() {
       multiplayerManager.broadcastPlayerDance({ isDancing: true, playerName: player.name, danceStep });
     }
 
-    // Full 16-second routine allows smoothly experiencing all 5 dance steps automatically
+    // Full 24-second routine allows smoothly experiencing all 9 dance steps automatically
     if (danceTimeoutRef.current) clearTimeout(danceTimeoutRef.current);
     danceTimeoutRef.current = setTimeout(() => {
       setIsDancing(false);
       if (multiplayerManager) {
         multiplayerManager.broadcastPlayerDance({ isDancing: false, playerName: player.name });
       }
-    }, 16000);
+    }, 24000);
   };
 
   // Keyboard number shortcuts to select crackers (Keys 1-8)

@@ -36,6 +36,10 @@ export const MELA_ZONES = {
 export const DANCE_STEPS = [
   { id: 'bhangra', name: 'Bhangra Dholak Jump', hindi: 'भांगड़ा स्टेप', icon: '🕺' },
   { id: 'bollywood', name: 'Bollywood Thumka', hindi: 'बॉलीवुड ठुमका', icon: '💃' },
+  { id: 'floor_roll', name: 'Desi Floor Roll', hindi: 'जमीन पर लोट-पोट डांस', icon: '🌀' },
+  { id: 'mega_jump', name: 'Sky Rocket Mega Jump', hindi: 'तूफानी ऊंची छलांग', icon: '🚀' },
+  { id: 'naagin', name: 'Iconic Naagin Dance', hindi: 'नागिन बीन धुन', icon: '🐍' },
+  { id: 'garba_spin', name: 'Garba 360 Spin', hindi: 'गरबा घूमर स्पिन', icon: '🌪️' },
   { id: 'disco', name: 'Disco Saturday Night', hindi: 'डिस्को स्टार', icon: '✨' },
   { id: 'wave', name: 'Party Concert Wave', hindi: 'हैंड्स इन द एयर', icon: '🙌' },
   { id: 'hiphop', name: 'Desi Hip-Hop Shuffle', hindi: 'हिप-हॉप शफल', icon: '🔥' }
@@ -819,14 +823,14 @@ export default function MelaCanvas({
       );
     }
 
-    // Full 16-second routine allows smoothly experiencing all 5 dance steps automatically
+    // Full 24-second routine allows smoothly experiencing all 9 dance steps automatically
     if (danceTimeoutRef.current) clearTimeout(danceTimeoutRef.current);
     danceTimeoutRef.current = setTimeout(() => {
       setIsDancing(false);
       if (multiplayerManager) {
         multiplayerManager.broadcastPlayerDance({ isDancing: false, playerName: p.name });
       }
-    }, 16000);
+    }, 24000);
   };
 
   // Fire Bow or Gun projectile at Ravan effigy
@@ -2777,7 +2781,7 @@ export default function MelaCanvas({
             </span>
             <span style={{ color: '#fef08a', fontSize: 12.5, fontWeight: 800 }}>
               {isDancing
-                ? `Auto-Dancing: ${DANCE_STEPS[danceStep % DANCE_STEPS.length].name} (${(danceStep % DANCE_STEPS.length) + 1}/5) ✨`
+                ? `Auto-Dancing: ${DANCE_STEPS[danceStep % DANCE_STEPS.length].name} (${(danceStep % DANCE_STEPS.length) + 1}/${DANCE_STEPS.length}) ✨`
                 : `Dancing to "${currentDjTrack?.title || 'Casa Tupka'}" • ${currentDjTrack?.bpm || 105} BPM 🎶`}
             </span>
           </div>
@@ -5830,10 +5834,23 @@ function renderCharacter(
   ctx.scale(CHAR_SCALE, CHAR_SCALE);
 
   // Ground shadow (drawn before body translation so shadow anchors naturally to the floor)
-  const shadowPulse = dancing ? Math.sin(now * 0.012) * 1.5 : 0;
+  let shadowScaleX = 13;
+  let shadowScaleY = 5;
+  if (dancing) {
+    if (stepId === 'floor_roll') {
+      shadowScaleX = 18;
+      shadowScaleY = 7;
+    } else if (stepId === 'mega_jump') {
+      const jumpRatio = Math.min(1, Math.abs(Math.sin(now * 0.007)));
+      shadowScaleX = Math.max(5, 16 * (1 - jumpRatio * 0.65));
+      shadowScaleY = Math.max(2, 6 * (1 - jumpRatio * 0.65));
+    } else {
+      shadowScaleX = 13 + Math.sin(now * 0.012) * 1.5;
+    }
+  }
   ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
   ctx.beginPath();
-  ctx.ellipse(0, 13, 13 + shadowPulse, 5 + shadowPulse * 0.3, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 13, shadowScaleX, shadowScaleY, 0, 0, Math.PI * 2);
   ctx.fill();
 
   // Dynamic dance choreographies: Body Bob, Hip Sway, and Tilt Rotation
@@ -5849,6 +5866,25 @@ function renderCharacter(
       hipSway = Math.sin(now * 0.010) * 5.0;
       jumpBob = -Math.abs(Math.cos(now * 0.010)) * 2.5;
       danceAngle = Math.sin(now * 0.010) * 0.16;
+    } else if (stepId === 'floor_roll') {
+      // ROLLING ON THE FLOOR! Drops down to floor level (y: +8), rolls left-right with full 360° tumble
+      jumpBob = 8;
+      hipSway = Math.sin(now * 0.008) * 12;
+      danceAngle = (now * 0.012) % (Math.PI * 2);
+    } else if (stepId === 'mega_jump') {
+      // SKY ROCKET MEGA JUMP! High aerial vertical jump soaring 26px into the air!
+      const jumpCycle = Math.abs(Math.sin(now * 0.007));
+      jumpBob = -jumpCycle * 26;
+      danceAngle = Math.sin(now * 0.007) * 0.12;
+    } else if (stepId === 'naagin') {
+      // CLASSIC NAAGIN DANCE! Low crouching snake wave slithering left and right
+      jumpBob = 4 + Math.sin(now * 0.012) * 3;
+      hipSway = Math.sin(now * 0.014) * 8;
+      danceAngle = Math.cos(now * 0.014) * 0.22;
+    } else if (stepId === 'garba_spin') {
+      // GARBA 360 SPIN! Whirlwind 360° spin with bounce
+      jumpBob = -Math.abs(Math.sin(now * 0.014)) * 3.5;
+      danceAngle = (now * 0.015) % (Math.PI * 2);
     } else if (stepId === 'disco') {
       hipSway = Math.sin(now * 0.012) * 3.5;
       jumpBob = -Math.abs(Math.sin(now * 0.012)) * 3.0;
@@ -5941,6 +5977,25 @@ function renderCharacter(
       const legCurve = Math.sin(now * 0.010) * 2.5;
       ctx.fillRect(-6 + legCurve * 0.4, 2, 4, 11);
       ctx.fillRect(2 + legCurve * 0.4, 2, 4, 11);
+    } else if (stepId === 'floor_roll') {
+      // Rolling legs tumbling out
+      const rollK = Math.sin(now * 0.016) * 4;
+      ctx.fillRect(-7, 2, 4, 9 + rollK);
+      ctx.fillRect(3, 2, 4, 9 - rollK);
+    } else if (stepId === 'mega_jump') {
+      // Tucked legs during high leap in air
+      const isHigh = Math.abs(jumpBob) > 12;
+      const legLen = isHigh ? 6 : 11;
+      ctx.fillRect(-6, 2, 4, legLen);
+      ctx.fillRect(2, 2, 4, legLen);
+    } else if (stepId === 'naagin') {
+      // Low crouching snake knees
+      ctx.fillRect(-7, 2, 5, 8);
+      ctx.fillRect(2, 2, 5, 8);
+    } else if (stepId === 'garba_spin') {
+      // Garba spin footing
+      ctx.fillRect(-6, 2, 4, 10);
+      ctx.fillRect(2, 2, 4, 10);
     } else if (stepId === 'disco') {
       ctx.fillRect(-7, 2, 4, 11);
       ctx.fillRect(3, 2, 4, 11);
@@ -6064,8 +6119,54 @@ function renderCharacter(
         rhX = 10 + (swap < 0 ? 4 : 1);
         reX = 12 + (swap < 0 ? 3 : 1);
         reY = -11 - (swap < 0 ? 10 : 0);
+      } else if (stepId === 'floor_roll') {
+        // 3. FLOOR ROLL: Arms outstretched spinning along with the rolling tumble
+        const rollT = Math.sin(now * 0.016);
+        lhX = -15 - rollT * 3;
+        lhY = -6 + rollT * 8;
+        leX = -12;
+        leY = -7;
+
+        rhX = 15 + rollT * 3;
+        rhY = -6 - rollT * 8;
+        reX = 12;
+        reY = -7;
+      } else if (stepId === 'mega_jump') {
+        // 4. SKY ROCKET MEGA JUMP: Both hands thrown way up into the sky (-42)!
+        const jumpH = Math.min(1, Math.abs(jumpBob) / 16);
+        lhX = -12 - jumpH * 4;
+        lhY = -20 - jumpH * 22; // shoots up to -42!
+        leX = -13 - jumpH * 2;
+        leY = -15 - jumpH * 14;
+
+        rhX = 12 + jumpH * 4;
+        rhY = -20 - jumpH * 22; // shoots up to -42!
+        reX = 13 + jumpH * 2;
+        reY = -15 - jumpH * 14;
+      } else if (stepId === 'naagin') {
+        // 5. ICONIC NAAGIN DANCE: Hands joined together overhead in cobra hood pose!
+        lhX = -2;
+        lhY = -38;
+        leX = -10;
+        leY = -24;
+
+        rhX = 2;
+        rhY = -38;
+        reX = 10;
+        reY = -24;
+      } else if (stepId === 'garba_spin') {
+        // 6. GARBA 360 SPIN: Arms outstretched wide like Dandiya twirlers!
+        lhX = -19;
+        lhY = -8 + Math.sin(now * 0.015) * 3;
+        leX = -14;
+        leY = -8;
+
+        rhX = 19;
+        rhY = -8 - Math.sin(now * 0.015) * 3;
+        reX = 14;
+        reY = -8;
       } else if (stepId === 'disco') {
-        // 3. DISCO: Right hand points to the sky (-40) and sweeps down to hip (+2)
+        // 7. DISCO: Right hand points to the sky (-40) and sweeps down to hip (+2)
         const discoT = Math.sin(now * 0.013); // -1 to +1
         rhX = 4 + discoT * 13;
         rhY = -19 - discoT * 21;
@@ -6078,7 +6179,7 @@ function renderCharacter(
         leX = -11;
         leY = -6;
       } else if (stepId === 'wave') {
-        // 4. WAVE: Both hands high overhead (-35), waving left and right together
+        // 8. WAVE: Both hands high overhead (-35), waving left and right together
         const waveLateral = Math.sin(now * 0.008) * 9;
         const waveBob = Math.sin(now * 0.016) * 3.5;
         lhX = -11 + waveLateral;
@@ -6091,7 +6192,7 @@ function renderCharacter(
         reX = 13 + waveLateral * 0.7;
         reY = -22 + waveBob * 0.5;
       } else if (stepId === 'hiphop') {
-        // 5. HIP-HOP: Cross chest (-7) to explosive upward throw (-37)
+        // 9. HIP-HOP: Cross chest (-7) to explosive upward throw (-37)
         const hipPhase = (Math.sin(now * 0.020) + 1) * 0.5;
         lhX = -3 - hipPhase * 14;
         lhY = -7 - hipPhase * 30;

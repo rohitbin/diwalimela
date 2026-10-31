@@ -1,6 +1,7 @@
 // Enhanced Bottom Hotbar & Quick Action Dock with Festive Attractions
 import React from 'react';
 import { CRACKERS } from '../data/crackers';
+import { DANCE_STEPS } from '../game/MelaCanvas';
 import { Flame, Sparkles, Store, Utensils, Bell, Coffee, Target, Gift } from 'lucide-react';
 
 export default function InventoryHotbar({
@@ -130,10 +131,10 @@ export default function InventoryHotbar({
             title={isDancing ? "Auto-Dancing! Tap to Stop (Key V)" : "Dance to Festive Dhol Beats (Key V)"}
           >
             <span style={{ fontSize: 18 }}>
-              {isDancing ? ['🕺', '💃', '✨', '🙌', '🔥'][danceStep % 5] : '💃'}
+              {isDancing ? (DANCE_STEPS[danceStep % DANCE_STEPS.length]?.icon || '💃') : '💃'}
             </span>
             <span style={{ marginTop: 2 }}>
-              {isDancing ? ['Bhangra', 'Thumka', 'Disco', 'Wave', 'HipHop'][danceStep % 5] : 'Dance'}
+              {isDancing ? (DANCE_STEPS[danceStep % DANCE_STEPS.length]?.name?.split(' ')[0] || 'Dance') : 'Dance'}
             </span>
           </button>
 

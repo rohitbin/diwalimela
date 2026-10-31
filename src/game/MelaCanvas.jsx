@@ -117,6 +117,11 @@ export default function MelaCanvas({
   const speedResetTimeoutRef = useRef(null);
   const danceTimeoutRef = useRef(null);
 
+  // Finger Aiming State & Ref for Gun Fight Duel
+  const [fingerAim, setFingerAim] = useState(null);
+  const fingerAimRef = useRef(null);
+  fingerAimRef.current = fingerAim;
+
   // Fresh refs for Gun Fight state
   const gunFightRef = useRef(gunFight);
   gunFightRef.current = gunFight;
@@ -142,18 +147,29 @@ export default function MelaCanvas({
       if (!data) return;
       soundEngine.init();
       soundEngine.playGunShot?.(1.4);
+      const startX = data.startX;
+      const startY = data.startY;
+      const angle = data.angle ?? Math.atan2(data.targetY - startY, data.targetX - startX);
+      const speed = 36;
+      const vx = data.vx ?? Math.cos(angle) * speed;
+      const vy = data.vy ?? Math.sin(angle) * speed;
+
       worldRef.current.projectiles.push({
         id: data.id || `opp_shot_${Date.now()}`,
-        x: data.startX,
-        y: data.startY,
-        startX: data.startX,
-        startY: data.startY,
+        x: startX,
+        y: startY,
+        startX,
+        startY,
         targetX: data.targetX,
         targetY: data.targetY,
-        speed: 36,
-        speedMultiplier: 1.5,
+        vx,
+        vy,
+        angle,
+        speed,
+        distanceTraveled: 0,
+        maxRange: 1400,
         type: 'gun',
-        damage: data.damage || 20,
+        damage: data.damage || 10,
         shooterName: gunFightRef.current?.opponentName || 'Opponent',
         color: '#f43f5e',
         trail: [],
@@ -971,7 +987,7 @@ export default function MelaCanvas({
     if (onRavanShot) onRavanShot(weapon.id);
   };
 
-  // Fire Festive Spark Bullet in PvP Gun Fight Duel
+  // Fire Festive Spark Bullet in PvP Gun Fight Duel - Controlled by Finger / Cursor
   const fireDuelGunShot = (targetX, targetY) => {
     soundEngine.init();
     soundEngine.playGunShot?.(1.3 + Math.random() * 0.3);
@@ -982,37 +998,38 @@ export default function MelaCanvas({
     let destX = targetX;
     let destY = targetY;
 
-    // Find opponent position
-    let oppPos = null;
-    if (gunFightRef.current?.opponentId === 'npc_veer') {
-      oppPos = { x: 1180, y: 880, name: 'Veer (Gun Master 🤠)' };
-    } else if (remotePlayersRef.current) {
-      const rem = remotePlayersRef.current.get(gunFightRef.current?.opponentId);
-      if (rem) oppPos = { x: rem.x, y: rem.y, name: rem.name || 'Opponent' };
+    // If no target provided (e.g. from tactile on-screen fire button), aim in player's facing direction
+    if (destX === undefined || destY === undefined) {
+      destX = p.x + (p.facing === 'left' ? -420 : 420);
+      destY = p.y - 18;
     }
 
-    if (!destX || !destY || (Math.hypot(destX - p.x, destY - p.y) < 25 && oppPos)) {
-      if (oppPos) {
-        destX = oppPos.x + (Math.random() - 0.5) * 16;
-        destY = oppPos.y + (Math.random() - 0.5) * 16;
-      } else {
-        destX = p.x + 120;
-        destY = p.y;
-      }
-    }
+    const startX = p.x + (destX < p.x ? -14 : 14);
+    const startY = p.y - 18;
+    const angle = Math.atan2(destY - startY, destX - startX);
+    const speed = 36;
+    const vx = Math.cos(angle) * speed;
+    const vy = Math.sin(angle) * speed;
+
+    // Turn player towards the finger aim
+    p.facing = destX < p.x ? 'left' : 'right';
 
     world.projectiles.push({
       id: projId,
-      x: p.x,
-      y: p.y - 18,
-      startX: p.x,
-      startY: p.y - 18,
+      x: startX,
+      y: startY,
+      startX,
+      startY,
       targetX: destX,
       targetY: destY,
-      speed: 36,
-      speedMultiplier: 1.5,
+      vx,
+      vy,
+      angle,
+      speed,
+      distanceTraveled: 0,
+      maxRange: 1400,
       type: 'gun',
-      damage: 20,
+      damage: 10, // 10 MINUS PER SHOT!
       shooterName: p.name || 'Hero',
       color: '#38bdf8',
       trail: [],
@@ -1025,11 +1042,14 @@ export default function MelaCanvas({
       multiplayerManager.broadcastGunFightShot({
         id: projId,
         shooterId: p.id,
-        startX: p.x,
-        startY: p.y - 18,
+        startX,
+        startY,
         targetX: destX,
         targetY: destY,
-        damage: 20
+        vx,
+        vy,
+        angle,
+        damage: 10
       });
     }
   };
@@ -2026,54 +2046,74 @@ export default function MelaCanvas({
         proj.trail.push({ x: proj.x, y: proj.y });
         if (proj.trail.length > 5) proj.trail.shift();
 
-        // A. Duel Projectile Hit Detection
+        // A. Duel Projectile Hit Detection - Ballistic physics with accurate body hitbox
         if (proj.isDuel) {
-          // 1. Local Player's shot -> hitting opponent
+          // Advance projectile along its ballistic velocity vector
+          if (proj.vx !== undefined && proj.vy !== undefined) {
+            proj.x += proj.vx;
+            proj.y += proj.vy;
+          } else {
+            proj.x += (dx / distToTarget) * proj.speed;
+            proj.y += (dy / distToTarget) * proj.speed;
+          }
+          proj.distanceTraveled = (proj.distanceTraveled || 0) + (proj.speed || 36);
+
+          // 1. Local Player's shot -> check if it hits the opponent's body!
           if (proj.isLocal) {
             let hitOpp = false;
+            let impactX = proj.x;
+            let impactY = proj.y;
+
             if (proj.duelOpponentId === 'npc_veer') {
-              if (distToTarget <= proj.speed || Math.hypot(proj.x - 1180, proj.y - 880) <= 32) {
+              // Veer's exact torso hitbox center: x: 1180, y: 866
+              const d = Math.hypot(proj.x - 1180, proj.y - 866);
+              if (d <= 28) {
                 hitOpp = true;
+                impactX = 1180;
+                impactY = 866;
               }
             } else if (remotePlayersRef.current) {
               const opp = remotePlayersRef.current.get(proj.duelOpponentId);
-              if (opp && (distToTarget <= proj.speed || Math.hypot(proj.x - opp.x, proj.y - opp.y) <= 32)) {
-                hitOpp = true;
-              } else if (distToTarget <= proj.speed) {
-                hitOpp = true;
+              if (opp) {
+                // Opponent player's exact torso hitbox center: x: opp.x, y: opp.y - 14
+                const d = Math.hypot(proj.x - opp.x, proj.y - (opp.y - 14));
+                if (d <= 28) {
+                  hitOpp = true;
+                  impactX = opp.x;
+                  impactY = opp.y - 14;
+                }
               }
-            } else if (distToTarget <= proj.speed) {
-              hitOpp = true;
             }
 
+            // ONLY MINUS HP WHEN PERSON IS HIT BY GUN!
             if (hitOpp) {
               soundEngine.playRavanHit?.();
               world.screenShake = { intensity: 2.8, duration: 4 };
 
-              // Floating damage text
+              // Floating damage text: exact -10 HP!
               world.floatingTexts.push({
-                x: proj.targetX + (Math.random() - 0.5) * 16,
-                y: proj.targetY - 26,
-                text: `-${proj.damage || 20} HP 💥`,
+                x: impactX + (Math.random() - 0.5) * 14,
+                y: impactY - 24,
+                text: `-10 HP 💥`,
                 color: '#38bdf8',
                 alpha: 1.0,
                 vy: -1.8,
-                life: 50
+                life: 45
               });
 
               // Spark burst particles at impact
-              for (let i = 0; i < 18; i++) {
+              for (let i = 0; i < 16; i++) {
                 const theta = Math.random() * Math.PI * 2;
-                const spd = 2 + Math.random() * 5;
+                const spd = 2 + Math.random() * 4;
                 world.particles.push(
                   new Particle(
-                    proj.targetX,
-                    proj.targetY,
+                    impactX,
+                    impactY,
                     Math.cos(theta) * spd,
                     Math.sin(theta) * spd,
                     '#38bdf8',
-                    16,
-                    1.8,
+                    14,
+                    1.6,
                     0.06,
                     0.95,
                     'spark'
@@ -2082,40 +2122,48 @@ export default function MelaCanvas({
               }
 
               if (onDuelHitRef.current) {
-                onDuelHitRef.current(proj.damage || 20);
+                onDuelHitRef.current(10);
               }
+              return false; // Remove projectile on hit
+            }
+
+            // If shot missed and flew past the max range, expire harmlessly with ZERO damage!
+            if (proj.distanceTraveled >= (proj.maxRange || 1400)) {
               return false;
             }
           }
 
-          // 2. Opponent or Veer shot -> hitting local player
+          // 2. Opponent or Veer shot -> check if it hits local player's body!
           if (proj.isVeerShot || proj.isOpponentShot) {
-            if (distToTarget <= proj.speed || Math.hypot(proj.x - p.x, proj.y - p.y) <= 30) {
+            // Player's exact torso hitbox center: x: p.x, y: p.y - 14
+            const d = Math.hypot(proj.x - p.x, proj.y - (p.y - 14));
+            if (d <= 26) {
               soundEngine.playRavanHit?.();
               world.screenShake = { intensity: 3.5, duration: 5 };
 
+              // Floating damage text: exact -10 HP!
               world.floatingTexts.push({
-                x: p.x + (Math.random() - 0.5) * 16,
-                y: p.y - 26,
-                text: `-${proj.damage || 20} HP 💥`,
+                x: p.x + (Math.random() - 0.5) * 14,
+                y: p.y - 24,
+                text: `-10 HP 💥`,
                 color: '#ef4444',
                 alpha: 1.0,
                 vy: -1.8,
-                life: 50
+                life: 45
               });
 
-              for (let i = 0; i < 18; i++) {
+              for (let i = 0; i < 16; i++) {
                 const theta = Math.random() * Math.PI * 2;
-                const spd = 2 + Math.random() * 5;
+                const spd = 2 + Math.random() * 4;
                 world.particles.push(
                   new Particle(
                     p.x,
-                    p.y,
+                    p.y - 14,
                     Math.cos(theta) * spd,
                     Math.sin(theta) * spd,
                     '#ef4444',
-                    16,
-                    1.8,
+                    14,
+                    1.6,
                     0.06,
                     0.95,
                     'spark'
@@ -2124,11 +2172,35 @@ export default function MelaCanvas({
               }
 
               if (onTakeDuelDamageRef.current) {
-                onTakeDuelDamageRef.current(proj.damage || 20);
+                onTakeDuelDamageRef.current(10);
               }
+              return false; // Remove projectile on hit
+            }
+
+            // If bullet missed and flew past max range, expire harmlessly with ZERO damage!
+            if (proj.distanceTraveled >= (proj.maxRange || 1300)) {
               return false;
             }
           }
+
+          // Spark particle trail
+          if (Math.random() > 0.4) {
+            world.particles.push(
+              new Particle(
+                proj.x,
+                proj.y,
+                (Math.random() - 0.5) * 1.0,
+                (Math.random() - 0.5) * 1.0,
+                proj.color || '#38bdf8',
+                8 + Math.floor(Math.random() * 6),
+                1.2,
+                0.03,
+                0.97,
+                'spark'
+              )
+            );
+          }
+          return true; // Keep flying!
         }
 
         if (distToTarget <= proj.speed) {
@@ -2233,21 +2305,32 @@ export default function MelaCanvas({
           soundEngine.playGunShot?.(1.35);
           const veerX = 1180;
           const veerY = 880;
-          const targetX = p.x + (Math.random() - 0.5) * 22;
-          const targetY = p.y + (Math.random() - 0.5) * 22;
+          const startX = veerX - 12;
+          const startY = veerY - 18;
+          // Aim with slight jitter around player
+          const targetX = p.x + (Math.random() - 0.5) * 32;
+          const targetY = p.y - 14 + (Math.random() - 0.5) * 24;
+          const angle = Math.atan2(targetY - startY, targetX - startX);
+          const speed = 28;
+          const vx = Math.cos(angle) * speed;
+          const vy = Math.sin(angle) * speed;
 
           world.projectiles.push({
             id: `veer_shot_${nowMs}`,
-            x: veerX,
-            y: veerY - 18,
-            startX: veerX,
-            startY: veerY - 18,
+            x: startX,
+            y: startY,
+            startX,
+            startY,
             targetX,
             targetY,
-            speed: 26,
-            speedMultiplier: 1.2,
+            vx,
+            vy,
+            angle,
+            speed,
+            distanceTraveled: 0,
+            maxRange: 1300,
             type: 'gun',
-            damage: 20,
+            damage: 10, // 10 MINUS PER SHOT!
             shooterName: 'Veer',
             color: '#ef4444',
             trail: [],
@@ -2497,6 +2580,11 @@ export default function MelaCanvas({
         renderCharacter(ctx, p, false, true, selectedCracker, activeBuffs, isDancingRef.current, danceStepRef.current, gunFightRef.current);
       }
 
+      // L3. Finger Aiming Laser & Crosshair Reticle (Active Gun Fight Duel)
+      if (gunFightRef.current?.status === 'ACTIVE' && fingerAimRef.current) {
+        renderFingerAimReticle(ctx, p, fingerAimRef.current);
+      }
+
       // L2. Chai Tapri Server (Chhotu / चायवाला carrying kettle & kulhad tray)
       if (world.chaiServer) {
         renderChaiServer(ctx, world.chaiServer);
@@ -2560,6 +2648,22 @@ export default function MelaCanvas({
       const x = touch.clientX - rect.left;
       const y = touch.clientY - rect.top;
 
+      // Gun Fight Active Duel: Direct Finger Aiming & Shooting!
+      if (gunFightRef.current?.status === 'ACTIVE') {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const world = worldRef.current;
+          const worldX = (x - canvas.width / 2) / (world.cameraZoom || 1) + world.camera.x;
+          const worldY = (y - canvas.height / 2) / (world.cameraZoom || 1) + world.camera.y;
+
+          // Directly fire a bullet towards where the finger touched!
+          fireDuelGunShot(worldX, worldY);
+          setFingerAim({ worldX, worldY, screenX: touch.clientX, screenY: touch.clientY });
+          fingerAimRef.current = { worldX, worldY, screenX: touch.clientX, screenY: touch.clientY };
+        }
+        return;
+      }
+
       const isPlacementCracker = selectedCracker && !selectedCracker.isWeapon && selectedCracker.id !== 'bow' && selectedCracker.id !== 'gun';
 
       if (isPlacementCracker) {
@@ -2599,6 +2703,27 @@ export default function MelaCanvas({
       if (e.target.closest('button') || e.target.closest('#fixed-virtual-joystick') || e.target.closest('#weapon-fire-controller')) return;
       e.preventDefault();
       if (e.touches.length === 0) return;
+
+      // Gun Fight Active Duel: Finger Aim tracking & Crosshairs Reticle!
+      if (gunFightRef.current?.status === 'ACTIVE') {
+        const touch = e.touches[0];
+        const rect = el.getBoundingClientRect();
+        const canvas = canvasRef.current;
+        if (canvas && touch) {
+          const world = worldRef.current;
+          const x = touch.clientX - rect.left;
+          const y = touch.clientY - rect.top;
+          const worldX = (x - canvas.width / 2) / (world.cameraZoom || 1) + world.camera.x;
+          const worldY = (y - canvas.height / 2) / (world.cameraZoom || 1) + world.camera.y;
+
+          const p = playerRef.current;
+          p.facing = worldX < p.x ? 'left' : 'right';
+
+          setFingerAim({ worldX, worldY, screenX: touch.clientX, screenY: touch.clientY });
+          fingerAimRef.current = { worldX, worldY, screenX: touch.clientX, screenY: touch.clientY };
+        }
+        return;
+      }
 
       const isPlacementCracker = selectedCracker && !selectedCracker.isWeapon && selectedCracker.id !== 'bow' && selectedCracker.id !== 'gun';
 
@@ -2668,6 +2793,12 @@ export default function MelaCanvas({
       if (e.target.closest('button') || e.target.closest('#fixed-virtual-joystick') || e.target.closest('#weapon-fire-controller')) return;
       e.preventDefault();
       lastTouchEndTimeRef.current = performance.now();
+
+      if (gunFightRef.current?.status === 'ACTIVE') {
+        setFingerAim(null);
+        fingerAimRef.current = null;
+        return;
+      }
 
       const isPlacementCracker = selectedCracker && !selectedCracker.isWeapon && selectedCracker.id !== 'bow' && selectedCracker.id !== 'gun';
 
@@ -2743,12 +2874,34 @@ export default function MelaCanvas({
       <canvas
         ref={canvasRef}
         onClick={handleCanvasClick}
+        onMouseMove={(e) => {
+          if (gunFightRef.current?.status === 'ACTIVE') {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+            const world = worldRef.current;
+            const worldX = (clickX - canvas.width / 2) / (world.cameraZoom || 1) + world.camera.x;
+            const worldY = (clickY - canvas.height / 2) / (world.cameraZoom || 1) + world.camera.y;
+            fingerAimRef.current = { worldX, worldY, screenX: e.clientX, screenY: e.clientY };
+            setFingerAim({ worldX, worldY, screenX: e.clientX, screenY: e.clientY });
+            const p = playerRef.current;
+            p.facing = worldX < p.x ? 'left' : 'right';
+          }
+        }}
+        onMouseLeave={() => {
+          if (gunFightRef.current?.status === 'ACTIVE') {
+            fingerAimRef.current = null;
+            setFingerAim(null);
+          }
+        }}
         style={{
           display: 'block',
           width: '100%',
           height: '100%',
           touchAction: 'none',
-          cursor: selectedCracker ? 'crosshair' : 'pointer'
+          cursor: gunFightRef.current?.status === 'ACTIVE' ? 'crosshair' : (selectedCracker ? 'crosshair' : 'pointer')
         }}
       />
 
@@ -6161,18 +6314,22 @@ function renderCharacter(
     const isOpponentInFight = isRemote && char.id === gunFight.opponentId;
     if (isPlayerInFight || isOpponentInFight) {
       const hp = isPlayerInFight ? gunFight.myHp : gunFight.opponentHp;
-      const barW = 34;
+      const barW = 38;
       const barH = 5;
       const barX = -barW / 2;
       const barY = nameY - 14;
 
       ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
       ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
-      ctx.fillStyle = hp > 50 ? '#22c55e' : hp > 25 ? '#eab308' : '#ef4444';
-      ctx.fillRect(barX, barY, (barW * Math.max(0, hp)) / 100, barH);
+      ctx.fillStyle = hp > 75 ? '#22c55e' : (hp > 35 ? '#eab308' : '#ef4444');
+      ctx.fillRect(barX, barY, (barW * Math.max(0, hp)) / 150, barH);
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 0.6;
       ctx.strokeRect(barX - 1, barY - 1, barW + 2, barH + 2);
+
+      ctx.font = 'bold 7px "Outfit", sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(`${hp}/150`, 0, barY - 3);
     }
   } else if (isRemote && (!gunFight || gunFight.status === 'IDLE')) {
     // Show clickable duel prompt badge above remote players
@@ -7242,18 +7399,22 @@ function renderVeerNpc(ctx, world, player, gunFight) {
   if (inDuel) {
     // Overhead Mini HP Bar for Veer during active duel
     const hp = gunFight.opponentHp;
-    const barW = 34;
+    const barW = 38;
     const barH = 5;
     const barX = -barW / 2;
     const barY = nameY - 14;
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
-    ctx.fillStyle = hp > 50 ? '#22c55e' : hp > 25 ? '#eab308' : '#ef4444';
-    ctx.fillRect(barX, barY, (barW * Math.max(0, hp)) / 100, barH);
+    ctx.fillStyle = hp > 75 ? '#22c55e' : (hp > 35 ? '#eab308' : '#ef4444');
+    ctx.fillRect(barX, barY, (barW * Math.max(0, hp)) / 150, barH);
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 0.6;
     ctx.strokeRect(barX - 1, barY - 1, barW + 2, barH + 2);
+
+    ctx.font = 'bold 7px "Outfit", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`${hp}/150`, 0, barY - 3);
   } else {
     // Challenge Badge when idle
     ctx.font = 'bold 8px "Outfit", sans-serif';
@@ -7270,12 +7431,62 @@ function renderVeerNpc(ctx, world, player, gunFight) {
   ctx.restore();
 }
 
+// -------------------------------------------------------------
+// FINGER AIMING CROSSHAIR & LASER SIGHT (GUN FIGHT DUEL)
+// -------------------------------------------------------------
+function renderFingerAimReticle(ctx, player, aim) {
+  if (!aim || !player) return;
+  const startX = player.x + (aim.worldX < player.x ? -14 : 14);
+  const startY = player.y - 18;
+  const targetX = aim.worldX;
+  const targetY = aim.worldY;
+
+  ctx.save();
+
+  // 1. Sleek laser sight line from player's gun to finger target
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+  ctx.lineWidth = 1.6;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.lineTo(targetX, targetY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 2. High-visibility Tactical Crosshair Reticle at finger target
+  ctx.translate(targetX, targetY);
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 2;
+
+  // Outer glowing pulse ring
+  const pulse = Math.sin(performance.now() * 0.012) * 2;
+  ctx.beginPath();
+  ctx.arc(0, 0, 16 + pulse, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Inner center dot
+  ctx.fillStyle = '#ef4444';
+  ctx.beginPath();
+  ctx.arc(0, 0, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Crosshair hash marks
+  ctx.beginPath();
+  ctx.moveTo(-22, 0); ctx.lineTo(-10, 0);
+  ctx.moveTo(10, 0); ctx.lineTo(22, 0);
+  ctx.moveTo(0, -22); ctx.lineTo(0, -10);
+  ctx.moveTo(0, 10); ctx.lineTo(0, 22);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
 function renderProjectiles(ctx, projectiles) {
   if (!projectiles || projectiles.length === 0) return;
 
   projectiles.forEach((proj) => {
     ctx.save();
-    const angle = Math.atan2(proj.targetY - proj.y, proj.targetX - proj.x);
+    const angle = proj.angle !== undefined ? proj.angle : Math.atan2(proj.targetY - proj.y, proj.targetX - proj.x);
     ctx.translate(proj.x, proj.y);
     ctx.rotate(angle);
 

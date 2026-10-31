@@ -18,8 +18,8 @@ export default function GunFightModal({
   const isActive = gunFight.status === 'ACTIVE';
   const isFinished = gunFight.status === 'FINISHED';
 
-  const myHp = Math.max(0, Math.min(100, gunFight.myHp ?? 100));
-  const oppHp = Math.max(0, Math.min(100, gunFight.opponentHp ?? 100));
+  const myHp = Math.max(0, Math.min(150, gunFight.myHp ?? 150));
+  const oppHp = Math.max(0, Math.min(150, gunFight.opponentHp ?? 150));
   const isWinner = gunFight.winner === myPlayer?.name || myHp > oppHp;
 
   return (
@@ -129,7 +129,7 @@ export default function GunFightModal({
                 <span style={{ color: '#38bdf8' }}>{gunFight.opponentName || 'Player'}</span> has challenged you to a Gun Duel!
               </div>
               <div style={{ color: '#94a3b8', fontSize: 11.5, marginTop: 4 }}>
-                Both fighters get 100 HP & Golden Guns. Duel begins 5 seconds after accepting!
+                Both fighters get 150 HP & Golden Guns (-10 HP per hit). Duel begins 5 seconds after accepting!
               </div>
             </div>
 
@@ -329,7 +329,7 @@ export default function GunFightModal({
               <span style={{ maxWidth: 85, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {myPlayer?.name || 'You'}
               </span>
-              <span style={{ color: '#fef08a' }}>{myHp} HP</span>
+              <span style={{ color: '#fef08a' }}>{myHp} / 150 HP</span>
             </div>
             {/* HP Bar */}
             <div
@@ -345,9 +345,9 @@ export default function GunFightModal({
             >
               <div
                 style={{
-                  width: `${myHp}%`,
+                  width: `${(myHp / 150) * 100}%`,
                   height: '100%',
-                  background: myHp > 50 ? 'linear-gradient(90deg, #22c55e, #16a34a)' : (myHp > 25 ? 'linear-gradient(90deg, #eab308, #ca8a04)' : 'linear-gradient(90deg, #ef4444, #dc2626)'),
+                  background: myHp > 75 ? 'linear-gradient(90deg, #22c55e, #16a34a)' : (myHp > 35 ? 'linear-gradient(90deg, #eab308, #ca8a04)' : 'linear-gradient(90deg, #ef4444, #dc2626)'),
                   transition: 'width 0.2s ease-out'
                 }}
               />
@@ -367,7 +367,7 @@ export default function GunFightModal({
           {/* Right Fighter (Opponent) */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 900, color: '#f43f5e' }}>
-              <span style={{ color: '#fef08a' }}>{oppHp} HP</span>
+              <span style={{ color: '#fef08a' }}>{oppHp} / 150 HP</span>
               <span style={{ maxWidth: 85, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {gunFight.opponentName || 'Opponent'}
               </span>
@@ -387,9 +387,9 @@ export default function GunFightModal({
             >
               <div
                 style={{
-                  width: `${oppHp}%`,
+                  width: `${(oppHp / 150) * 100}%`,
                   height: '100%',
-                  background: oppHp > 50 ? 'linear-gradient(90deg, #ef4444, #f43f5e)' : (oppHp > 25 ? 'linear-gradient(90deg, #f97316, #ea580c)' : 'linear-gradient(90deg, #b91c1c, #991b1b)'),
+                  background: oppHp > 75 ? 'linear-gradient(90deg, #ef4444, #f43f5e)' : (oppHp > 35 ? 'linear-gradient(90deg, #f97316, #ea580c)' : 'linear-gradient(90deg, #b91c1c, #991b1b)'),
                   transition: 'width 0.2s ease-out',
                   float: 'right'
                 }}
@@ -508,3 +508,4 @@ export default function GunFightModal({
     </>
   );
 }
+

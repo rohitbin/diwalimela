@@ -203,8 +203,8 @@ export default function App() {
     opponentName: null,
     isInitiator: false,
     countdown: 5,
-    myHp: 100,
-    opponentHp: 100,
+    myHp: 150,
+    opponentHp: 150,
     winner: null
   });
   const countdownIntervalRef = useRef(null);
@@ -215,7 +215,7 @@ export default function App() {
       id: 'gun',
       name: 'गोल्डन गन (Golden Gun)',
       isWeapon: true,
-      damage: 20
+      damage: 10
     };
     setSelectedCracker(gunItem);
 
@@ -227,8 +227,8 @@ export default function App() {
       countdown: 5,
       opponentName: oppName || prev.opponentName,
       opponentId: oppId || prev.opponentId,
-      myHp: 100,
-      opponentHp: 100,
+      myHp: 150,
+      opponentHp: 150,
       winner: null
     }));
 
@@ -267,8 +267,8 @@ export default function App() {
         opponentName: 'Veer (Gun Master 🤠)',
         isInitiator: false,
         countdown: 5,
-        myHp: 100,
-        opponentHp: 100,
+        myHp: 150,
+        opponentHp: 150,
         winner: null
       });
       return;
@@ -282,8 +282,8 @@ export default function App() {
       opponentName: targetPlayer.name || 'Player',
       isInitiator: true,
       countdown: 5,
-      myHp: 100,
-      opponentHp: 100,
+      myHp: 150,
+      opponentHp: 150,
       winner: null
     });
 
@@ -329,8 +329,8 @@ export default function App() {
       opponentName: null,
       isInitiator: false,
       countdown: 5,
-      myHp: 100,
-      opponentHp: 100,
+      myHp: 150,
+      opponentHp: 150,
       winner: null
     });
   };
@@ -342,8 +342,8 @@ export default function App() {
       opponentName: null,
       isInitiator: false,
       countdown: 5,
-      myHp: 100,
-      opponentHp: 100,
+      myHp: 150,
+      opponentHp: 150,
       winner: null
     });
   };
@@ -371,14 +371,14 @@ export default function App() {
         opponentName: null,
         isInitiator: false,
         countdown: 5,
-        myHp: 100,
-        opponentHp: 100,
+        myHp: 150,
+        opponentHp: 150,
         winner: null
       });
     }, 4500);
   };
 
-  const handleDuelHit = (damage = 20) => {
+  const handleDuelHit = (damage = 10) => {
     if (gunFight.status !== 'ACTIVE') return;
 
     const nextOppHp = Math.max(0, gunFight.opponentHp - damage);
@@ -391,7 +391,7 @@ export default function App() {
         confetti({ particleCount: 75, spread: 80, origin: { y: 0.6 } });
         setGunFight((prev) => ({ ...prev, status: 'FINISHED', winner: player.name }));
         setTimeout(() => {
-          setGunFight({ status: 'IDLE', opponentId: null, opponentName: null, isInitiator: false, countdown: 5, myHp: 100, opponentHp: 100, winner: null });
+          setGunFight({ status: 'IDLE', opponentId: null, opponentName: null, isInitiator: false, countdown: 5, myHp: 150, opponentHp: 150, winner: null });
         }, 4500);
       }
       return;
@@ -413,12 +413,12 @@ export default function App() {
       confetti({ particleCount: 75, spread: 80, origin: { y: 0.6 } });
       setGunFight((prev) => ({ ...prev, status: 'FINISHED', winner: player.name }));
       setTimeout(() => {
-        setGunFight({ status: 'IDLE', opponentId: null, opponentName: null, isInitiator: false, countdown: 5, myHp: 100, opponentHp: 100, winner: null });
+        setGunFight({ status: 'IDLE', opponentId: null, opponentName: null, isInitiator: false, countdown: 5, myHp: 150, opponentHp: 150, winner: null });
       }, 4500);
     }
   };
 
-  const handleTakeDuelDamage = (damage = 20) => {
+  const handleTakeDuelDamage = (damage = 10) => {
     if (gunFight.status !== 'ACTIVE') return;
     soundEngine.init();
     soundEngine.playRavanHit?.();
@@ -437,7 +437,7 @@ export default function App() {
         setTimeout(() => {
           setGunFight((g) => ({ ...g, status: 'FINISHED', winner: prev.opponentName, myHp: 0 }));
           setTimeout(() => {
-            setGunFight({ status: 'IDLE', opponentId: null, opponentName: null, isInitiator: false, countdown: 5, myHp: 100, opponentHp: 100, winner: null });
+            setGunFight({ status: 'IDLE', opponentId: null, opponentName: null, isInitiator: false, countdown: 5, myHp: 150, opponentHp: 150, winner: null });
           }, 4500);
         }, 100);
       }
@@ -459,8 +459,8 @@ export default function App() {
             opponentName: data.challengerName || 'Player',
             isInitiator: false,
             countdown: 5,
-            myHp: 100,
-            opponentHp: 100,
+            myHp: 150,
+            opponentHp: 150,
             winner: null
           });
         }
@@ -490,7 +490,7 @@ export default function App() {
               setTimeout(() => {
                 setGunFight((g) => ({ ...g, status: 'FINISHED', winner: prev.opponentName, myHp: 0 }));
                 setTimeout(() => {
-                  setGunFight({ status: 'IDLE', opponentId: null, opponentName: null, isInitiator: false, countdown: 5, myHp: 100, opponentHp: 100, winner: null });
+                  setGunFight({ status: 'IDLE', opponentId: null, opponentName: null, isInitiator: false, countdown: 5, myHp: 150, opponentHp: 150, winner: null });
                 }, 4500);
               }, 100);
             }
@@ -506,7 +506,7 @@ export default function App() {
           confetti({ particleCount: 75, spread: 80, origin: { y: 0.6 } });
           setGunFight((prev) => ({ ...prev, status: 'FINISHED', winner: player.name }));
           setTimeout(() => {
-            setGunFight({ status: 'IDLE', opponentId: null, opponentName: null, isInitiator: false, countdown: 5, myHp: 100, opponentHp: 100, winner: null });
+            setGunFight({ status: 'IDLE', opponentId: null, opponentName: null, isInitiator: false, countdown: 5, myHp: 150, opponentHp: 150, winner: null });
           }, 4500);
         }
       }

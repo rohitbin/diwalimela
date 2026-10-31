@@ -36,7 +36,6 @@ export const MELA_ZONES = {
 export const DANCE_STEPS = [
   { id: 'bhangra', name: 'Bhangra Dholak Jump', hindi: 'भांगड़ा स्टेप', icon: '🕺' },
   { id: 'bollywood', name: 'Bollywood Thumka', hindi: 'बॉलीवुड ठुमका', icon: '💃' },
-  { id: 'floor_roll', name: 'Desi Floor Roll', hindi: 'जमीन पर लोट-पोट डांस', icon: '🌀' },
   { id: 'mega_jump', name: 'Sky Rocket Mega Jump', hindi: 'तूफानी ऊंची छलांग', icon: '🚀' },
   { id: 'naagin', name: 'Iconic Naagin Dance', hindi: 'नागिन बीन धुन', icon: '🐍' },
   { id: 'garba_spin', name: 'Garba 360 Spin', hindi: 'गरबा घूमर स्पिन', icon: '🌪️' },
@@ -5837,10 +5836,7 @@ function renderCharacter(
   let shadowScaleX = 13;
   let shadowScaleY = 5;
   if (dancing) {
-    if (stepId === 'floor_roll') {
-      shadowScaleX = 18;
-      shadowScaleY = 7;
-    } else if (stepId === 'mega_jump') {
+    if (stepId === 'mega_jump') {
       const jumpRatio = Math.min(1, Math.abs(Math.sin(now * 0.007)));
       shadowScaleX = Math.max(5, 16 * (1 - jumpRatio * 0.65));
       shadowScaleY = Math.max(2, 6 * (1 - jumpRatio * 0.65));
@@ -5866,11 +5862,6 @@ function renderCharacter(
       hipSway = Math.sin(now * 0.010) * 5.0;
       jumpBob = -Math.abs(Math.cos(now * 0.010)) * 2.5;
       danceAngle = Math.sin(now * 0.010) * 0.16;
-    } else if (stepId === 'floor_roll') {
-      // ROLLING ON THE FLOOR! Drops down to floor level (y: +8), rolls left-right with full 360° tumble
-      jumpBob = 8;
-      hipSway = Math.sin(now * 0.008) * 12;
-      danceAngle = (now * 0.012) % (Math.PI * 2);
     } else if (stepId === 'mega_jump') {
       // SKY ROCKET MEGA JUMP! High aerial vertical jump soaring 26px into the air!
       const jumpCycle = Math.abs(Math.sin(now * 0.007));
@@ -5935,30 +5926,14 @@ function renderCharacter(
     }
   }
 
-  // Floating dance musical notes and overhead Dance Step Badge
+  // Floating festive musical notes when dancing
   if (dancing) {
     const t = now * 0.004;
     ctx.font = '12px serif';
     ctx.fillStyle = '#f43f5e';
-    ctx.fillText('🎵', -12 + Math.sin(t) * 4, -52);
+    ctx.fillText('🎵', -12 + Math.sin(t) * 4, -48);
     ctx.fillStyle = '#38bdf8';
-    ctx.fillText('🎶', 12 + Math.cos(t) * 4, -56);
-
-    // Glowing Dance Step overhead pill badge
-    const badgeText = `${activeStep.icon} ${activeStep.name}`;
-    ctx.font = 'bold 8.5px "Outfit", sans-serif';
-    const btw = ctx.measureText(badgeText).width + 10;
-    ctx.fillStyle = 'rgba(24, 15, 38, 0.94)';
-    ctx.strokeStyle = '#ec4899';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.roundRect(-btw / 2, -70, btw, 15, 4);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#fef08a';
-    ctx.textAlign = 'center';
-    ctx.fillText(badgeText, 0, -59);
+    ctx.fillText('🎶', 12 + Math.cos(t) * 4, -52);
   }
 
   // Legs rendering
@@ -5977,11 +5952,6 @@ function renderCharacter(
       const legCurve = Math.sin(now * 0.010) * 2.5;
       ctx.fillRect(-6 + legCurve * 0.4, 2, 4, 11);
       ctx.fillRect(2 + legCurve * 0.4, 2, 4, 11);
-    } else if (stepId === 'floor_roll') {
-      // Rolling legs tumbling out
-      const rollK = Math.sin(now * 0.016) * 4;
-      ctx.fillRect(-7, 2, 4, 9 + rollK);
-      ctx.fillRect(3, 2, 4, 9 - rollK);
     } else if (stepId === 'mega_jump') {
       // Tucked legs during high leap in air
       const isHigh = Math.abs(jumpBob) > 12;
@@ -6119,20 +6089,8 @@ function renderCharacter(
         rhX = 10 + (swap < 0 ? 4 : 1);
         reX = 12 + (swap < 0 ? 3 : 1);
         reY = -11 - (swap < 0 ? 10 : 0);
-      } else if (stepId === 'floor_roll') {
-        // 3. FLOOR ROLL: Arms outstretched spinning along with the rolling tumble
-        const rollT = Math.sin(now * 0.016);
-        lhX = -15 - rollT * 3;
-        lhY = -6 + rollT * 8;
-        leX = -12;
-        leY = -7;
-
-        rhX = 15 + rollT * 3;
-        rhY = -6 - rollT * 8;
-        reX = 12;
-        reY = -7;
       } else if (stepId === 'mega_jump') {
-        // 4. SKY ROCKET MEGA JUMP: Both hands thrown way up into the sky (-42)!
+        // 3. SKY ROCKET MEGA JUMP: Both hands thrown way up into the sky (-42)!
         const jumpH = Math.min(1, Math.abs(jumpBob) / 16);
         lhX = -12 - jumpH * 4;
         lhY = -20 - jumpH * 22; // shoots up to -42!
@@ -6144,7 +6102,7 @@ function renderCharacter(
         reX = 13 + jumpH * 2;
         reY = -15 - jumpH * 14;
       } else if (stepId === 'naagin') {
-        // 5. ICONIC NAAGIN DANCE: Hands joined together overhead in cobra hood pose!
+        // 4. ICONIC NAAGIN DANCE: Hands joined together overhead in cobra hood pose!
         lhX = -2;
         lhY = -38;
         leX = -10;
@@ -6553,10 +6511,10 @@ function renderCharacter(
 
   if (isLocal) {
     ctx.fillStyle = char.isSitting ? '#fed7aa' : (dancing ? '#f43f5e' : '#fbbf24');
-    ctx.fillText(`${char.name || 'You'} ${char.isSitting ? '☕ (Sipping Chai)' : (dancing ? `${activeStep.icon} (${activeStep.name.split(' ')[0]}!)` : '(You)')}`, 0, nameY);
+    ctx.fillText(`${char.name || 'You'} ${char.isSitting ? '☕ (Sipping Chai)' : '(You)'}`, 0, nameY);
   } else if (isRemote) {
     ctx.fillStyle = '#38bdf8';
-    ctx.fillText(`🟢 ${char.name || 'Player'} ${char.isSitting ? '☕ (Chai)' : (dancing ? `${activeStep.icon} (${activeStep.name.split(' ')[0]}!)` : '(Online)')}`, 0, nameY);
+    ctx.fillText(`🟢 ${char.name || 'Player'} ${char.isSitting ? '☕ (Chai)' : '(Online)'}`, 0, nameY);
   } else {
     ctx.fillStyle = '#e2e8f0';
     ctx.fillText(char.name, 0, nameY);
@@ -6572,7 +6530,7 @@ function renderCharacter(
     const bw = textWidth + pad * 2;
     const bh = 22;
     const bx = -bw / 2;
-    const by = (holding || dancing) ? -96 : -68;
+    const by = holding ? -92 : -68;
 
     ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
     ctx.strokeStyle = '#f59e0b';

@@ -171,11 +171,11 @@ export default function App() {
   const [danceStep, setDanceStep] = useState(0);
   const danceTimeoutRef = useRef(null);
 
-  // Automatic dance move rotation every 2.6 seconds while dancing
+  // Automatic dance move rotation every 2.4 seconds while dancing
   useEffect(() => {
     if (!isDancing) return;
 
-    const totalSteps = DANCE_STEPS?.length || 9;
+    const totalSteps = DANCE_STEPS?.length || 8;
     const interval = setInterval(() => {
       setDanceStep((prev) => {
         const next = (prev + 1) % totalSteps;
@@ -188,10 +188,10 @@ export default function App() {
         }
         return next;
       });
-    }, 2600);
+    }, 2400);
 
     return () => clearInterval(interval);
-  }, [isDancing, multiplayerManager, player.name]);
+  }, [isDancing, player.name]);
 
   // Multiplayer & Social
   const [remotePlayers, setRemotePlayers] = useState(new Map());
@@ -478,15 +478,6 @@ export default function App() {
     if (multiplayerManager) {
       multiplayerManager.broadcastPlayerDance({ isDancing: true, playerName: player.name, danceStep });
     }
-
-    // Full 24-second routine allows smoothly experiencing all 9 dance steps automatically
-    if (danceTimeoutRef.current) clearTimeout(danceTimeoutRef.current);
-    danceTimeoutRef.current = setTimeout(() => {
-      setIsDancing(false);
-      if (multiplayerManager) {
-        multiplayerManager.broadcastPlayerDance({ isDancing: false, playerName: player.name });
-      }
-    }, 24000);
   };
 
   // Keyboard number shortcuts to select crackers (Keys 1-8)

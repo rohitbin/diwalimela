@@ -114,6 +114,16 @@ export default function MelaCanvas({
   const speedResetTimeoutRef = useRef(null);
   const danceTimeoutRef = useRef(null);
 
+  // Fresh refs for dance states to avoid stale closure freeze in requestAnimationFrame
+  const isDancingRef = useRef(isDancing);
+  isDancingRef.current = isDancing;
+  const danceStepRef = useRef(danceStep);
+  danceStepRef.current = danceStep;
+  const setIsDancingRef = useRef(setIsDancing);
+  setIsDancingRef.current = setIsDancing;
+  const setDanceStepRef = useRef(setDanceStep);
+  setDanceStepRef.current = setDanceStep;
+
   useEffect(() => {
     const handleTrackChange = (e) => {
       if (e.detail) setCurrentDjTrack(e.detail);
@@ -775,11 +785,11 @@ export default function MelaCanvas({
     };
   }, []);
 
-  // Dance emote helper (Automatically cycles through Bhangra, Thumka, Disco, Wave, Hip-Hop!)
+  // Dance emote helper (Automatically cycles through dynamic dance steps!)
   const triggerFestiveDance = (advanceOnly = false) => {
     // If already dancing and not explicitly skipping to next move, toggle OFF
-    if (isDancing && !advanceOnly) {
-      setIsDancing(false);
+    if (isDancingRef.current && !advanceOnly) {
+      if (setIsDancingRef.current) setIsDancingRef.current(false);
       if (danceTimeoutRef.current) clearTimeout(danceTimeoutRef.current);
       if (multiplayerManager) {
         multiplayerManager.broadcastPlayerDance({ isDancing: false, playerName: playerRef.current.name });
@@ -787,9 +797,9 @@ export default function MelaCanvas({
       return;
     }
 
-    setIsDancing(true);
-    if (advanceOnly && setDanceStep) {
-      setDanceStep((prev) => {
+    if (setIsDancingRef.current) setIsDancingRef.current(true);
+    if (advanceOnly && setDanceStepRef.current) {
+      setDanceStepRef.current((prev) => {
         const next = (prev + 1) % DANCE_STEPS.length;
         if (multiplayerManager) {
           multiplayerManager.broadcastPlayerDance({ isDancing: true, playerName: playerRef.current.name, danceStep: next });
@@ -821,15 +831,6 @@ export default function MelaCanvas({
         )
       );
     }
-
-    // Full 24-second routine allows smoothly experiencing all 9 dance steps automatically
-    if (danceTimeoutRef.current) clearTimeout(danceTimeoutRef.current);
-    danceTimeoutRef.current = setTimeout(() => {
-      setIsDancing(false);
-      if (multiplayerManager) {
-        multiplayerManager.broadcastPlayerDance({ isDancing: false, playerName: p.name });
-      }
-    }, 24000);
   };
 
   // Fire Bow or Gun projectile at Ravan effigy
@@ -2145,9 +2146,9 @@ export default function MelaCanvas({
       if (isAnyClubDanceFloor) {
         if (!p.inDjFloor) {
           p.inDjFloor = true;
-          if (setIsDancing) setIsDancing(true);
+          if (setIsDancingRef.current) setIsDancingRef.current(true);
           if (multiplayerManager) {
-            multiplayerManager.broadcastPlayerDance({ isDancing: true, playerName: p.name });
+            multiplayerManager.broadcastPlayerDance({ isDancing: true, playerName: p.name, danceStep: danceStepRef.current });
           }
         }
         // Spawn party glitter sparkles on the floor around dancing player
@@ -2170,7 +2171,7 @@ export default function MelaCanvas({
         }
       } else if (p.inDjFloor && dDj > 95 && !isInsideBigClubFloor && dBigClub > 200) {
         p.inDjFloor = false;
-        if (setIsDancing) setIsDancing(false);
+        if (setIsDancingRef.current) setIsDancingRef.current(false);
         if (multiplayerManager) {
           multiplayerManager.broadcastPlayerDance({ isDancing: false, playerName: p.name });
         }
@@ -2266,7 +2267,7 @@ export default function MelaCanvas({
 
       // L. Local Player Character (if not riding wheel)
       if (!isRidingWheel) {
-        renderCharacter(ctx, p, false, true, selectedCracker, activeBuffs, isDancing, danceStep);
+        renderCharacter(ctx, p, false, true, selectedCracker, activeBuffs, isDancingRef.current, danceStepRef.current);
       }
 
       // L2. Chai Tapri Server (Chhotu / चायवाला carrying kettle & kulhad tray)

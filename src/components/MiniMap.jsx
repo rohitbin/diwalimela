@@ -67,7 +67,7 @@ export default function MiniMap({
     { key: 'WEAPON_STALL', label: 'Shastra Armory', icon: '🏹', x: MELA_ZONES.WEAPON_STALL.x, y: MELA_ZONES.WEAPON_STALL.y },
     { key: 'RAVAN_GATE', label: 'Ravan Gate', icon: '🚪', x: MELA_ZONES.RAVAN_GATE?.x || 1380, y: MELA_ZONES.RAVAN_GATE?.y || 980 },
     { key: 'RAVAN', label: 'Ravan (10M HP)', icon: '👹', x: MELA_ZONES.RAVAN.x, y: MELA_ZONES.RAVAN.y },
-    { key: 'NEW_GROUND_GATE', label: 'East Gate', icon: '🚪', x: MELA_ZONES.NEW_GROUND_GATE?.x || 1950, y: MELA_ZONES.NEW_GROUND_GATE?.y || 650 }
+    { key: 'NEW_GROUND_GATE', label: 'East Gate', icon: '🚪', x: MELA_ZONES.NEW_GROUND_GATE?.x || 1850, y: MELA_ZONES.NEW_GROUND_GATE?.y || 470 }
   ];
 
   return (
@@ -152,9 +152,21 @@ export default function MiniMap({
               position: 'absolute',
               left: toMapX(400),
               top: toMapY(590),
-              width: 1550 * scaleX,
+              width: 1450 * scaleX,
               height: 120 * scaleY,
               backgroundColor: 'rgba(245, 158, 11, 0.14)'
+            }}
+          />
+
+          {/* Patakha Shop to East Gate Avenue on MiniMap */}
+          <div
+            style={{
+              position: 'absolute',
+              left: toMapX(1460),
+              top: toMapY(430),
+              width: 390 * scaleX,
+              height: 80 * scaleY,
+              backgroundColor: 'rgba(239, 68, 68, 0.28)'
             }}
           />
 
@@ -162,21 +174,21 @@ export default function MiniMap({
           <div
             style={{
               position: 'absolute',
-              left: toMapX(1950),
+              left: toMapX(1850),
               top: 0,
               width: 1,
-              height: toMapY(585),
-              borderLeft: '1px dashed rgba(245, 158, 11, 0.35)'
+              height: toMapY(365),
+              borderLeft: '1.5px dashed rgba(245, 158, 11, 0.45)'
             }}
           />
           <div
             style={{
               position: 'absolute',
-              left: toMapX(1950),
-              top: toMapY(715),
+              left: toMapX(1850),
+              top: toMapY(575),
               width: 1,
-              height: toMapY(1400 - 715),
-              borderLeft: '1px dashed rgba(245, 158, 11, 0.35)'
+              height: toMapY(1400 - 575),
+              borderLeft: '1.5px dashed rgba(245, 158, 11, 0.45)'
             }}
           />
 
@@ -185,10 +197,10 @@ export default function MiniMap({
             style={{
               position: 'absolute',
               left: toMapX(2750),
-              top: toMapY(700),
+              top: toMapY(500),
               transform: 'translate(-50%, -50%)',
               fontSize: 8,
-              color: 'rgba(254, 240, 138, 0.35)',
+              color: 'rgba(254, 240, 138, 0.45)',
               fontWeight: 700,
               pointerEvents: 'none',
               letterSpacing: 0.5,
@@ -203,16 +215,22 @@ export default function MiniMap({
           {poiList.map((poi) => (
             <div
               key={poi.key}
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigateTo(poi.x, poi.y);
+              }}
               style={{
                 position: 'absolute',
                 left: toMapX(poi.x),
                 top: toMapY(poi.y),
                 transform: 'translate(-50%, -50%)',
-                fontSize: 10,
+                fontSize: poi.key === 'NEW_GROUND_GATE' ? 12 : 10,
                 cursor: 'pointer',
-                filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.9))'
+                filter: poi.key === 'NEW_GROUND_GATE'
+                  ? 'drop-shadow(0 0 6px #38bdf8)'
+                  : 'drop-shadow(0 0 4px rgba(0,0,0,0.9))'
               }}
-              title={poi.label}
+              title={`Click to walk to ${poi.label}`}
             >
               {poi.icon}
             </div>

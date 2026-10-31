@@ -30,8 +30,8 @@ window.__CRACKER_MAP = CRACKERS.reduce((acc, c) => {
 }, {});
 
 function getCurrentZoneName(x, y) {
-  if (x >= 1970) return '✨ New Fairground (नया मैदान)';
-  if (Math.hypot(x - 1950, y - 650) < 85) return '🚪 East Gate (पूर्व द्वार)';
+  if (x >= 1870) return '✨ New Fairground (नया मैदान)';
+  if (Math.hypot(x - 1850, y - 470) < 95) return '🚪 East Gate (पूर्व द्वार)';
   if (y < 280) return 'Grand Entrance Gate';
   if (x > 1500 && y < 350) return '🎡 Mela Giant Wheel (झूला)';
   if (x > 1200 && y < 350) return '🎯 Balloon Shooting Stall';
@@ -504,6 +504,42 @@ export default function App() {
         player={player}
         currentZone={getCurrentZoneName(player.x, player.y)}
       />
+
+      {/* 2.2 Quick Gate Navigation Pill */}
+      {hasEntered && (
+        <button
+          id="east-gate-nav-pill"
+          onClick={() => {
+            const isInsideNew = player.x >= 1850;
+            const targetX = isInsideNew ? 1720 : 1930;
+            handleNavigateTo(targetX, 470);
+          }}
+          style={{
+            position: 'fixed',
+            top: 'max(52px, calc(env(safe-area-inset-top) + 44px))',
+            left: 'max(10px, env(safe-area-inset-left))',
+            zIndex: 41,
+            backgroundColor: 'rgba(23, 14, 38, 0.94)',
+            backdropFilter: 'blur(10px)',
+            border: '1.5px solid #fbbf24',
+            borderRadius: 20,
+            padding: '5px 12px',
+            color: '#fef08a',
+            fontSize: 11,
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            cursor: 'pointer',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.6), 0 0 10px rgba(251, 191, 36, 0.35)',
+            pointerEvents: 'auto',
+            touchAction: 'manipulation'
+          }}
+          title={player.x < 1850 ? 'Walk directly to the East Gate' : 'Return to Main Mela'}
+        >
+          <span>{player.x < 1850 ? '🚪 Walk to East Gate ➜' : '🏮 Return to Main Mela ➜'}</span>
+        </button>
+      )}
 
       {/* 2.5 Prompt to Enable Notifications on this Phone/Device */}
       {hasEntered && showNotifPrompt && (

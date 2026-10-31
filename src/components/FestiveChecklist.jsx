@@ -65,6 +65,12 @@ export default function FestiveChecklist({
       title: `Light 5 Earthen Diyas (${Math.min(5, litDiyasCount)}/5)`,
       done: litDiyasCount >= 5,
       target: MELA_ZONES.CENTRAL_CHAWK
+    },
+    {
+      id: 'east_gate',
+      title: 'Walk to East Gate & Enter New Ground',
+      done: false,
+      target: MELA_ZONES.NEW_GROUND_GATE
     }
   ];
 

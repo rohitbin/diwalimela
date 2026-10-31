@@ -24,8 +24,8 @@ export const MELA_ZONES = {
   RAVAN_GATE: { x: 1380, y: 980, name: 'Ravan Arena Gate (रावण दहन द्वार)' },
   RAVAN: { x: 1550, y: 980, name: 'Ravan Dahan Ground (रावण दहन - 10M HP)' },
   WEAPON_STALL: { x: 1240, y: 880, name: 'Shastra Armory (शस्त्रागार)' },
-  NEW_GROUND_GATE: { x: 1950, y: 650, name: 'East Gate (पूर्व द्वार - नया मैदान)' },
-  NEW_GROUND: { x: 2700, y: 700, name: 'New Fairground (नया मैदान)' }
+  NEW_GROUND_GATE: { x: 1850, y: 470, name: 'East Gate (पूर्व द्वार - नया मैदान)' },
+  NEW_GROUND: { x: 2600, y: 500, name: 'New Fairground (नया मैदान)' }
 };
 
 // 10 Chairs and 3 Tables at Sharma Ji Chai Tapri
@@ -633,13 +633,13 @@ export default function MelaCanvas({
       if (e.key.toLowerCase() === 'e' || e.code === 'Space' || e.key.toLowerCase() === 'f') {
         // East Gate (New Ground) Proximity Pass
         const dEastGate = Math.hypot(playerRef.current.x - MELA_ZONES.NEW_GROUND_GATE.x, playerRef.current.y - MELA_ZONES.NEW_GROUND_GATE.y);
-        if (dEastGate < 75) {
-          const isEast = playerRef.current.x >= 1950;
-          const tx = isEast ? 1880 : 2040;
+        if (dEastGate < 80) {
+          const isEast = playerRef.current.x >= 1850;
+          const tx = isEast ? 1790 : 1910;
           playerRef.current.targetX = tx;
-          playerRef.current.targetY = 650;
+          playerRef.current.targetY = 470;
           playerRef.current.isMoving = true;
-          setPlayer((prev) => ({ ...prev, targetX: tx, targetY: 650, isMoving: true }));
+          setPlayer((prev) => ({ ...prev, targetX: tx, targetY: 470, isMoving: true }));
           soundEngine.playGatePass?.();
           setGateNotice({
             text: isEast ? '🏮 Entered Main Mela Fairground!' : '✨ Entered New Ground (नया मैदान)!',
@@ -999,13 +999,13 @@ export default function MelaCanvas({
 
     // East Gate (New Ground) Proximity
     const dEastGate = dist(p.x, p.y, MELA_ZONES.NEW_GROUND_GATE.x, MELA_ZONES.NEW_GROUND_GATE.y);
-    if (dEastGate < 75) {
-      const isEast = p.x >= 1950;
-      const tx = isEast ? 1880 : 2040;
+    if (dEastGate < 80) {
+      const isEast = p.x >= 1850;
+      const tx = isEast ? 1790 : 1910;
       p.targetX = tx;
-      p.targetY = 650;
+      p.targetY = 470;
       p.isMoving = true;
-      setPlayer((prev) => ({ ...prev, targetX: tx, targetY: 650, isMoving: true }));
+      setPlayer((prev) => ({ ...prev, targetX: tx, targetY: 470, isMoving: true }));
       soundEngine.playGatePass?.();
       setGateNotice({
         text: isEast ? '🏮 Entered Main Mela Fairground!' : '✨ Entered New Ground (नया मैदान)!',
@@ -1153,13 +1153,13 @@ export default function MelaCanvas({
 
     // 0a-East. Clicked East Gate (Enter or Exit the New Ground)
     const distToEastGate = dist(worldClickX, worldClickY, MELA_ZONES.NEW_GROUND_GATE.x, MELA_ZONES.NEW_GROUND_GATE.y);
-    if (distToEastGate < 75) {
-      const isEast = p.x >= 1950;
-      const tx = isEast ? 1880 : 2040;
+    if (distToEastGate < 80) {
+      const isEast = p.x >= 1850;
+      const tx = isEast ? 1790 : 1910;
       p.targetX = tx;
-      p.targetY = 650;
+      p.targetY = 470;
       p.isMoving = true;
-      setPlayer((prev) => ({ ...prev, targetX: tx, targetY: 650, isMoving: true }));
+      setPlayer((prev) => ({ ...prev, targetX: tx, targetY: 470, isMoving: true }));
       soundEngine.playGatePass?.();
       setGateNotice({
         text: isEast ? '🏮 Entered Main Mela Fairground!' : '✨ Entered New Ground (नया मैदान)!',
@@ -1461,18 +1461,18 @@ export default function MelaCanvas({
             p.facing = moveY > 0 ? 'down' : 'up';
           }
         } else if (p.targetX !== undefined && p.targetY !== undefined) {
-          // Smart Waypoint Routing across East Gate (x: 1950, y: 650)
+          // Smart Waypoint Routing across East Gate (x: 1850, y: 470)
           let effTargetX = p.targetX;
           let effTargetY = p.targetY;
-          const isCrossingToNewGround = p.x < 1930 && p.targetX > 1950;
-          const isReturningToMainMela = p.x > 1970 && p.targetX < 1950;
+          const isCrossingToNewGround = p.x < 1830 && p.targetX > 1850;
+          const isReturningToMainMela = p.x > 1870 && p.targetX < 1850;
 
           if (isCrossingToNewGround) {
-            effTargetX = 2020;
-            effTargetY = 650;
+            effTargetX = 1910;
+            effTargetY = 470;
           } else if (isReturningToMainMela) {
-            effTargetX = 1880;
-            effTargetY = 650;
+            effTargetX = 1790;
+            effTargetY = 470;
           }
 
           const dx = effTargetX - p.x;
@@ -1548,18 +1548,18 @@ export default function MelaCanvas({
         }
 
         // -------------------------------------------------------------
-        // East Boundary Fence & East Gate opening (x: 1950)
-        // Gate opening is at y: 585 to 715 (walkway level)
+        // East Boundary Fence & East Gate opening (x: 1850)
+        // Gate opening is at y: 365 to 575 (directly east of Patakha Shop Courtyard)
         // -------------------------------------------------------------
-        const inEastGateOpening = newY >= 585 && newY <= 715;
+        const inEastGateOpening = newY >= 365 && newY <= 575;
         if (!inEastGateOpening) {
           // Attempting to cross from West (main mela) to East (new ground)
-          if (p.x < 1950 && newX >= 1935) {
-            newX = 1935;
+          if (p.x < 1850 && newX >= 1835) {
+            newX = 1835;
           }
           // Attempting to cross from East (new ground) to West (main mela)
-          else if (p.x >= 1950 && newX <= 1965) {
-            newX = 1965;
+          else if (p.x >= 1850 && newX <= 1865) {
+            newX = 1865;
           }
         }
 
@@ -3070,19 +3070,35 @@ function renderGroundAndCourtyards(ctx, world) {
     ctx.fill();
   }
 
-  // Cross Walkway (West to East, extending to East Gate at x: 1950)
+  // Cross Walkway (West to East)
   ctx.fillStyle = 'rgba(120, 53, 15, 0.35)';
-  ctx.fillRect(400, 590, 1550, 120);
+  ctx.fillRect(400, 590, 1450, 120);
   ctx.strokeStyle = '#ca8a04';
   ctx.lineWidth = 2;
-  ctx.strokeRect(400, 590, 1550, 120);
+  ctx.strokeRect(400, 590, 1450, 120);
 
-  // Red Carpet leading to East Gate (New Ground Portal)
+  // Grand Illuminated Red Carpet Avenue from Patakha Shop directly to East Gate (x: 1460 to 1850, y: 430 to 510)
+  ctx.fillStyle = 'rgba(185, 28, 28, 0.6)';
+  ctx.fillRect(1460, 430, 390, 80);
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2.5;
+  ctx.strokeRect(1460, 430, 390, 80);
+
+  // Connecting carpet from Central Walkway up into East Gate (x: 1720 to 1850, y: 510 to 650)
   ctx.fillStyle = 'rgba(153, 27, 27, 0.45)';
-  ctx.fillRect(1580, 620, 370, 60);
+  ctx.fillRect(1720, 510, 130, 140);
   ctx.strokeStyle = '#eab308';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(1580, 620, 370, 60);
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(1720, 510, 130, 140);
+
+  // Marigold borders along the Patakha-to-Gate Avenue
+  for (let mx = 1470; mx <= 1840; mx += 25) {
+    ctx.fillStyle = mx % 50 === 0 ? '#f59e0b' : '#ea580c';
+    ctx.beginPath();
+    ctx.arc(mx, 430, 3.5, 0, Math.PI * 2);
+    ctx.arc(mx, 510, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   // Lamp Posts
   const lampPosts = [
@@ -3092,16 +3108,16 @@ function renderGroundAndCourtyards(ctx, world) {
     { x: 1140, y: 850 },
     { x: 680, y: 570 },
     { x: 1320, y: 570 },
-    { x: 1620, y: 565 },
-    { x: 1840, y: 565 },
-    { x: 1620, y: 735 },
-    { x: 1840, y: 735 }
+    { x: 1580, y: 395 },
+    { x: 1730, y: 395 },
+    { x: 1580, y: 535 },
+    { x: 1730, y: 535 }
   ];
 
   lampPosts.forEach((lp) => {
     ctx.fillStyle = '#451a03';
     ctx.fillRect(lp.x - 3, lp.y - 28, 6, 28);
-    ctx.shadowBlur = 14;
+    ctx.shadowBlur = 16;
     ctx.shadowColor = '#f59e0b';
     ctx.fillStyle = '#fef08a';
     ctx.beginPath();
@@ -3110,52 +3126,52 @@ function renderGroundAndCourtyards(ctx, world) {
     ctx.shadowBlur = 0;
   });
 
-  // Boundary Fence between Main Mela & New Ground along x: 1950
-  // Leaves the grand gate opening open at y: 575 to 725
+  // Boundary Fence between Main Mela & New Ground along x: 1850
+  // Leaves the grand gate opening open right at Patakha Courtyard: y: 365 to 575
   ctx.save();
   ctx.strokeStyle = '#78350f';
   ctx.lineWidth = 3;
 
-  // North fence railing: y: 0 to 570
+  // North fence railing: y: 0 to 365
   ctx.beginPath();
-  ctx.moveTo(1950, 0);
-  ctx.lineTo(1950, 570);
+  ctx.moveTo(1850, 0);
+  ctx.lineTo(1850, 365);
   ctx.stroke();
 
-  // South fence railing: y: 730 to world.height
+  // South fence railing: y: 575 to world.height
   ctx.beginPath();
-  ctx.moveTo(1950, 730);
-  ctx.lineTo(1950, world.height);
+  ctx.moveTo(1850, 575);
+  ctx.lineTo(1850, world.height);
   ctx.stroke();
 
   // North fence decorative posts
-  for (let fy = 30; fy <= 550; fy += 45) {
+  for (let fy = 30; fy <= 350; fy += 40) {
     ctx.fillStyle = '#451a03';
-    ctx.fillRect(1947, fy - 6, 6, 12);
+    ctx.fillRect(1847, fy - 6, 6, 12);
     ctx.fillStyle = '#fbbf24';
     ctx.beginPath();
-    ctx.arc(1950, fy - 7, 3, 0, Math.PI * 2);
+    ctx.arc(1850, fy - 7, 3, 0, Math.PI * 2);
     ctx.fill();
-    if (fy % 90 === 30) {
+    if (fy % 80 === 30) {
       ctx.fillStyle = '#f97316';
       ctx.beginPath();
-      ctx.arc(1950, fy - 10, 2.5, 0, Math.PI * 2);
+      ctx.arc(1850, fy - 10, 2.5, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
   // South fence decorative posts
-  for (let fy = 750; fy <= world.height - 30; fy += 45) {
+  for (let fy = 590; fy <= world.height - 30; fy += 45) {
     ctx.fillStyle = '#451a03';
-    ctx.fillRect(1947, fy - 6, 6, 12);
+    ctx.fillRect(1847, fy - 6, 6, 12);
     ctx.fillStyle = '#fbbf24';
     ctx.beginPath();
-    ctx.arc(1950, fy - 7, 3, 0, Math.PI * 2);
+    ctx.arc(1850, fy - 7, 3, 0, Math.PI * 2);
     ctx.fill();
-    if (fy % 90 === 750 % 90) {
+    if (fy % 90 === 590 % 90) {
       ctx.fillStyle = '#f97316';
       ctx.beginPath();
-      ctx.arc(1950, fy - 10, 2.5, 0, Math.PI * 2);
+      ctx.arc(1850, fy - 10, 2.5, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -5252,6 +5268,12 @@ function renderDirectionGuides(ctx, player) {
   if (dRavan > 580) {
     drawCompassArrow(ctx, player.x, player.y, MELA_ZONES.RAVAN.x, MELA_ZONES.RAVAN.y, '👹 Ravan (10M HP)', '#f97316');
   }
+
+  // East Gate Compass Arrow (Guides player to the new ground portal)
+  const dEastGate = dist(player.x, player.y, MELA_ZONES.NEW_GROUND_GATE.x, MELA_ZONES.NEW_GROUND_GATE.y);
+  if (dEastGate > 140 && player.x < 1850) {
+    drawCompassArrow(ctx, player.x, player.y, MELA_ZONES.NEW_GROUND_GATE.x, MELA_ZONES.NEW_GROUND_GATE.y, '🚪 East Gate', '#38bdf8');
+  }
 }
 
 function drawCompassArrow(ctx, px, py, tx, ty, label, color) {
@@ -5845,26 +5867,26 @@ function renderRavanGate(ctx, world, player) {
 // GRAND EAST GATE TO NEW GROUND (पूर्व द्वार - नया मैदान)
 // -------------------------------------------------------------
 function renderNewGroundGate(ctx, world, player) {
-  const gx = MELA_ZONES.NEW_GROUND_GATE?.x || 1950;
-  const gy = MELA_ZONES.NEW_GROUND_GATE?.y || 650;
+  const gx = MELA_ZONES.NEW_GROUND_GATE?.x || 1850;
+  const gy = MELA_ZONES.NEW_GROUND_GATE?.y || 470;
   const distToPlayer = Math.hypot(player.x - gx, player.y - gy);
-  const isPlayerInNewGround = player.x >= 1950;
+  const isPlayerInNewGround = player.x >= 1850;
   const animTime = performance.now() * 0.003;
 
   ctx.save();
 
-  // 1. Red Velvet Carpet Threshold passing through Gate (x: 1890 to 2010, y: 585 to 715)
-  ctx.fillStyle = 'rgba(185, 28, 28, 0.88)';
-  ctx.fillRect(gx - 60, gy - 65, 120, 130);
+  // 1. Red Velvet Carpet Threshold passing through Gate (x: 1790 to 1910, y: 380 to 560)
+  ctx.fillStyle = 'rgba(185, 28, 28, 0.9)';
+  ctx.fillRect(gx - 60, gy - 90, 120, 180);
 
   // Gold Brocade Trim
   ctx.strokeStyle = '#fbbf24';
   ctx.lineWidth = 2.5;
-  ctx.strokeRect(gx - 60, gy - 65, 120, 130);
+  ctx.strokeRect(gx - 60, gy - 90, 120, 180);
 
   // Inlaid Brass Dividing Strip
   ctx.fillStyle = '#f59e0b';
-  ctx.fillRect(gx - 2, gy - 65, 4, 130);
+  ctx.fillRect(gx - 2, gy - 90, 4, 180);
 
   // Auspicious Toran Rangoli Motif at threshold center
   ctx.save();
@@ -5872,21 +5894,21 @@ function renderNewGroundGate(ctx, world, player) {
   ctx.strokeStyle = '#fef08a';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.arc(0, 0, 16, 0, Math.PI * 2);
+  ctx.arc(0, 0, 18, 0, Math.PI * 2);
   ctx.stroke();
   for (let a = 0; a < 8; a++) {
     const angle = (a * Math.PI) / 4;
     ctx.beginPath();
-    ctx.arc(Math.cos(angle) * 12, Math.sin(angle) * 12, 3, 0, Math.PI * 2);
+    ctx.arc(Math.cos(angle) * 14, Math.sin(angle) * 14, 3.5, 0, Math.PI * 2);
     ctx.fillStyle = a % 2 === 0 ? '#f59e0b' : '#ea580c';
     ctx.fill();
   }
   ctx.restore();
 
-  // 2. Twin Royal Sandstone Pillars (North at gy - 75, South at gy + 75)
+  // 2. Twin Royal Sandstone Pillars (North at gy - 95, South at gy + 95)
   const pillars = [
-    { y: gy - 75, id: 1 },
-    { y: gy + 75, id: 2 }
+    { y: gy - 95, id: 1 },
+    { y: gy + 95, id: 2 }
   ];
 
   pillars.forEach((p) => {
@@ -5952,23 +5974,23 @@ function renderNewGroundGate(ctx, world, player) {
   ctx.strokeStyle = '#78350f';
   ctx.lineWidth = 8;
   ctx.beginPath();
-  ctx.moveTo(gx, gy - 75);
-  ctx.lineTo(gx, gy + 75);
+  ctx.moveTo(gx, gy - 95);
+  ctx.lineTo(gx, gy + 95);
   ctx.stroke();
 
   // Double Swag Marigold Garlands
   for (let sw = -1; sw <= 1; sw += 2) {
-    const midX = gx - sw * 8;
+    const midX = gx - sw * 10;
     ctx.strokeStyle = '#f59e0b';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(gx, gy - 75);
-    ctx.quadraticCurveTo(midX, gy, gx, gy + 75);
+    ctx.moveTo(gx, gy - 95);
+    ctx.quadraticCurveTo(midX, gy, gx, gy + 95);
     ctx.stroke();
   }
 
   // Marigold & Mango Leaf rosettes along arch
-  for (let ay = gy - 70; ay <= gy + 70; ay += 18) {
+  for (let ay = gy - 90; ay <= gy + 90; ay += 18) {
     // Mango Leaf
     ctx.fillStyle = '#15803d';
     ctx.beginPath();
@@ -5995,7 +6017,7 @@ function renderNewGroundGate(ctx, world, player) {
   ctx.shadowColor = '#f59e0b';
   ctx.fillStyle = '#7f1d1d';
   ctx.beginPath();
-  ctx.roundRect(-24, -55, 48, 110, 8);
+  ctx.roundRect(-24, -60, 48, 120, 8);
   ctx.fill();
 
   // Plaque Gold Border
@@ -6019,7 +6041,7 @@ function renderNewGroundGate(ctx, world, player) {
   ctx.restore();
 
   // 5. Interactive Proximity Prompt (Floating Badge)
-  if (distToPlayer < 120) {
+  if (distToPlayer < 130) {
     const pulse = 1 + Math.sin(animTime * 2.5) * 0.04;
     ctx.save();
     ctx.translate(gx - 25, gy);

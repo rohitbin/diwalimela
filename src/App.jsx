@@ -30,8 +30,14 @@ window.__CRACKER_MAP = CRACKERS.reduce((acc, c) => {
 }, {});
 
 function getCurrentZoneName(x, y) {
-  if (x >= 1870) return '✨ New Fairground (नया मैदान)';
   if (Math.hypot(x - 1850, y - 470) < 95) return '🚪 East Gate (पूर्व द्वार)';
+  if (x >= 1850) {
+    if (Math.hypot(x - 2500, y - 470) < 160) return '✨ Grand Utsav Chowk (महा उत्सव चौक)';
+    if (x >= 2350 && x <= 2650 && y < 320) return '🌸 North Art Pavilion (उत्तर मंडप)';
+    if (Math.hypot(x - 2500, y - 920) < 160) return '🎪 South Fairground Arena (दक्षिण उत्सव अखाड़ा)';
+    if (x >= 3050) return '🪔 East Viewing Terrace (पूर्व दर्शन मंडप)';
+    return '✨ New Fairground (नया मेला मैदान)';
+  }
   if (y < 280) return 'Grand Entrance Gate';
   if (x > 1500 && y < 350) return '🎡 Mela Giant Wheel (झूला)';
   if (x > 1200 && y < 350) return '🎯 Balloon Shooting Stall';

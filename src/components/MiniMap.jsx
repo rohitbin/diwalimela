@@ -67,7 +67,10 @@ export default function MiniMap({
     { key: 'WEAPON_STALL', label: 'Shastra Armory', icon: '🏹', x: MELA_ZONES.WEAPON_STALL.x, y: MELA_ZONES.WEAPON_STALL.y },
     { key: 'RAVAN_GATE', label: 'Ravan Gate', icon: '🚪', x: MELA_ZONES.RAVAN_GATE?.x || 1380, y: MELA_ZONES.RAVAN_GATE?.y || 980 },
     { key: 'RAVAN', label: 'Ravan (10M HP)', icon: '👹', x: MELA_ZONES.RAVAN.x, y: MELA_ZONES.RAVAN.y },
-    { key: 'NEW_GROUND_GATE', label: 'East Gate', icon: '🚪', x: MELA_ZONES.NEW_GROUND_GATE?.x || 1850, y: MELA_ZONES.NEW_GROUND_GATE?.y || 470 }
+    { key: 'NEW_GROUND_GATE', label: 'East Gate', icon: '🚪', x: MELA_ZONES.NEW_GROUND_GATE?.x || 1850, y: MELA_ZONES.NEW_GROUND_GATE?.y || 470 },
+    { key: 'UTSAV_CHOWK', label: 'Utsav Chowk', icon: '✨', x: MELA_ZONES.UTSAV_CHOWK?.x || 2500, y: MELA_ZONES.UTSAV_CHOWK?.y || 470 },
+    { key: 'NORTH_PAVILION', label: 'North Pavilion', icon: '🌸', x: MELA_ZONES.NORTH_PAVILION?.x || 2500, y: MELA_ZONES.NORTH_PAVILION?.y || 220 },
+    { key: 'SOUTH_ARENA', label: 'South Arena', icon: '🎪', x: MELA_ZONES.SOUTH_ARENA?.x || 2500, y: MELA_ZONES.SOUTH_ARENA?.y || 920 }
   ];
 
   return (
@@ -192,22 +195,105 @@ export default function MiniMap({
             }}
           />
 
-          {/* New Ground Area Label on MiniMap */}
+          {/* New Fairground Ground Surface on MiniMap */}
           <div
             style={{
               position: 'absolute',
-              left: toMapX(2750),
-              top: toMapY(500),
+              left: toMapX(1850),
+              top: toMapY(110),
+              width: (3500 - 1850) * scaleX,
+              height: (1330 - 110) * scaleY,
+              backgroundColor: 'rgba(14, 11, 31, 0.7)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              borderRadius: 2
+            }}
+          />
+
+          {/* New Fairground East-West Royal Avenue */}
+          <div
+            style={{
+              position: 'absolute',
+              left: toMapX(1850),
+              top: toMapY(410),
+              width: (3300 - 1850) * scaleX,
+              height: 120 * scaleY,
+              backgroundColor: 'rgba(153, 27, 27, 0.35)'
+            }}
+          />
+
+          {/* New Fairground North-South Cross Avenue */}
+          <div
+            style={{
+              position: 'absolute',
+              left: toMapX(2420),
+              top: toMapY(160),
+              width: 160 * scaleX,
+              height: (1240 - 160) * scaleY,
+              backgroundColor: 'rgba(153, 27, 27, 0.35)'
+            }}
+          />
+
+          {/* Grand Utsav Chowk Central Plaza on MiniMap */}
+          <div
+            style={{
+              position: 'absolute',
+              left: toMapX(2500),
+              top: toMapY(470),
+              width: 280 * scaleX,
+              height: 280 * scaleY,
               transform: 'translate(-50%, -50%)',
-              fontSize: 8,
-              color: 'rgba(254, 240, 138, 0.45)',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(245, 158, 11, 0.22)',
+              border: '1px solid rgba(251, 191, 36, 0.5)'
+            }}
+          />
+
+          {/* North Pavilion Courtyard */}
+          <div
+            style={{
+              position: 'absolute',
+              left: toMapX(2500),
+              top: toMapY(220),
+              width: 220 * scaleX,
+              height: 140 * scaleY,
+              transform: 'translate(-50%, -50%)',
+              backgroundColor: 'rgba(236, 72, 153, 0.2)',
+              border: '1px dashed rgba(236, 72, 153, 0.45)',
+              borderRadius: 3
+            }}
+          />
+
+          {/* South Celebration Arena Courtyard */}
+          <div
+            style={{
+              position: 'absolute',
+              left: toMapX(2500),
+              top: toMapY(920),
+              width: 240 * scaleX,
+              height: 200 * scaleY,
+              transform: 'translate(-50%, -50%)',
+              backgroundColor: 'rgba(56, 189, 248, 0.18)',
+              border: '1px dashed rgba(56, 189, 248, 0.45)',
+              borderRadius: 3
+            }}
+          />
+
+          {/* MiniMap Ground Label */}
+          <div
+            style={{
+              position: 'absolute',
+              left: toMapX(2950),
+              top: toMapY(470),
+              transform: 'translate(-50%, -50%)',
+              fontSize: 7.5,
+              color: 'rgba(254, 240, 138, 0.6)',
               fontWeight: 700,
               pointerEvents: 'none',
               letterSpacing: 0.5,
               whiteSpace: 'nowrap'
             }}
           >
-            ✨ New Ground
+            ✨ Utsav Maidan
           </div>
 
 

@@ -24,8 +24,11 @@ export const MELA_ZONES = {
   RAVAN_GATE: { x: 1380, y: 980, name: 'Ravan Arena Gate (रावण दहन द्वार)' },
   RAVAN: { x: 1550, y: 980, name: 'Ravan Dahan Ground (रावण दहन - 10M HP)' },
   WEAPON_STALL: { x: 1240, y: 880, name: 'Shastra Armory (शस्त्रागार)' },
-  NEW_GROUND_GATE: { x: 1850, y: 470, name: 'East Gate (पूर्व द्वार - नया मैदान)' },
-  NEW_GROUND: { x: 2600, y: 500, name: 'New Fairground (नया मैदान)' }
+  NEW_GROUND_GATE: { x: 1850, y: 470, name: 'East Gate (पूर्व द्वार)' },
+  UTSAV_CHOWK: { x: 2500, y: 470, name: 'Grand Utsav Chowk (महा उत्सव चौक)' },
+  NORTH_PAVILION: { x: 2500, y: 220, name: 'North Rangoli Pavilion (उत्तर मंडप)' },
+  SOUTH_ARENA: { x: 2500, y: 920, name: 'South Celebration Arena (दक्षिण उत्सव अखाड़ा)' },
+  EAST_TERRACE: { x: 3200, y: 470, name: 'East Viewing Terrace (पूर्व दर्शन मंडप)' }
 };
 
 // 10 Chairs and 3 Tables at Sharma Ji Chai Tapri
@@ -293,7 +296,16 @@ export default function MelaCanvas({
       { id: 13, x: 450, y: 880, isLit: true },
       { id: 14, x: 650, y: 880, isLit: false },
       { id: 15, x: 960, y: 1100, isLit: false },
-      { id: 16, x: 1040, y: 1100, isLit: true }
+      { id: 16, x: 1040, y: 1100, isLit: true },
+      // New Fairground Earthen Diyas
+      { id: 17, x: 2430, y: 410, isLit: false },
+      { id: 18, x: 2570, y: 410, isLit: true },
+      { id: 19, x: 2430, y: 530, isLit: true },
+      { id: 20, x: 2570, y: 530, isLit: false },
+      { id: 21, x: 2400, y: 220, isLit: true },
+      { id: 22, x: 2600, y: 220, isLit: false },
+      { id: 23, x: 2420, y: 880, isLit: false },
+      { id: 24, x: 2580, y: 880, isLit: true }
     ],
     // Hanging fairy lights
     fairyLights: [],
@@ -1565,9 +1577,9 @@ export default function MelaCanvas({
 
         // Boundary sliding: keep full movement on unclamped axis
         const minX = 70;
-        const maxX = world.width - 70;
-        const minY = 110;
-        const maxY = world.height - 70;
+        const maxX = 3470;
+        const minY = 125;
+        const maxY = 1315;
 
         if (newX < minX || newX > maxX) {
           newX = Math.max(minX, Math.min(maxX, newX));
@@ -2074,8 +2086,11 @@ export default function MelaCanvas({
       ctx.scale(world.cameraZoom || 1, world.cameraZoom || 1);
       ctx.translate(-world.camera.x + shakeOffsetX, -world.camera.y + shakeOffsetY);
 
-      // A. Ground & Festive Red Carpet Walkways
+      // A. Ground & Festive Red Carpet Walkways (Diwali Ground)
       renderGroundAndCourtyards(ctx, world);
+
+      // A2. Grand New Mela Fairground (नया मेला मैदान - Second Ground)
+      renderNewMelaGround(ctx, world, p);
 
       // B. Grand Entrance Arch & Signages
       renderEntranceArch(ctx);
@@ -3259,6 +3274,381 @@ function renderGroundAndCourtyards(ctx, world) {
       ctx.fillStyle = '#f97316';
       ctx.beginPath();
       ctx.arc(postX, postY, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
+
+// -------------------------------------------------------------
+// NEW MELA FAIRGROUND (नया मेला मैदान - SECOND GROUND)
+// -------------------------------------------------------------
+function renderNewMelaGround(ctx, world, player) {
+  ctx.save();
+
+  // 1. New Ground Paved Surface & Grid (from x: 1850 to 3500, y: 110 to 1330)
+  ctx.fillStyle = '#0e0b1f'; // Royal Midnight Indigo Ground
+  ctx.fillRect(1850, 110, 1650, 1220);
+
+  // Festive Golden Grid Lines
+  ctx.strokeStyle = 'rgba(245, 158, 11, 0.08)';
+  ctx.lineWidth = 1;
+  const tileSize = 60;
+  ctx.beginPath();
+  for (let x = 1860; x <= 3500; x += tileSize) {
+    ctx.moveTo(x, 110);
+    ctx.lineTo(x, 1330);
+  }
+  for (let y = 110; y <= 1330; y += tileSize) {
+    ctx.moveTo(1850, y);
+    ctx.lineTo(3500, y);
+  }
+  ctx.stroke();
+
+  // 2. Perimeter Boundary Walls (North, East, South)
+  ctx.strokeStyle = '#78350f';
+  ctx.lineWidth = 3.5;
+
+  // North Perimeter Wall (y: 110, x: 1850 to 3500)
+  ctx.beginPath();
+  ctx.moveTo(1850, 110);
+  ctx.lineTo(3500, 110);
+  ctx.stroke();
+
+  // South Perimeter Wall (y: 1330, x: 1850 to 3500)
+  ctx.beginPath();
+  ctx.moveTo(1850, 1330);
+  ctx.lineTo(3500, 1330);
+  ctx.stroke();
+
+  // East Perimeter Wall (x: 3500, y: 110 to 1330)
+  ctx.beginPath();
+  ctx.moveTo(3500, 110);
+  ctx.lineTo(3500, 1330);
+  ctx.stroke();
+
+  // Decorative Wall Posts along North Wall
+  for (let wx = 1890; wx <= 3470; wx += 50) {
+    ctx.fillStyle = '#451a03';
+    ctx.fillRect(wx - 4, 104, 8, 12);
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(wx, 103, 3, 0, Math.PI * 2);
+    ctx.fill();
+    if (wx % 100 === 1890 % 100) {
+      ctx.fillStyle = '#f97316';
+      ctx.beginPath();
+      ctx.arc(wx, 100, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Decorative Wall Posts along South Wall
+  for (let wx = 1890; wx <= 3470; wx += 50) {
+    ctx.fillStyle = '#451a03';
+    ctx.fillRect(wx - 4, 1324, 8, 12);
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(wx, 1337, 3, 0, Math.PI * 2);
+    ctx.fill();
+    if (wx % 100 === 1890 % 100) {
+      ctx.fillStyle = '#f97316';
+      ctx.beginPath();
+      ctx.arc(wx, 1340, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Decorative Wall Posts along East Wall
+  for (let wy = 150; wy <= 1290; wy += 50) {
+    ctx.fillStyle = '#451a03';
+    ctx.fillRect(3494, wy - 4, 12, 8);
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(3507, wy, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Corner Royal Bastions
+  const corners = [
+    { x: 3500, y: 110 },
+    { x: 3500, y: 1330 }
+  ];
+  corners.forEach((c) => {
+    ctx.fillStyle = '#451a03';
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 8, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // 3. Main Royal Promenade (East-West Avenue: x: 1850 to 3300, y: 410 to 530)
+  ctx.fillStyle = 'rgba(120, 53, 15, 0.4)';
+  ctx.fillRect(1850, 410, 1450, 120);
+  ctx.strokeStyle = '#ca8a04';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1850, 410, 1450, 120);
+
+  // Red Velvet Center Runner Carpet
+  ctx.fillStyle = 'rgba(185, 28, 28, 0.65)';
+  ctx.fillRect(1850, 440, 1450, 60);
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1850, 440, 1450, 60);
+
+  // Marigold Borders along Avenue
+  for (let mx = 1860; mx <= 3290; mx += 28) {
+    ctx.fillStyle = mx % 56 === 0 ? '#f59e0b' : '#ea580c';
+    ctx.beginPath();
+    ctx.arc(mx, 440, 3.5, 0, Math.PI * 2);
+    ctx.arc(mx, 500, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 4. North-South Grand Cross Avenue (x: 2420 to 2580, y: 160 to 1240)
+  ctx.fillStyle = 'rgba(120, 53, 15, 0.35)';
+  ctx.fillRect(2420, 160, 160, 1080);
+  ctx.strokeStyle = '#ca8a04';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(2420, 160, 160, 1080);
+
+  // Red Velvet North-South Runner Carpet
+  ctx.fillStyle = 'rgba(185, 28, 28, 0.55)';
+  ctx.fillRect(2460, 160, 80, 1080);
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(2460, 160, 80, 1080);
+
+  // Marigold Borders along North-South Cross Avenue
+  for (let my = 170; my <= 1230; my += 28) {
+    ctx.fillStyle = my % 56 === 0 ? '#f59e0b' : '#ea580c';
+    ctx.beginPath();
+    ctx.arc(2460, my, 3.5, 0, Math.PI * 2);
+    ctx.arc(2540, my, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 5. Grand Central Utsav Chowk (नया उत्सव चौक - Grand Ceremonial Plaza)
+  const cx = 2500;
+  const cy = 470;
+
+  // Outer plaza ring (Radius: 155)
+  ctx.fillStyle = 'rgba(69, 10, 10, 0.65)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 155, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 155, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Middle concentric decorative ring
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 115, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // 16 Marigold flowers around the middle ring
+  for (let i = 0; i < 16; i++) {
+    const angle = (i * Math.PI) / 8;
+    const fx = cx + Math.cos(angle) * 115;
+    const fy = cy + Math.sin(angle) * 115;
+    ctx.fillStyle = i % 2 === 0 ? '#f59e0b' : '#ea580c';
+    ctx.beginPath();
+    ctx.arc(fx, fy, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Giant 12-Petaled Sacred Royal Rangoli Art at Central Utsav Chowk
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // Inner sanctum base
+  ctx.fillStyle = '#78350f';
+  ctx.beginPath();
+  ctx.arc(0, 0, 75, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#fef08a';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Rangoli Petals
+  for (let p = 0; p < 12; p++) {
+    const pAngle = (p * Math.PI) / 6;
+    ctx.save();
+    ctx.rotate(pAngle);
+
+    // Crimson petal
+    ctx.fillStyle = p % 2 === 0 ? '#dc2626' : '#ea580c';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(18, -35, 0, -68);
+    ctx.quadraticCurveTo(-18, -35, 0, 0);
+    ctx.fill();
+
+    // Golden petal outline & core
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(0, -42, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Central Auspicious Deepstambh Base
+  ctx.fillStyle = '#451a03';
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(0, 0, 26, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Eternal Central Flame of New Ground
+  ctx.shadowBlur = 24;
+  ctx.shadowColor = '#f59e0b';
+  ctx.fillStyle = '#f59e0b';
+  ctx.beginPath();
+  ctx.arc(0, 0, 14, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fef08a';
+  ctx.beginPath();
+  ctx.arc(0, 0, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.restore();
+
+  // Plaza Name Badge on Floor
+  ctx.fillStyle = '#fef08a';
+  ctx.font = 'bold 13px "Cinzel", serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('✨ महा उत्सव चौक (Grand Utsav Plaza) ✨', cx, cy + 138);
+
+  // 6. North Rangoli Arts Pavilion Ground (x: 2360 to 2640, y: 150 to 290)
+  ctx.fillStyle = 'rgba(76, 29, 149, 0.45)'; // Royal Purple Pavilion Floor
+  ctx.beginPath();
+  ctx.roundRect(2360, 150, 280, 140, 12);
+  ctx.fill();
+  ctx.strokeStyle = '#c084fc';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Pavilion Toran Header Sign
+  ctx.fillStyle = '#e9d5ff';
+  ctx.font = 'bold 12px "Outfit", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🌸 उत्तर कला मंडप (North Art Pavilion) 🌸', 2500, 275);
+
+  // 7. South Celebration Arena Ground (x: 2500, y: 920, radius: 155)
+  const ax = 2500;
+  const ay = 920;
+  ctx.fillStyle = 'rgba(120, 53, 15, 0.45)';
+  ctx.beginPath();
+  ctx.arc(ax, ay, 150, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(ax, ay, 150, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Inner arena ring
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(ax, ay, 100, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Arena Sign
+  ctx.fillStyle = '#fed7aa';
+  ctx.font = 'bold 13px "Cinzel", serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🎪 दक्षिण उत्सव मैदान (South Fairground Arena) 🎪', ax, ay + 130);
+
+  // 8. East Viewing Terrace (x: 3200, y: 470)
+  ctx.fillStyle = 'rgba(185, 28, 28, 0.5)';
+  ctx.beginPath();
+  ctx.roundRect(3100, 390, 200, 160, 16);
+  ctx.fill();
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  ctx.fillStyle = '#fef08a';
+  ctx.font = 'bold 12px "Outfit", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🪔 पूर्व दर्शन मंडप (East Terrace) 🪔', 3200, 535);
+
+  // 9. Victorian / Rajasthani Lamp Posts along New Ground Avenues
+  const newLamps = [
+    // East-West Avenue pairs
+    { x: 2000, y: 385 }, { x: 2000, y: 555 },
+    { x: 2220, y: 385 }, { x: 2220, y: 555 },
+    { x: 2780, y: 385 }, { x: 2780, y: 555 },
+    { x: 3000, y: 385 }, { x: 3000, y: 555 },
+    { x: 3240, y: 385 }, { x: 3240, y: 555 },
+    // North-South Avenue pairs
+    { x: 2400, y: 220 }, { x: 2600, y: 220 },
+    { x: 2400, y: 720 }, { x: 2600, y: 720 },
+    { x: 2400, y: 920 }, { x: 2600, y: 920 },
+    { x: 2400, y: 1150 }, { x: 2600, y: 1150 }
+  ];
+
+  newLamps.forEach((lp) => {
+    // Lamp post shaft
+    ctx.fillStyle = '#451a03';
+    ctx.fillRect(lp.x - 3, lp.y - 30, 6, 30);
+    // Brass finial
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(lp.x, lp.y - 32, 3, 0, Math.PI * 2);
+    ctx.fill();
+    // Glowing golden lantern
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = '#f59e0b';
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.arc(lp.x, lp.y - 30, 8.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+
+  // 10. Hanging Strings of Twinkling Fairy Lights across Central Utsav Chowk
+  const fTime = performance.now() * 0.003;
+  const festColors = ['#f43f5e', '#38bdf8', '#fbbf24', '#4ade80', '#c084fc'];
+  for (let s = 0; s < 4; s++) {
+    const sAngle = (s * Math.PI) / 2 + Math.PI / 4;
+    const startX = cx;
+    const startY = cy;
+    const endX = cx + Math.cos(sAngle) * 150;
+    const endY = cy + Math.sin(sAngle) * 150;
+
+    ctx.strokeStyle = 'rgba(251, 191, 36, 0.45)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.quadraticCurveTo((startX + endX) / 2, (startY + endY) / 2 + 15, endX, endY);
+    ctx.stroke();
+
+    for (let b = 1; b <= 5; b++) {
+      const t = b / 6;
+      const lx = (1 - t) * (1 - t) * startX + 2 * (1 - t) * t * ((startX + endX) / 2) + t * t * endX;
+      const ly = (1 - t) * (1 - t) * startY + 2 * (1 - t) * t * ((startY + endY) / 2 + 15) + t * t * endY;
+      const colIdx = Math.floor(s + b + fTime * 2) % festColors.length;
+      ctx.fillStyle = festColors[colIdx];
+      ctx.beginPath();
+      ctx.arc(lx, ly, 3, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -5259,20 +5649,32 @@ function renderNightLightingGlow(ctx, world, playerX, playerY) {
 function renderDirectionGuides(ctx, player) {
   const dist = (x1, y1, x2, y2) => Math.hypot(x1 - x2, y1 - y2);
 
-  const dShop = dist(player.x, player.y, MELA_ZONES.CRACKER_SHOP.x, MELA_ZONES.CRACKER_SHOP.y);
-  if (dShop > 520) {
-    drawCompassArrow(ctx, player.x, player.y, MELA_ZONES.CRACKER_SHOP.x, MELA_ZONES.CRACKER_SHOP.y, '🧨 Shop', '#ef4444');
-  }
+  if (player.x >= 1850) {
+    // Inside New Fairground
+    const dConnectingGate = dist(player.x, player.y, MELA_ZONES.NEW_GROUND_GATE.x, MELA_ZONES.NEW_GROUND_GATE.y);
+    if (dConnectingGate > 180) {
+      drawCompassArrow(ctx, player.x, player.y, MELA_ZONES.NEW_GROUND_GATE.x, MELA_ZONES.NEW_GROUND_GATE.y, '🏮 Mela Gate', '#f59e0b');
+    }
+    const dChowk = dist(player.x, player.y, MELA_ZONES.UTSAV_CHOWK.x, MELA_ZONES.UTSAV_CHOWK.y);
+    if (dChowk > 280) {
+      drawCompassArrow(ctx, player.x, player.y, MELA_ZONES.UTSAV_CHOWK.x, MELA_ZONES.UTSAV_CHOWK.y, '✨ Utsav Chowk', '#38bdf8');
+    }
+  } else {
+    // Inside Main Diwali Mela
+    const dShop = dist(player.x, player.y, MELA_ZONES.CRACKER_SHOP.x, MELA_ZONES.CRACKER_SHOP.y);
+    if (dShop > 520) {
+      drawCompassArrow(ctx, player.x, player.y, MELA_ZONES.CRACKER_SHOP.x, MELA_ZONES.CRACKER_SHOP.y, '🧨 Shop', '#ef4444');
+    }
 
-  const dRavan = dist(player.x, player.y, MELA_ZONES.RAVAN.x, MELA_ZONES.RAVAN.y);
-  if (dRavan > 580) {
-    drawCompassArrow(ctx, player.x, player.y, MELA_ZONES.RAVAN.x, MELA_ZONES.RAVAN.y, '👹 Ravan (10M HP)', '#f97316');
-  }
+    const dRavan = dist(player.x, player.y, MELA_ZONES.RAVAN.x, MELA_ZONES.RAVAN.y);
+    if (dRavan > 580) {
+      drawCompassArrow(ctx, player.x, player.y, MELA_ZONES.RAVAN.x, MELA_ZONES.RAVAN.y, '👹 Ravan (10M HP)', '#f97316');
+    }
 
-  // East Gate Compass Arrow (Guides player to the new ground portal)
-  const dEastGate = dist(player.x, player.y, MELA_ZONES.NEW_GROUND_GATE.x, MELA_ZONES.NEW_GROUND_GATE.y);
-  if (dEastGate > 140 && player.x < 1850) {
-    drawCompassArrow(ctx, player.x, player.y, MELA_ZONES.NEW_GROUND_GATE.x, MELA_ZONES.NEW_GROUND_GATE.y, '🚪 East Gate', '#38bdf8');
+    const dEastGate = dist(player.x, player.y, MELA_ZONES.NEW_GROUND_GATE.x, MELA_ZONES.NEW_GROUND_GATE.y);
+    if (dEastGate > 140) {
+      drawCompassArrow(ctx, player.x, player.y, MELA_ZONES.NEW_GROUND_GATE.x, MELA_ZONES.NEW_GROUND_GATE.y, '🚪 East Gate', '#38bdf8');
+    }
   }
 }
 
@@ -6026,17 +6428,28 @@ function renderNewGroundGate(ctx, world, player) {
   ctx.lineWidth = 2.5;
   ctx.stroke();
 
-  // Rotated text for vertical gate orientation facing West
-  ctx.rotate(-Math.PI / 2);
+  // Rotated text facing player's side of the gate
+  if (isPlayerInNewGround) {
+    ctx.rotate(Math.PI / 2);
+    ctx.font = 'bold 12px "Cinzel", serif';
+    ctx.fillStyle = '#fef08a';
+    ctx.textAlign = 'center';
+    ctx.fillText('🏮 मुख्य द्वार • WEST GATE 🏮', 0, -5);
 
-  ctx.font = 'bold 12px "Cinzel", serif';
-  ctx.fillStyle = '#fef08a';
-  ctx.textAlign = 'center';
-  ctx.fillText('🚪 पूर्व द्वार • EAST GATE 🚪', 0, -5);
+    ctx.font = 'bold 10px "Outfit", sans-serif';
+    ctx.fillStyle = '#fed7aa';
+    ctx.fillText('🪔 MAIN DIWALI MELA ➜', 0, 9);
+  } else {
+    ctx.rotate(-Math.PI / 2);
+    ctx.font = 'bold 12px "Cinzel", serif';
+    ctx.fillStyle = '#fef08a';
+    ctx.textAlign = 'center';
+    ctx.fillText('🚪 पूर्व द्वार • EAST GATE 🚪', 0, -5);
 
-  ctx.font = 'bold 10px "Outfit", sans-serif';
-  ctx.fillStyle = '#fed7aa';
-  ctx.fillText('✨ NEW GROUND (नया मैदान) ➜', 0, 9);
+    ctx.font = 'bold 10px "Outfit", sans-serif';
+    ctx.fillStyle = '#fed7aa';
+    ctx.fillText('✨ NEW FAIRGROUND (नया मैदान) ➜', 0, 9);
+  }
 
   ctx.restore();
 
@@ -6048,8 +6461,8 @@ function renderNewGroundGate(ctx, world, player) {
     ctx.scale(pulse, pulse);
 
     const promptText = isPlayerInNewGround
-      ? '🏮 [ Tap Gate / Press E ] Return to Main Mela'
-      : '🚪 [ Tap Gate / Walk Through ] Enter New Ground ✨';
+      ? '🏮 [ Tap Gate / Press E ] Return to Main Diwali Mela'
+      : '🚪 [ Tap Gate / Walk Through ] Enter New Fairground ✨';
 
     ctx.font = 'bold 11px "Outfit", sans-serif';
     const textW = ctx.measureText(promptText).width;

@@ -38,7 +38,6 @@ export const DANCE_STEPS = [
   { id: 'bollywood', name: 'Bollywood Thumka', hindi: 'बॉलीवुड ठुमका', icon: '💃' },
   { id: 'mega_jump', name: 'Sky Rocket Mega Jump', hindi: 'तूफानी ऊंची छलांग', icon: '🚀' },
   { id: 'naagin', name: 'Iconic Naagin Dance', hindi: 'नागिन बीन धुन', icon: '🐍' },
-  { id: 'garba_spin', name: 'Garba 360 Spin', hindi: 'गरबा घूमर स्पिन', icon: '🌪️' },
   { id: 'disco', name: 'Disco Saturday Night', hindi: 'डिस्को स्टार', icon: '✨' },
   { id: 'wave', name: 'Party Concert Wave', hindi: 'हैंड्स इन द एयर', icon: '🙌' },
   { id: 'hiphop', name: 'Desi Hip-Hop Shuffle', hindi: 'हिप-हॉप शफल', icon: '🔥' }
@@ -5873,10 +5872,6 @@ function renderCharacter(
       jumpBob = 4 + Math.sin(now * 0.012) * 3;
       hipSway = Math.sin(now * 0.014) * 8;
       danceAngle = Math.cos(now * 0.014) * 0.22;
-    } else if (stepId === 'garba_spin') {
-      // GARBA 360 SPIN! Whirlwind 360° spin with bounce
-      jumpBob = -Math.abs(Math.sin(now * 0.014)) * 3.5;
-      danceAngle = (now * 0.015) % (Math.PI * 2);
     } else if (stepId === 'disco') {
       hipSway = Math.sin(now * 0.012) * 3.5;
       jumpBob = -Math.abs(Math.sin(now * 0.012)) * 3.0;
@@ -5963,10 +5958,6 @@ function renderCharacter(
       // Low crouching snake knees
       ctx.fillRect(-7, 2, 5, 8);
       ctx.fillRect(2, 2, 5, 8);
-    } else if (stepId === 'garba_spin') {
-      // Garba spin footing
-      ctx.fillRect(-6, 2, 4, 10);
-      ctx.fillRect(2, 2, 4, 10);
     } else if (stepId === 'disco') {
       ctx.fillRect(-7, 2, 4, 11);
       ctx.fillRect(3, 2, 4, 11);
@@ -6113,17 +6104,6 @@ function renderCharacter(
         rhY = -38;
         reX = 10;
         reY = -24;
-      } else if (stepId === 'garba_spin') {
-        // 6. GARBA 360 SPIN: Arms outstretched wide like Dandiya twirlers!
-        lhX = -19;
-        lhY = -8 + Math.sin(now * 0.015) * 3;
-        leX = -14;
-        leY = -8;
-
-        rhX = 19;
-        rhY = -8 - Math.sin(now * 0.015) * 3;
-        reX = 14;
-        reY = -8;
       } else if (stepId === 'disco') {
         // 7. DISCO: Right hand points to the sky (-40) and sweeps down to hip (+2)
         const discoT = Math.sin(now * 0.013); // -1 to +1

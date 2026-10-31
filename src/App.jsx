@@ -175,7 +175,7 @@ export default function App() {
   useEffect(() => {
     if (!isDancing) return;
 
-    const totalSteps = DANCE_STEPS?.length || 8;
+    const totalSteps = DANCE_STEPS?.length || 7;
     const interval = setInterval(() => {
       setDanceStep((prev) => {
         const next = (prev + 1) % totalSteps;

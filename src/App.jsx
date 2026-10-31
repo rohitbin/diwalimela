@@ -10,6 +10,7 @@ import BalloonShootingModal from './components/BalloonShootingModal';
 import ChaiStallModal from './components/ChaiStallModal';
 import WeaponArmoryModal from './components/WeaponArmoryModal';
 import DjJukeboxModal from './components/DjJukeboxModal';
+import GunFightModal from './components/GunFightModal';
 import InventoryHotbar from './components/InventoryHotbar';
 import MultiplayerBar from './components/MultiplayerBar';
 import ChatOverlay from './components/ChatOverlay';
@@ -194,6 +195,324 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([]);
   const [onlineCount, setOnlineCount] = useState(1);
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  // Gun Fight PvP Duel State
+  const [gunFight, setGunFight] = useState({
+    status: 'IDLE', // 'IDLE' | 'CHALLENGE_SENT' | 'CHALLENGE_RECEIVED' | 'COUNTDOWN' | 'ACTIVE' | 'FINISHED'
+    opponentId: null,
+    opponentName: null,
+    isInitiator: false,
+    countdown: 5,
+    myHp: 100,
+    opponentHp: 100,
+    winner: null
+  });
+  const countdownIntervalRef = useRef(null);
+
+  const startGunFightCountdown = (oppName, oppId) => {
+    // 1. Equip Golden Gun for both fighters
+    const gunItem = CRACKERS.find((c) => c.id === 'gun') || {
+      id: 'gun',
+      name: 'गोल्डन गन (Golden Gun)',
+      isWeapon: true,
+      damage: 20
+    };
+    setSelectedCracker(gunItem);
+
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+
+    setGunFight((prev) => ({
+      ...prev,
+      status: 'COUNTDOWN',
+      countdown: 5,
+      opponentName: oppName || prev.opponentName,
+      opponentId: oppId || prev.opponentId,
+      myHp: 100,
+      opponentHp: 100,
+      winner: null
+    }));
+
+    soundEngine.init();
+    soundEngine.playCountdownBeep?.(false);
+
+    let count = 5;
+    countdownIntervalRef.current = setInterval(() => {
+      count--;
+      if (count > 0) {
+        soundEngine.playCountdownBeep?.(false);
+        setGunFight((prev) => ({ ...prev, countdown: count }));
+      } else {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+        soundEngine.playCountdownBeep?.(true);
+        soundEngine.playCrowdCheer?.();
+        setGunFight((prev) => ({
+          ...prev,
+          status: 'ACTIVE',
+          countdown: 0
+        }));
+      }
+    }, 1000);
+  };
+
+  const handleChallengePlayer = (targetPlayer) => {
+    if (gunFight.status !== 'IDLE') return;
+
+    if (targetPlayer.id === 'npc_veer') {
+      soundEngine.init();
+      soundEngine.playGunShot?.(1.4);
+      setGunFight({
+        status: 'CHALLENGE_RECEIVED',
+        opponentId: 'npc_veer',
+        opponentName: 'Veer (Gun Master 🤠)',
+        isInitiator: false,
+        countdown: 5,
+        myHp: 100,
+        opponentHp: 100,
+        winner: null
+      });
+      return;
+    }
+
+    soundEngine.init();
+    soundEngine.playGunShot?.(1.3);
+    setGunFight({
+      status: 'CHALLENGE_SENT',
+      opponentId: targetPlayer.id,
+      opponentName: targetPlayer.name || 'Player',
+      isInitiator: true,
+      countdown: 5,
+      myHp: 100,
+      opponentHp: 100,
+      winner: null
+    });
+
+    if (multiplayerManager) {
+      multiplayerManager.broadcastGunFightChallenge({
+        challengerId: player.id,
+        challengerName: player.name || 'Hero',
+        targetId: targetPlayer.id,
+        targetName: targetPlayer.name || 'Player'
+      });
+    }
+  };
+
+  const handleAcceptGunFight = () => {
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+
+    if (gunFight.opponentId === 'npc_veer') {
+      startGunFightCountdown('Veer (Gun Master 🤠)', 'npc_veer');
+      return;
+    }
+
+    if (multiplayerManager) {
+      multiplayerManager.broadcastGunFightAccept({
+        challengerId: gunFight.opponentId,
+        targetId: player.id,
+        targetName: player.name || 'Hero'
+      });
+    }
+
+    startGunFightCountdown(gunFight.opponentName, gunFight.opponentId);
+  };
+
+  const handleDeclineGunFight = () => {
+    if (multiplayerManager && gunFight.opponentId !== 'npc_veer') {
+      multiplayerManager.broadcastGunFightDecline({
+        challengerId: gunFight.opponentId,
+        targetId: player.id
+      });
+    }
+    setGunFight({
+      status: 'IDLE',
+      opponentId: null,
+      opponentName: null,
+      isInitiator: false,
+      countdown: 5,
+      myHp: 100,
+      opponentHp: 100,
+      winner: null
+    });
+  };
+
+  const handleCancelGunFightChallenge = () => {
+    setGunFight({
+      status: 'IDLE',
+      opponentId: null,
+      opponentName: null,
+      isInitiator: false,
+      countdown: 5,
+      myHp: 100,
+      opponentHp: 100,
+      winner: null
+    });
+  };
+
+  const handleForfeitGunFight = () => {
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    if (multiplayerManager && gunFight.opponentId !== 'npc_veer') {
+      multiplayerManager.broadcastGunFightEnd({
+        winnerId: gunFight.opponentId,
+        winnerName: gunFight.opponentName,
+        loserId: player.id,
+        loserName: player.name
+      });
+    }
+    setGunFight((prev) => ({
+      ...prev,
+      status: 'FINISHED',
+      winner: prev.opponentName,
+      myHp: 0
+    }));
+    setTimeout(() => {
+      setGunFight({
+        status: 'IDLE',
+        opponentId: null,
+        opponentName: null,
+        isInitiator: false,
+        countdown: 5,
+        myHp: 100,
+        opponentHp: 100,
+        winner: null
+      });
+    }, 4500);
+  };
+
+  const handleDuelHit = (damage = 20) => {
+    if (gunFight.status !== 'ACTIVE') return;
+
+    const nextOppHp = Math.max(0, gunFight.opponentHp - damage);
+
+    if (gunFight.opponentId === 'npc_veer') {
+      setGunFight((prev) => ({ ...prev, opponentHp: nextOppHp }));
+      if (nextOppHp <= 0) {
+        soundEngine.playCrowdCheer?.();
+        setCoins((c) => c + 500);
+        confetti({ particleCount: 75, spread: 80, origin: { y: 0.6 } });
+        setGunFight((prev) => ({ ...prev, status: 'FINISHED', winner: player.name }));
+        setTimeout(() => {
+          setGunFight({ status: 'IDLE', opponentId: null, opponentName: null, isInitiator: false, countdown: 5, myHp: 100, opponentHp: 100, winner: null });
+        }, 4500);
+      }
+      return;
+    }
+
+    if (multiplayerManager) {
+      multiplayerManager.broadcastGunFightHit({
+        attackerId: player.id,
+        victimId: gunFight.opponentId,
+        damage,
+        newHp: nextOppHp
+      });
+    }
+
+    setGunFight((prev) => ({ ...prev, opponentHp: nextOppHp }));
+    if (nextOppHp <= 0) {
+      soundEngine.playCrowdCheer?.();
+      setCoins((c) => c + 500);
+      confetti({ particleCount: 75, spread: 80, origin: { y: 0.6 } });
+      setGunFight((prev) => ({ ...prev, status: 'FINISHED', winner: player.name }));
+      setTimeout(() => {
+        setGunFight({ status: 'IDLE', opponentId: null, opponentName: null, isInitiator: false, countdown: 5, myHp: 100, opponentHp: 100, winner: null });
+      }, 4500);
+    }
+  };
+
+  const handleTakeDuelDamage = (damage = 20) => {
+    if (gunFight.status !== 'ACTIVE') return;
+    soundEngine.init();
+    soundEngine.playRavanHit?.();
+    setScreenShake(8);
+    setGunFight((prev) => {
+      const nextHp = Math.max(0, prev.myHp - damage);
+      if (nextHp <= 0) {
+        if (multiplayerManager && prev.opponentId !== 'npc_veer') {
+          multiplayerManager.broadcastGunFightEnd({
+            winnerId: prev.opponentId,
+            winnerName: prev.opponentName,
+            loserId: player.id,
+            loserName: player.name
+          });
+        }
+        setTimeout(() => {
+          setGunFight((g) => ({ ...g, status: 'FINISHED', winner: prev.opponentName, myHp: 0 }));
+          setTimeout(() => {
+            setGunFight({ status: 'IDLE', opponentId: null, opponentName: null, isInitiator: false, countdown: 5, myHp: 100, opponentHp: 100, winner: null });
+          }, 4500);
+        }, 100);
+      }
+      return { ...prev, myHp: nextHp };
+    });
+  };
+
+  // Multiplayer Gun Fight Listener
+  useEffect(() => {
+    if (!multiplayerManager) return;
+    const unsub = multiplayerManager.onGunFight((data) => {
+      if (data.type === 'GUN_FIGHT_CHALLENGE') {
+        if (data.targetId === player.id) {
+          soundEngine.init();
+          soundEngine.playGunShot?.(1.4);
+          setGunFight({
+            status: 'CHALLENGE_RECEIVED',
+            opponentId: data.challengerId,
+            opponentName: data.challengerName || 'Player',
+            isInitiator: false,
+            countdown: 5,
+            myHp: 100,
+            opponentHp: 100,
+            winner: null
+          });
+        }
+      } else if (data.type === 'GUN_FIGHT_ACCEPT') {
+        if (data.challengerId === player.id || data.targetId === player.id) {
+          const oppName = data.challengerId === player.id ? data.targetName : data.challengerName;
+          const oppId = data.challengerId === player.id ? data.targetId : data.challengerId;
+          startGunFightCountdown(oppName, oppId);
+        }
+      } else if (data.type === 'GUN_FIGHT_DECLINE') {
+        if (data.challengerId === player.id) {
+          soundEngine.playCrowdCheer?.();
+          setGunFight((prev) => ({ ...prev, status: 'IDLE' }));
+        }
+      } else if (data.type === 'GUN_FIGHT_SHOT') {
+        if (data.shooterId === gunFight.opponentId) {
+          window.dispatchEvent(new CustomEvent('opponentDuelShot', { detail: data }));
+        }
+      } else if (data.type === 'GUN_FIGHT_HIT') {
+        if (data.victimId === player.id) {
+          soundEngine.init();
+          soundEngine.playRavanHit?.();
+          setScreenShake(8);
+          setGunFight((prev) => {
+            const nextHp = Math.max(0, data.newHp);
+            if (nextHp <= 0) {
+              setTimeout(() => {
+                setGunFight((g) => ({ ...g, status: 'FINISHED', winner: prev.opponentName, myHp: 0 }));
+                setTimeout(() => {
+                  setGunFight({ status: 'IDLE', opponentId: null, opponentName: null, isInitiator: false, countdown: 5, myHp: 100, opponentHp: 100, winner: null });
+                }, 4500);
+              }, 100);
+            }
+            return { ...prev, myHp: nextHp };
+          });
+        } else if (data.attackerId === player.id) {
+          setGunFight((prev) => ({ ...prev, opponentHp: Math.max(0, data.newHp) }));
+        }
+      } else if (data.type === 'GUN_FIGHT_END') {
+        if (data.winnerId === player.id) {
+          soundEngine.playCrowdCheer?.();
+          setCoins((c) => c + 500);
+          confetti({ particleCount: 75, spread: 80, origin: { y: 0.6 } });
+          setGunFight((prev) => ({ ...prev, status: 'FINISHED', winner: player.name }));
+          setTimeout(() => {
+            setGunFight({ status: 'IDLE', opponentId: null, opponentName: null, isInitiator: false, countdown: 5, myHp: 100, opponentHp: 100, winner: null });
+          }, 4500);
+        }
+      }
+    });
+    return () => unsub();
+  }, [player.id, player.name, gunFight.opponentId]);
 
   // Progressive Web App (PWA) Install Prompt
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -750,6 +1069,10 @@ export default function App() {
         setIsDancing={setIsDancing}
         danceStep={danceStep}
         setDanceStep={setDanceStep}
+        gunFight={gunFight}
+        onChallengePlayer={handleChallengePlayer}
+        onDuelHit={handleDuelHit}
+        onTakeDuelDamage={handleTakeDuelDamage}
       />
 
       {/* 7. Bottom Inventory Hotbar */}
@@ -957,6 +1280,15 @@ export default function App() {
           setIsStandalone(true);
           setIsInstallModalOpen(false);
         }}
+      />
+      {/* 11. Gun Fight PvP Duel Modal & Combat HUD */}
+      <GunFightModal
+        gunFight={gunFight}
+        onAccept={handleAcceptGunFight}
+        onDecline={handleDeclineGunFight}
+        onCancelChallenge={handleCancelGunFightChallenge}
+        onForfeit={handleForfeitGunFight}
+        myPlayerName={player.name}
       />
     </div>
   );

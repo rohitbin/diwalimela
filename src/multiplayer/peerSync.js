@@ -33,6 +33,7 @@ class MultiplayerManager {
     this.danceListeners = new Set();
     this.dhamakaListeners = new Set();
     this.entryListeners = new Set();
+    this.gunFightListeners = new Set();
     this.processedMsgIds = new Set();
     this.currentRavanHp = 10000000;
     this.mqttRavanTopic = null;
@@ -113,6 +114,11 @@ class MultiplayerManager {
   onGlobalDhamaka(callback) {
     this.dhamakaListeners.add(callback);
     return () => this.dhamakaListeners.delete(callback);
+  }
+
+  onGunFight(callback) {
+    this.gunFightListeners.add(callback);
+    return () => this.gunFightListeners.delete(callback);
   }
 
   startBackgroundPresence(roomId = 'diwali-mela-main', onPlayerEntered) {
@@ -635,6 +641,18 @@ class MultiplayerManager {
         break;
       }
 
+      case 'GUN_FIGHT_CHALLENGE':
+      case 'GUN_FIGHT_ACCEPT':
+      case 'GUN_FIGHT_DECLINE':
+      case 'GUN_FIGHT_SHOT':
+      case 'GUN_FIGHT_HIT':
+      case 'GUN_FIGHT_END': {
+        this.gunFightListeners.forEach((fn) => {
+          try { fn(data); } catch (e) { console.error('Gun fight listener error:', e); }
+        });
+        break;
+      }
+
       default:
         break;
     }
@@ -799,6 +817,61 @@ class MultiplayerManager {
         );
       } catch (_) {}
     }
+  }
+
+  // Gun Fight PvP Broadcasts
+  broadcastGunFightChallenge(challenge) {
+    this.sendToAll({
+      type: 'GUN_FIGHT_CHALLENGE',
+      senderId: this.myProfile?.id || this.peerId,
+      ...challenge,
+      timestamp: Date.now()
+    });
+  }
+
+  broadcastGunFightAccept(data) {
+    this.sendToAll({
+      type: 'GUN_FIGHT_ACCEPT',
+      senderId: this.myProfile?.id || this.peerId,
+      ...data,
+      timestamp: Date.now()
+    });
+  }
+
+  broadcastGunFightDecline(data) {
+    this.sendToAll({
+      type: 'GUN_FIGHT_DECLINE',
+      senderId: this.myProfile?.id || this.peerId,
+      ...data,
+      timestamp: Date.now()
+    });
+  }
+
+  broadcastGunFightShot(data) {
+    this.sendToAll({
+      type: 'GUN_FIGHT_SHOT',
+      senderId: this.myProfile?.id || this.peerId,
+      ...data,
+      timestamp: Date.now()
+    });
+  }
+
+  broadcastGunFightHit(data) {
+    this.sendToAll({
+      type: 'GUN_FIGHT_HIT',
+      senderId: this.myProfile?.id || this.peerId,
+      ...data,
+      timestamp: Date.now()
+    });
+  }
+
+  broadcastGunFightEnd(data) {
+    this.sendToAll({
+      type: 'GUN_FIGHT_END',
+      senderId: this.myProfile?.id || this.peerId,
+      ...data,
+      timestamp: Date.now()
+    });
   }
 
   pruneStalePeers() {

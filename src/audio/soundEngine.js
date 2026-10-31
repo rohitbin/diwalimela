@@ -701,6 +701,27 @@ class SoundEngine {
     } catch {}
   }
 
+  // 18b. Gun Fight Countdown Beep (5, 4, 3, 2, 1, FIGHT!)
+  playCountdownBeep(isFinal = false) {
+    if (this.isMuted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = isFinal ? 'sawtooth' : 'sine';
+      osc.frequency.setValueAtTime(isFinal ? 880 : 520, t);
+      if (isFinal) {
+        osc.frequency.exponentialRampToValueAtTime(1760, t + 0.35);
+      }
+      gain.gain.setValueAtTime(0.3, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + (isFinal ? 0.45 : 0.22));
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(t);
+      osc.stop(t + (isFinal ? 0.45 : 0.22));
+    } catch {}
+  }
+
   // 19. Ravan Effigy Impact (Explosive Crackle on Ravan Hit)
   playRavanHit() {
     if (this.isMuted || !this.ctx) return;

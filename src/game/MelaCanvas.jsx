@@ -99,7 +99,11 @@ export default function MelaCanvas({
   isDancing,
   setIsDancing,
   danceStep = 0,
-  setDanceStep
+  setDanceStep,
+  gunFight = null,
+  onChallengePlayer,
+  onDuelHit,
+  onTakeDuelDamage
 }) {
   const canvasRef = useRef(null);
   const wrapperRef = useRef(null);
@@ -113,6 +117,14 @@ export default function MelaCanvas({
   const speedResetTimeoutRef = useRef(null);
   const danceTimeoutRef = useRef(null);
 
+  // Fresh refs for Gun Fight state
+  const gunFightRef = useRef(gunFight);
+  gunFightRef.current = gunFight;
+  const onDuelHitRef = useRef(onDuelHit);
+  onDuelHitRef.current = onDuelHit;
+  const onTakeDuelDamageRef = useRef(onTakeDuelDamage);
+  onTakeDuelDamageRef.current = onTakeDuelDamage;
+
   // Fresh refs for dance states to avoid stale closure freeze in requestAnimationFrame
   const isDancingRef = useRef(isDancing);
   isDancingRef.current = isDancing;
@@ -122,6 +134,37 @@ export default function MelaCanvas({
   setIsDancingRef.current = setIsDancing;
   const setDanceStepRef = useRef(setDanceStep);
   setDanceStepRef.current = setDanceStep;
+
+  // Receive incoming opponent shots over WebRTC
+  useEffect(() => {
+    const handleOpponentShot = (e) => {
+      const data = e.detail;
+      if (!data) return;
+      soundEngine.init();
+      soundEngine.playGunShot?.(1.4);
+      worldRef.current.projectiles.push({
+        id: data.id || `opp_shot_${Date.now()}`,
+        x: data.startX,
+        y: data.startY,
+        startX: data.startX,
+        startY: data.startY,
+        targetX: data.targetX,
+        targetY: data.targetY,
+        speed: 36,
+        speedMultiplier: 1.5,
+        type: 'gun',
+        damage: data.damage || 20,
+        shooterName: gunFightRef.current?.opponentName || 'Opponent',
+        color: '#f43f5e',
+        trail: [],
+        isLocal: false,
+        isDuel: true,
+        isOpponentShot: true
+      });
+    };
+    window.addEventListener('opponentDuelShot', handleOpponentShot);
+    return () => window.removeEventListener('opponentDuelShot', handleOpponentShot);
+  }, []);
 
   useEffect(() => {
     const handleTrackChange = (e) => {
@@ -928,9 +971,80 @@ export default function MelaCanvas({
     if (onRavanShot) onRavanShot(weapon.id);
   };
 
+  // Fire Festive Spark Bullet in PvP Gun Fight Duel
+  const fireDuelGunShot = (targetX, targetY) => {
+    soundEngine.init();
+    soundEngine.playGunShot?.(1.3 + Math.random() * 0.3);
+    const p = playerRef.current;
+    const world = worldRef.current;
+    const projId = `duel_proj_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+    let destX = targetX;
+    let destY = targetY;
+
+    // Find opponent position
+    let oppPos = null;
+    if (gunFightRef.current?.opponentId === 'npc_veer') {
+      oppPos = { x: 1180, y: 880, name: 'Veer (Gun Master 🤠)' };
+    } else if (remotePlayersRef.current) {
+      const rem = remotePlayersRef.current.get(gunFightRef.current?.opponentId);
+      if (rem) oppPos = { x: rem.x, y: rem.y, name: rem.name || 'Opponent' };
+    }
+
+    if (!destX || !destY || (Math.hypot(destX - p.x, destY - p.y) < 25 && oppPos)) {
+      if (oppPos) {
+        destX = oppPos.x + (Math.random() - 0.5) * 16;
+        destY = oppPos.y + (Math.random() - 0.5) * 16;
+      } else {
+        destX = p.x + 120;
+        destY = p.y;
+      }
+    }
+
+    world.projectiles.push({
+      id: projId,
+      x: p.x,
+      y: p.y - 18,
+      startX: p.x,
+      startY: p.y - 18,
+      targetX: destX,
+      targetY: destY,
+      speed: 36,
+      speedMultiplier: 1.5,
+      type: 'gun',
+      damage: 20,
+      shooterName: p.name || 'Hero',
+      color: '#38bdf8',
+      trail: [],
+      isLocal: true,
+      isDuel: true,
+      duelOpponentId: gunFightRef.current?.opponentId
+    });
+
+    if (multiplayerManager && gunFightRef.current?.opponentId !== 'npc_veer') {
+      multiplayerManager.broadcastGunFightShot({
+        id: projId,
+        shooterId: p.id,
+        startX: p.x,
+        startY: p.y - 18,
+        targetX: destX,
+        targetY: destY,
+        damage: 20
+      });
+    }
+  };
+
   // Continuous rapid auto-fire when holding down
   const startAutoFire = (e) => {
     if (e && e.stopPropagation) e.stopPropagation();
+    if (gunFightRef.current?.status === 'ACTIVE') {
+      fireDuelGunShot();
+      if (autoFireIntervalRef.current) clearInterval(autoFireIntervalRef.current);
+      autoFireIntervalRef.current = setInterval(() => {
+        fireDuelGunShot();
+      }, 150);
+      return;
+    }
     fireWeaponAtRavan();
     if (autoFireIntervalRef.current) clearInterval(autoFireIntervalRef.current);
     const isGun = selectedCracker?.id === 'gun';
@@ -1201,6 +1315,38 @@ export default function MelaCanvas({
     if (p.isSitting) {
       standUpFromChair();
       return;
+    }
+
+    // 0-GunFight-Active: If currently in active Gun Fight, clicking shoots spark blaster bullet!
+    if (gunFightRef.current?.status === 'ACTIVE') {
+      fireDuelGunShot(worldClickX, worldClickY);
+      return;
+    }
+
+    // 0-GunFight-Challenge: Click another player or NPC Veer to challenge to a Gun Fight!
+    if (onChallengePlayer && (!gunFightRef.current || gunFightRef.current.status === 'IDLE')) {
+      // 1. Check clicks on real online players
+      if (remotePlayersRef.current && remotePlayersRef.current.size > 0) {
+        for (const remPlayer of remotePlayersRef.current.values()) {
+          if (remPlayer.id === p.id) continue;
+          if (dist(worldClickX, worldClickY, remPlayer.x, remPlayer.y) < 48) {
+            onChallengePlayer({
+              id: remPlayer.id,
+              name: remPlayer.name || 'Player'
+            });
+            return;
+          }
+        }
+      }
+
+      // 2. Check clicks on NPC Gun Duel Master "Veer" near Armory (x: 1180, y: 880)
+      if (dist(worldClickX, worldClickY, 1180, 880) < 48) {
+        onChallengePlayer({
+          id: 'npc_veer',
+          name: 'Veer (Gun Master 🤠)'
+        });
+        return;
+      }
     }
 
     // 0a-2. Clicked on one of the 10 Chai Chairs at Sharma Ji's Tapri
@@ -1871,7 +2017,7 @@ export default function MelaCanvas({
       world.effigyTimer = (world.effigyTimer || 0) + 1;
       if (world.ravanHitFlash > 0) world.ravanHitFlash--;
 
-      // Update Projectiles (Fiery Arrows & Spark Bullets flying towards Ravan)
+      // Update Projectiles (Fiery Arrows & Spark Bullets flying towards Ravan or Opponent)
       world.projectiles = (world.projectiles || []).filter((proj) => {
         const dx = proj.targetX - proj.x;
         const dy = proj.targetY - proj.y;
@@ -1879,6 +2025,111 @@ export default function MelaCanvas({
 
         proj.trail.push({ x: proj.x, y: proj.y });
         if (proj.trail.length > 5) proj.trail.shift();
+
+        // A. Duel Projectile Hit Detection
+        if (proj.isDuel) {
+          // 1. Local Player's shot -> hitting opponent
+          if (proj.isLocal) {
+            let hitOpp = false;
+            if (proj.duelOpponentId === 'npc_veer') {
+              if (distToTarget <= proj.speed || Math.hypot(proj.x - 1180, proj.y - 880) <= 32) {
+                hitOpp = true;
+              }
+            } else if (remotePlayersRef.current) {
+              const opp = remotePlayersRef.current.get(proj.duelOpponentId);
+              if (opp && (distToTarget <= proj.speed || Math.hypot(proj.x - opp.x, proj.y - opp.y) <= 32)) {
+                hitOpp = true;
+              } else if (distToTarget <= proj.speed) {
+                hitOpp = true;
+              }
+            } else if (distToTarget <= proj.speed) {
+              hitOpp = true;
+            }
+
+            if (hitOpp) {
+              soundEngine.playRavanHit?.();
+              world.screenShake = { intensity: 2.8, duration: 4 };
+
+              // Floating damage text
+              world.floatingTexts.push({
+                x: proj.targetX + (Math.random() - 0.5) * 16,
+                y: proj.targetY - 26,
+                text: `-${proj.damage || 20} HP 💥`,
+                color: '#38bdf8',
+                alpha: 1.0,
+                vy: -1.8,
+                life: 50
+              });
+
+              // Spark burst particles at impact
+              for (let i = 0; i < 18; i++) {
+                const theta = Math.random() * Math.PI * 2;
+                const spd = 2 + Math.random() * 5;
+                world.particles.push(
+                  new Particle(
+                    proj.targetX,
+                    proj.targetY,
+                    Math.cos(theta) * spd,
+                    Math.sin(theta) * spd,
+                    '#38bdf8',
+                    16,
+                    1.8,
+                    0.06,
+                    0.95,
+                    'spark'
+                  )
+                );
+              }
+
+              if (onDuelHitRef.current) {
+                onDuelHitRef.current(proj.damage || 20);
+              }
+              return false;
+            }
+          }
+
+          // 2. Opponent or Veer shot -> hitting local player
+          if (proj.isVeerShot || proj.isOpponentShot) {
+            if (distToTarget <= proj.speed || Math.hypot(proj.x - p.x, proj.y - p.y) <= 30) {
+              soundEngine.playRavanHit?.();
+              world.screenShake = { intensity: 3.5, duration: 5 };
+
+              world.floatingTexts.push({
+                x: p.x + (Math.random() - 0.5) * 16,
+                y: p.y - 26,
+                text: `-${proj.damage || 20} HP 💥`,
+                color: '#ef4444',
+                alpha: 1.0,
+                vy: -1.8,
+                life: 50
+              });
+
+              for (let i = 0; i < 18; i++) {
+                const theta = Math.random() * Math.PI * 2;
+                const spd = 2 + Math.random() * 5;
+                world.particles.push(
+                  new Particle(
+                    p.x,
+                    p.y,
+                    Math.cos(theta) * spd,
+                    Math.sin(theta) * spd,
+                    '#ef4444',
+                    16,
+                    1.8,
+                    0.06,
+                    0.95,
+                    'spark'
+                  )
+                );
+              }
+
+              if (onTakeDuelDamageRef.current) {
+                onTakeDuelDamageRef.current(proj.damage || 20);
+              }
+              return false;
+            }
+          }
+        }
 
         if (distToTarget <= proj.speed) {
           // Direct Impact on Ravan effigy! (Sound played to local shooter only)
@@ -1971,6 +2222,41 @@ export default function MelaCanvas({
           return true;
         }
       });
+
+      // NPC Veer AI shooting loop during Gun Fight
+      if (gunFightRef.current?.status === 'ACTIVE' && gunFightRef.current?.opponentId === 'npc_veer') {
+        const nowMs = performance.now();
+        if (!world.lastVeerShotTime) world.lastVeerShotTime = nowMs;
+        if (nowMs - world.lastVeerShotTime > 1500) {
+          world.lastVeerShotTime = nowMs;
+          soundEngine.init();
+          soundEngine.playGunShot?.(1.35);
+          const veerX = 1180;
+          const veerY = 880;
+          const targetX = p.x + (Math.random() - 0.5) * 22;
+          const targetY = p.y + (Math.random() - 0.5) * 22;
+
+          world.projectiles.push({
+            id: `veer_shot_${nowMs}`,
+            x: veerX,
+            y: veerY - 18,
+            startX: veerX,
+            startY: veerY - 18,
+            targetX,
+            targetY,
+            speed: 26,
+            speedMultiplier: 1.2,
+            type: 'gun',
+            damage: 20,
+            shooterName: 'Veer',
+            color: '#ef4444',
+            trail: [],
+            isLocal: false,
+            isDuel: true,
+            isVeerShot: true
+          });
+        }
+      }
 
       // Update Floating Damage Texts
       world.floatingTexts = (world.floatingTexts || []).filter((ft) => {
@@ -2170,6 +2456,9 @@ export default function MelaCanvas({
       // E2. Shastra Armory Stall (शस्त्रागार - धनुष व बंदूक)
       renderWeaponArmoryStall(ctx, world, p);
 
+      // E2-Veer. NPC Gun Master "Veer" (Gun Duel Master 🤠)
+      renderVeerNpc(ctx, world, p, gunFightRef.current);
+
       // E2b. Grand Ravan Dahan Arena Gate (प्रवेश द्वार)
       renderRavanGate(ctx, world, p);
 
@@ -2199,13 +2488,13 @@ export default function MelaCanvas({
         livePeers.forEach((remPlayer) => {
           if (remPlayer.id === p.id) return; // Skip own player
           const heldCracker = remPlayer.holdingCracker ? (CRACKER_MAP[remPlayer.holdingCracker] || { id: remPlayer.holdingCracker }) : null;
-          renderCharacter(ctx, remPlayer, true, false, heldCracker, remPlayer.activeBuffs, remPlayer.isDancing, remPlayer.danceStep || 0);
+          renderCharacter(ctx, remPlayer, true, false, heldCracker, remPlayer.activeBuffs, remPlayer.isDancing, remPlayer.danceStep || 0, gunFightRef.current);
         });
       }
 
       // L. Local Player Character (if not riding wheel)
       if (!isRidingWheel) {
-        renderCharacter(ctx, p, false, true, selectedCracker, activeBuffs, isDancingRef.current, danceStepRef.current);
+        renderCharacter(ctx, p, false, true, selectedCracker, activeBuffs, isDancingRef.current, danceStepRef.current, gunFightRef.current);
       }
 
       // L2. Chai Tapri Server (Chhotu / चायवाला carrying kettle & kulhad tray)
@@ -2689,17 +2978,18 @@ export default function MelaCanvas({
 
       {/* Dedicated Gun & Arrow Fire Action Controller (Mobile Right-Thumb & Desktop) */}
       {(() => {
-        const isGun = selectedCracker?.id === 'gun';
-        const isBow = selectedCracker?.id === 'bow';
+        const isGunFightActive = gunFightRef.current?.status === 'ACTIVE';
+        const isGun = selectedCracker?.id === 'gun' || isGunFightActive;
+        const isBow = selectedCracker?.id === 'bow' && !isGunFightActive;
         const hasWeaponArmed = isGun || isBow || selectedCracker?.isWeapon;
 
-        // Fire button is ONLY active when Gun or Arrow is taken / equipped!
-        if (!hasWeaponArmed) {
+        // Fire button is active when Gun/Arrow is equipped or during Gun Fight duel!
+        if (!hasWeaponArmed && !isGunFightActive) {
           return null;
         }
 
         const ownsBow = inventory.some((i) => i.id === 'bow' && i.count > 0);
-        const ownsGun = inventory.some((i) => i.id === 'gun' && i.count > 0);
+        const ownsGun = inventory.some((i) => i.id === 'gun' && i.count > 0) || isGunFightActive;
 
         const handleSelectWeapon = (wId) => {
           if (CRACKER_MAP[wId] && setSelectedCracker) {
@@ -2736,6 +3026,10 @@ export default function MelaCanvas({
             if (e.nativeEvent && e.nativeEvent.stopImmediatePropagation) e.nativeEvent.stopImmediatePropagation();
           }
           lastTouchEndTimeRef.current = performance.now();
+          if (gunFightRef.current?.status === 'ACTIVE') {
+            fireDuelGunShot();
+            return;
+          }
           fireWeaponAtRavan();
         };
 
@@ -2939,7 +3233,7 @@ export default function MelaCanvas({
                     lineHeight: 1
                   }}
                 >
-                  FIRE
+                  {isGunFightActive ? 'FIGHT' : 'FIRE'}
                 </span>
                 <span
                   style={{
@@ -2951,7 +3245,7 @@ export default function MelaCanvas({
                     lineHeight: 1
                   }}
                 >
-                  {isGun ? 'GUN' : 'ARROW'}
+                  {isGunFightActive ? 'DUEL' : (isGun ? 'GUN' : 'ARROW')}
                 </span>
               </button>
             </div>
@@ -5172,7 +5466,8 @@ function renderCharacter(
   selectedCracker = null,
   activeBuffs = null,
   isDancing = false,
-  danceStep = 0
+  danceStep = 0,
+  gunFight = null
 ) {
   const now = performance.now();
   const dancing = isLocal ? isDancing : Boolean(char.isDancing);
@@ -5858,6 +6153,32 @@ function renderCharacter(
     ctx.font = '8px "Outfit", sans-serif';
     ctx.fillStyle = '#94a3b8';
     ctx.fillText(char.role || 'Visitor', 0, nameY + 9);
+  }
+
+  // Mini Health Bar during active Gun Fight duel
+  if (gunFight && (gunFight.status === 'ACTIVE' || gunFight.status === 'COUNTDOWN')) {
+    const isPlayerInFight = isLocal;
+    const isOpponentInFight = isRemote && char.id === gunFight.opponentId;
+    if (isPlayerInFight || isOpponentInFight) {
+      const hp = isPlayerInFight ? gunFight.myHp : gunFight.opponentHp;
+      const barW = 34;
+      const barH = 5;
+      const barX = -barW / 2;
+      const barY = nameY - 14;
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+      ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+      ctx.fillStyle = hp > 50 ? '#22c55e' : hp > 25 ? '#eab308' : '#ef4444';
+      ctx.fillRect(barX, barY, (barW * Math.max(0, hp)) / 100, barH);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 0.6;
+      ctx.strokeRect(barX - 1, barY - 1, barW + 2, barH + 2);
+    }
+  } else if (isRemote && (!gunFight || gunFight.status === 'IDLE')) {
+    // Show clickable duel prompt badge above remote players
+    ctx.font = 'bold 8px "Outfit", sans-serif';
+    ctx.fillStyle = '#facc15';
+    ctx.fillText('⚔️ Tap to Gun Fight 🔫', 0, nameY + 11);
   }
 
   if (char.bubble) {
@@ -6833,6 +7154,117 @@ function renderWeaponArmoryStall(ctx, world, player) {
     ctx.fillStyle = '#fbbf24';
     ctx.font = 'bold 12px "Outfit", sans-serif';
     ctx.fillText('✨ [ Click or Press E ] Open Weapon Armory', 0, 70);
+  }
+
+  ctx.restore();
+}
+
+// -------------------------------------------------------------
+// NPC GUN DUEL MASTER: VEER (वीर - गन फाइट मास्टर)
+// -------------------------------------------------------------
+function renderVeerNpc(ctx, world, player, gunFight) {
+  const vx = 1180;
+  const vy = 880;
+  const dist = (x1, y1, x2, y2) => Math.hypot(x1 - x2, y1 - y2);
+  const isNear = dist(player.x, player.y, vx, vy) < 130;
+  const inDuel = gunFight && (gunFight.status === 'ACTIVE' || gunFight.status === 'COUNTDOWN') && gunFight.opponentId === 'npc_veer';
+
+  ctx.save();
+  ctx.translate(vx, vy);
+
+  // Scaled character model for Veer
+  const SCALE = 1.4;
+  ctx.scale(SCALE, SCALE);
+
+  // Ground shadow
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  ctx.beginPath();
+  ctx.ellipse(0, 13, 13, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Subtle breathing idle animation
+  const bob = Math.sin(performance.now() * 0.005) * 1.5;
+  ctx.translate(0, bob);
+
+  // Legs / Dhoti
+  ctx.fillStyle = '#1e293b';
+  ctx.fillRect(-7, 4, 5, 9);
+  ctx.fillRect(2, 4, 5, 9);
+
+  // Body / Kurta (Royal Crimson & Gold vest)
+  ctx.fillStyle = '#991b1b';
+  ctx.fillRect(-9, -10, 18, 15);
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillRect(-2, -10, 4, 15);
+
+  // Head
+  ctx.fillStyle = '#fbcfe8';
+  ctx.beginPath();
+  ctx.arc(0, -18, 8, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Rajasthani Turban / Cowboy Pagdi with Kalgi
+  ctx.fillStyle = '#ea580c';
+  ctx.beginPath();
+  ctx.ellipse(0, -23, 10, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillRect(-2, -29, 4, 6);
+
+  // Moustache & Eyes
+  ctx.fillStyle = '#1e293b';
+  ctx.beginPath();
+  ctx.arc(-3, -19, 1.2, 0, Math.PI * 2);
+  ctx.arc(3, -19, 1.2, 0, Math.PI * 2);
+  ctx.fill();
+  // Classic Veer Moustache
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(-5, -15);
+  ctx.quadraticCurveTo(0, -13, 5, -15);
+  ctx.stroke();
+
+  // Golden Gun held in right hand
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillRect(9, -10, 11, 4);
+  ctx.fillRect(9, -6, 4, 6);
+  ctx.fillStyle = '#f59e0b';
+  ctx.fillRect(16, -11, 3, 2);
+
+  // Name Tag & Title
+  const nameY = -35;
+  ctx.font = 'bold 10px "Outfit", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#f59e0b';
+  ctx.fillText('🤠 Veer (Gun Master)', 0, nameY);
+
+  if (inDuel) {
+    // Overhead Mini HP Bar for Veer during active duel
+    const hp = gunFight.opponentHp;
+    const barW = 34;
+    const barH = 5;
+    const barX = -barW / 2;
+    const barY = nameY - 14;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+    ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+    ctx.fillStyle = hp > 50 ? '#22c55e' : hp > 25 ? '#eab308' : '#ef4444';
+    ctx.fillRect(barX, barY, (barW * Math.max(0, hp)) / 100, barH);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 0.6;
+    ctx.strokeRect(barX - 1, barY - 1, barW + 2, barH + 2);
+  } else {
+    // Challenge Badge when idle
+    ctx.font = 'bold 8px "Outfit", sans-serif';
+    ctx.fillStyle = '#fef08a';
+    ctx.fillText('⚔️ Tap to Gun Fight 🔫', 0, nameY + 11);
+
+    if (isNear) {
+      ctx.font = 'bold 9px "Outfit", sans-serif';
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText('✨ [ Click to Challenge ]', 0, 24);
+    }
   }
 
   ctx.restore();

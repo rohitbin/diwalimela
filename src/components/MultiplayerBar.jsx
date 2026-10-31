@@ -370,63 +370,6 @@ export default function MultiplayerBar({
           {!isMobile && <span>{copied ? 'Link Copied!' : 'Invite Friends'}</span>}
         </button>
 
-        {/* Real Festive Music Button & Track Info */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <button
-            onClick={handleToggleMusic}
-            style={{
-              backgroundColor: isMusicOn ? 'rgba(245, 158, 11, 0.4)' : 'rgba(20, 14, 32, 0.92)',
-              backdropFilter: 'blur(12px)',
-              border: isMusicOn ? '1.5px solid #fbbf24' : '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: isMusicOn && !isMobile ? '20px' : '50%',
-              width: isMusicOn && !isMobile ? 'auto' : (isMobile ? 32 : 36),
-              height: isMobile ? 32 : 36,
-              padding: isMusicOn && !isMobile ? '0 12px 0 10px' : 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              color: isMusicOn ? '#fef08a' : '#cbd5e1',
-              cursor: 'pointer',
-              touchAction: 'manipulation',
-              boxShadow: isMusicOn ? '0 0 16px rgba(245, 158, 11, 0.45)' : 'none',
-              transition: 'all 0.2s'
-            }}
-            title={isMusicOn ? `Playing: "${currentFestiveTrack?.title}" • Tap to pause` : 'Play Real Festive Diwali Music 🪔'}
-          >
-            <Music size={isMobile ? 14 : 16} style={{ animation: isMusicOn ? 'pulse 1.2s ease-in-out infinite' : 'none' }} />
-            {isMusicOn && !isMobile && (
-              <span style={{ fontSize: 11, fontWeight: 800, color: '#fef08a', maxWidth: 110, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {currentFestiveTrack?.title || 'Diwali Music'}
-              </span>
-            )}
-          </button>
-
-          {isMusicOn && (
-            <button
-              onClick={handleNextFestiveTrack}
-              style={{
-                backgroundColor: 'rgba(245, 158, 11, 0.25)',
-                backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(251, 191, 36, 0.5)',
-                borderRadius: '50%',
-                width: isMobile ? 26 : 28,
-                height: isMobile ? 26 : 28,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fef08a',
-                cursor: 'pointer',
-                touchAction: 'manipulation',
-                transition: 'all 0.15s'
-              }}
-              title="Next Festive Diwali Song"
-            >
-              <SkipForward size={isMobile ? 12 : 13} />
-            </button>
-          )}
-        </div>
-
         {/* Device Entry Alerts Bell */}
         <button
           onClick={handleToggleNotification}
